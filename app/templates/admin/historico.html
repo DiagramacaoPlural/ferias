@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}Histórico{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Histórico</h1>
+    <p>Últimas 500 ações registradas no sistema.</p>
+  </div>
+</div>
+
+<div class="card">
+  {% if registros %}
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhe</th></tr></thead>
+      <tbody>
+        {% for r in registros %}
+          <tr>
+            <td class="nowrap">{{ r.data|data('%d/%m/%Y %H:%M') }}</td>
+            <td>{{ r.usuario }}</td>
+            <td><strong>{{ r.acao }}</strong></td>
+            <td class="texto-suave">{{ r.detalhe or '' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="vazio">Nenhum registro ainda.</div>
+  {% endif %}
+</div>
+{% endblock %}

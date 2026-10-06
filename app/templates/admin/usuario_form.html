@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar' if usuario else 'Novo' }} usuário{% endblock %}
+{% block conteudo %}
+{% set f = request.form if request.method == 'POST' else None %}
+{% macro marcado(campo, padrao) -%}
+  {{ 'checked' if (request.form.get(campo) == '1' if request.method == 'POST' else (usuario[campo] if usuario else padrao)) }}
+{%- endmacro %}
+<div class="cabecalho">
+  <h1>{{ 'Editar usuário' if usuario else 'Novo usuário' }}</h1>
+  <div class="acoes"><a href="{{ url_for('admin.usuarios') }}" class="btn">Voltar</a></div>
+</div>
+
+<form method="post" class="card form-estreito" autocomplete="off">
+  <div class="card-corpo">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="campos-linha">
+      <div class="campo">
+        <label for="login">Login</label>
+        <input type="text" id="login" name="login" maxlength="60" required
+               value="{{ f.get('login') if f else (usuario.login if usuario else '') }}">
+      </div>
+      <div class="campo">
+        <label for="senha">{{ 'Nova senha' if usuario else 'Senha inicial' }}</label>
+        <input type="password" id="senha" name="senha" autocomplete="new-password" minlength="{{ senha_min }}" {{ '' if usuario else 'required' }}>
+        <small>{{ 'Deixe em branco para manter a atual.' if usuario else '' }} O usuário deverá trocá-la no primeiro acesso.</small>
+      </div>
+    </div>
+
+    <h3 style="margin:6px 0 10px">Permissões</h3>
+    <label class="checkbox"><input type="checkbox" name="admin" value="1" {{ marcado('admin', false) }}> Administrador (aprova férias e gerencia cadastros)</label>
+    <label class="checkbox"><input type="checkbox" name="acessa_calendario" value="1" {{ marcado('acessa_calendario', true) }}> Acessa programação, painel e calendário anual</label>
+    <label class="checkbox"><input type="checkbox" name="acessa_cronograma" value="1" {{ marcado('acessa_cronograma', true) }}> Acessa o cronograma</label>
+    <label class="checkbox"><input type="checkbox" name="ativo" value="1" {{ marcado('ativo', true) }}> Usuário ativo</label>
+  </div>
+  <div class="card-titulo" style="border-top:1px solid var(--borda);border-bottom:none;justify-content:flex-end;gap:8px">
+    <a href="{{ url_for('admin.usuarios') }}" class="btn">Cancelar</a>
+    <button type="submit" class="btn btn-primario">Salvar</button>
+  </div>
+</form>
+{% endblock %}

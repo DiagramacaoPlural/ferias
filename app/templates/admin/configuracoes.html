@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Configurações{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <h1>Configurações</h1>
+</div>
+
+<div class="grade grade-2">
+  <form method="post" class="card">
+    <div class="card-titulo"><h2>Regras gerais</h2></div>
+    <div class="card-corpo">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="campo">
+        <label for="mes_inicio_ciclo">Mês de início do ciclo de férias</label>
+        <select id="mes_inicio_ciclo" name="mes_inicio_ciclo">
+          {% for nome in meses %}
+            <option value="{{ loop.index }}" {{ 'selected' if loop.index == mes_inicio_ciclo }}>{{ nome }}</option>
+          {% endfor %}
+        </select>
+        <small>Na planilha original o ciclo ia de maio a abril.</small>
+      </div>
+      <div class="campo">
+        <label for="max_simultaneos">Máximo de pessoas de férias ao mesmo tempo</label>
+        <input type="number" id="max_simultaneos" name="max_simultaneos" min="1" value="{{ max_simultaneos }}">
+        <small>Acima deste número o sistema alerta conflito (no cronograma e ao programar).</small>
+      </div>
+      <div class="campo">
+        <label for="dias_cronograma">Janela padrão do cronograma (dias)</label>
+        <input type="number" id="dias_cronograma" name="dias_cronograma" min="7" max="364" step="7" value="{{ dias_cronograma }}">
+      </div>
+      <button type="submit" class="btn btn-primario">Salvar configurações</button>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('admin.importar') }}" enctype="multipart/form-data" class="card">
+    <div class="card-titulo"><h2>Importar planilha</h2></div>
+    <div class="card-corpo">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <p class="texto-suave" style="margin-top:0">
+        Importa as abas <strong>CALENDARIO</strong> (funcionários e férias) e <strong>USUARIOS</strong>
+        de uma planilha no formato da original. Registros já existentes são ignorados.
+      </p>
+      <div class="campo">
+        <input type="file" name="planilha" accept=".xlsx,.xlsm" required>
+      </div>
+      <button type="submit" class="btn">Importar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar' if funcionario else 'Novo' }} funcionário{% endblock %}
+{% block conteudo %}
+{% set f = request.form if request.method == 'POST' else None %}
+<div class="cabecalho">
+  <h1>{{ 'Editar funcionário' if funcionario else 'Novo funcionário' }}</h1>
+  <div class="acoes"><a href="{{ url_for('admin.funcionarios') }}" class="btn">Voltar</a></div>
+</div>
+
+<form method="post" class="card form-estreito">
+  <div class="card-corpo">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="campo">
+      <label for="nome">Nome</label>
+      <input type="text" id="nome" name="nome" maxlength="120" required autofocus
+             value="{{ f.get('nome') if f else (funcionario.nome if funcionario else '') }}">
+    </div>
+    <div class="campos-linha">
+      <div class="campo">
+        <label for="cargo">Cargo / função</label>
+        <input type="text" id="cargo" name="cargo" maxlength="120"
+               value="{{ f.get('cargo') if f else (funcionario.cargo or '' if funcionario else '') }}">
+      </div>
+      <div class="campo">
+        <label for="data_admissao">Data de admissão</label>
+        <input type="date" id="data_admissao" name="data_admissao"
+               value="{{ f.get('data_admissao') if f else (funcionario.data_admissao.isoformat() if funcionario and funcionario.data_admissao else '') }}">
+        <small>Opcional, para referência do período aquisitivo.</small>
+      </div>
+    </div>
+    <label class="checkbox">
+      <input type="checkbox" name="ativo" value="1" {{ 'checked' if (f.get('ativo') == '1' if f else (funcionario.ativo if funcionario else true)) }}> Ativo
+    </label>
+  </div>
+  <div class="card-titulo" style="border-top:1px solid var(--borda);border-bottom:none;justify-content:flex-end;gap:8px">
+    <a href="{{ url_for('admin.funcionarios') }}" class="btn">Cancelar</a>
+    <button type="submit" class="btn btn-primario">Salvar</button>
+  </div>
+</form>
+{% endblock %}

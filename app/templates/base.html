@@ -1,0 +1,59 @@
+{% from "_macros.html" import icone %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block titulo %}{% endblock %} · Controle de Férias</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏖️</text></svg>">
+</head>
+<body>
+<div class="app">
+  <aside class="lateral">
+    <div class="marca"><span class="marca-icone">🏖️</span> Controle de Férias</div>
+    <nav class="menu">
+      {% set ep = request.endpoint or '' %}
+      {% if current_user.pode_calendario() %}
+        <a href="{{ url_for('main.painel') }}" class="{{ 'ativo' if ep == 'main.painel' }}">{{ icone('painel') }} Painel</a>
+        <a href="{{ url_for('ferias.lista') }}" class="{{ 'ativo' if ep in ('ferias.lista', 'ferias.formulario') }}">{{ icone('ferias') }} Programação</a>
+        <a href="{{ url_for('ferias.calendario') }}" class="{{ 'ativo' if ep == 'ferias.calendario' }}">{{ icone('calendario') }} Calendário anual</a>
+      {% endif %}
+      {% if current_user.pode_cronograma() %}
+        <a href="{{ url_for('cronograma.visualizar') }}" class="{{ 'ativo' if ep == 'cronograma.visualizar' }}">{{ icone('cronograma') }} Cronograma</a>
+      {% endif %}
+      {% if current_user.admin %}
+        <div class="menu-titulo">Administração</div>
+        <a href="{{ url_for('admin.funcionarios') }}" class="{{ 'ativo' if ep.startswith('admin.funcionario') }}">{{ icone('pessoas') }} Funcionários</a>
+        <a href="{{ url_for('admin.usuarios') }}" class="{{ 'ativo' if ep.startswith('admin.usuario') }}">{{ icone('chave') }} Usuários</a>
+        <a href="{{ url_for('admin.configuracoes') }}" class="{{ 'ativo' if ep == 'admin.configuracoes' }}">{{ icone('config') }} Configurações</a>
+        <a href="{{ url_for('admin.historico') }}" class="{{ 'ativo' if ep == 'admin.historico' }}">{{ icone('historico') }} Histórico</a>
+      {% endif %}
+    </nav>
+    <div class="usuario-box">
+      <strong>{{ current_user.login }}</strong>
+      <span class="texto-suave">{{ 'Administrador' if current_user.admin else 'Usuário' }}</span>
+      <div class="mt" style="margin-top:8px">
+        <a href="{{ url_for('auth.trocar_senha') }}">Trocar senha</a>
+        <a href="{{ url_for('auth.logout') }}">Sair</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="conteudo">
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% if mensagens %}
+        <div class="alertas">
+          {% for categoria, mensagem in mensagens %}
+            <div class="alerta alerta-{{ categoria if categoria in ('sucesso', 'erro', 'aviso', 'info') else 'info' }}">{{ mensagem }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block conteudo %}{% endblock %}
+  </main>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

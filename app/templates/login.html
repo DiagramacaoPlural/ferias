@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar · Controle de Férias</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏖️</text></svg>">
+</head>
+<body>
+<div class="login-pagina">
+  <div class="card login-card">
+    <div class="marca"><span class="marca-icone">🏖️</span> Controle de Férias</div>
+    <p class="sub">Entre com seu usuário para continuar.</p>
+
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% if mensagens %}
+        <div class="alertas">
+          {% for categoria, mensagem in mensagens %}
+            <div class="alerta alerta-{{ categoria }}">{{ mensagem }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="campo">
+        <label for="login">Usuário</label>
+        <input type="text" id="login" name="login" value="{{ request.form.get('login', '') }}" autocomplete="username" autofocus required>
+      </div>
+      <div class="campo">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha" name="senha" autocomplete="current-password" required>
+      </div>
+      <label class="checkbox"><input type="checkbox" name="lembrar" value="1"> Manter conectado</label>
+      <button type="submit" class="btn btn-primario mt">Entrar</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>

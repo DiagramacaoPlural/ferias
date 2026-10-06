@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block titulo %}Sem acesso{% endblock %}
+{% block conteudo %}
+<div class="card form-estreito">
+  <div class="card-corpo">
+    <h1>{{ titulo or 'Sem permissão' }}</h1>
+    <p class="texto-suave">{{ mensagem or 'Seu usuário não tem acesso a esta área. Fale com um administrador do sistema.' }}</p>
+    <a href="{{ url_for('main.painel') }}" class="btn">Voltar ao início</a>
+  </div>
+</div>
+{% endblock %}

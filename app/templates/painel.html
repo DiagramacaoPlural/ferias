@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone, status, botao_post with context %}
+{% block titulo %}Painel{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Painel</h1>
+    <p>Ciclo {{ rotulo_ciclo }} · hoje é {{ hoje|data }}</p>
+  </div>
+  <div class="acoes">
+    <a href="{{ url_for('ferias.formulario') }}" class="btn btn-primario">{{ icone('mais') }} Programar férias</a>
+  </div>
+</div>
+
+<div class="grade grade-4">
+  <div class="card kpi">
+    <div class="kpi-icone" style="background:var(--azul-claro)">👥</div>
+    <div><div class="kpi-valor">{{ total_funcionarios }}</div><div class="kpi-rotulo">Funcionários ativos</div></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-icone" style="background:var(--verde-claro)">✅</div>
+    <div><div class="kpi-valor">{{ total_aprovadas }}</div><div class="kpi-rotulo">Períodos aprovados</div></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-icone" style="background:var(--ambar-claro)">⏳</div>
+    <div><div class="kpi-valor">{{ total_pendentes }}</div><div class="kpi-rotulo">Aguardando aprovação</div></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-icone" style="background:var(--vermelho-claro)">📭</div>
+    <div><div class="kpi-valor">{{ sem_ferias|length }}</div><div class="kpi-rotulo">Sem férias no ciclo</div></div>
+  </div>
+</div>
+
+{% if conflitos %}
+<div class="alerta alerta-erro mt">
+  <div>
+    <strong>Conflitos na equipe</strong> (mais de {{ limite }} pessoa{{ 's' if limite > 1 }} de férias ao mesmo tempo):
+    <ul>
+      {% for c in conflitos %}
+        <li>{{ c.inicio|data }}{% if c.fim != c.inicio %} a {{ c.fim|data }}{% endif %} — {{ c.nomes|join(', ') }} (até {{ c.pico }} simultâneas)</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<div class="grade grade-3 mt">
+  <div class="card">
+    <div class="card-titulo"><h2>De férias hoje</h2><span class="texto-suave">{{ em_ferias_hoje|length }}</span></div>
+    {% if em_ferias_hoje %}
+      <ul class="lista-simples">
+        {% for f in em_ferias_hoje %}
+          <li><span>{{ f.funcionario.nome }}</span><span class="secundario">volta em {{ (f.fim)|data('%d/%m') }}</span></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="vazio">Ninguém de férias hoje.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-titulo"><h2>Próximos 60 dias</h2><span class="texto-suave">{{ proximas|length }}</span></div>
+    {% if proximas %}
+      <ul class="lista-simples">
+        {% for f in proximas %}
+          <li>
+            <span>{{ f.funcionario.nome }}<br><span class="secundario">{{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span></span>
+            {{ status(f) }}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="vazio">Nenhuma férias nos próximos 60 dias.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-titulo"><h2>Aguardando aprovação</h2><span class="texto-suave">{{ pendentes|length }}</span></div>
+    {% if pendentes %}
+      <ul class="lista-simples">
+        {% for f in pendentes %}
+          <li>
+            <span>{{ f.funcionario.nome }}<br><span class="secundario">{{ f.inicio|data }} a {{ f.fim|data }}</span></span>
+            {% if current_user.admin %}
+              {{ botao_post(url_for('ferias.alternar_aprovacao', ferias_id=f.id), 'Aprovar', 'btn btn-pequeno btn-sucesso', icone_nome='check') }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="vazio">Nada pendente. 🎉</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mt">
+  <div class="card-titulo">
+    <h2>Saldo de dias no ciclo</h2>
+    <div class="legenda">
+      <span><i style="background:var(--verde)"></i>Aprovados</span>
+      <span><i style="background:#fbbf24"></i>Programados</span>
+      <span><i style="background:#e2e8f0"></i>Saldo (de 30)</span>
+    </div>
+  </div>
+  <div style="padding:10px 0">
+    {% for s in saldos %}
+      <div class="saldo">
+        <span>{{ s.funcionario.nome }}</span>
+        <div class="barra" title="{{ s.aprovados }} aprovados, {{ s.programados }} programados">
+          <span class="aprovado" style="width:{{ s.pct_aprovado }}%"></span>
+          <span class="programado" style="width:{{ s.pct_programado }}%"></span>
+        </div>
+        <span class="num {{ 'texto-suave' if s.restante else 'texto-verde' }}">
+          {% if s.restante %}{{ s.restante }} dias{% else %}completo{% endif %}
+        </span>
+      </div>
+    {% else %}
+      <div class="vazio">Nenhum funcionário ativo cadastrado.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

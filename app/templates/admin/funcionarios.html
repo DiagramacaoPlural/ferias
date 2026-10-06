@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone, botao_post with context %}
+{% block titulo %}Funcionários{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Funcionários</h1>
+    <p>Funcionários inativos saem do painel e do cronograma, mas o histórico de férias é mantido.</p>
+  </div>
+  <div class="acoes"><a href="{{ url_for('admin.funcionario_form') }}" class="btn btn-primario">{{ icone('mais') }} Novo funcionário</a></div>
+</div>
+
+<div class="card">
+  {% if funcionarios %}
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Admissão</th><th class="num">Períodos</th><th>Situação</th><th class="acoes-col">Ações</th></tr></thead>
+      <tbody>
+        {% for f in funcionarios %}
+          <tr>
+            <td><strong>{{ f.nome }}</strong></td>
+            <td class="texto-suave">{{ f.cargo or '' }}</td>
+            <td>{{ f.data_admissao|data }}</td>
+            <td class="num">{{ f.ferias|length }}</td>
+            <td>{% if f.ativo %}<span class="badge badge-aprovada">Ativo</span>{% else %}<span class="badge badge-inativo">Inativo</span>{% endif %}</td>
+            <td class="acoes-col">
+              <a href="{{ url_for('admin.funcionario_form', funcionario_id=f.id) }}" class="btn btn-pequeno btn-icone" title="Editar">{{ icone('editar') }}</a>
+              {% if f.ativo or not f.ferias %}
+                {{ botao_post(url_for('admin.funcionario_excluir', funcionario_id=f.id), '', 'btn btn-pequeno btn-icone btn-perigo',
+                   confirmar=('Inativar ' if f.ferias else 'Excluir ') ~ f.nome ~ '?', icone_nome='lixo',
+                   titulo='Inativar' if f.ferias else 'Excluir') }}
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="vazio">Nenhum funcionário cadastrado.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone with context %}
+{% block titulo %}{{ 'Editar férias' if ferias else 'Programar férias' }}{% endblock %}
+{% block conteudo %}
+{% set v_func = (dados.get('funcionario_id')|int if dados else (ferias.funcionario_id if ferias else 0)) %}
+{% set v_inicio = (dados.get('inicio') if dados else (ferias.inicio.isoformat() if ferias else '')) %}
+{% set v_dias = (dados.get('dias') if dados else (ferias.dias if ferias else 30)) %}
+{% set v_obs = (dados.get('observacao') if dados else (ferias.observacao if ferias and ferias.observacao else '')) %}
+{% set v_aprovada = (dados.get('aprovada') == '1' if dados else (ferias.aprovada if ferias else false)) %}
+
+<div class="cabecalho">
+  <div>
+    <h1>{{ 'Editar férias' if ferias else 'Programar férias' }}</h1>
+    <p>O dia de início conta como o 1º dia de férias.</p>
+  </div>
+  <div class="acoes"><a href="{{ url_for('ferias.lista') }}" class="btn">Voltar</a></div>
+</div>
+
+{% if erros %}
+  <div class="alertas"><div class="alerta alerta-erro"><div><strong>Não foi possível salvar:</strong><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div></div></div>
+{% endif %}
+
+<form method="post" class="card form-estreito" id="form-ferias" data-ferias-id="{{ ferias.id if ferias else '' }}">
+  <div class="card-corpo">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="campo">
+      <label for="funcionario_id">Funcionário</label>
+      <select id="funcionario_id" name="funcionario_id" required>
+        <option value="">Selecione…</option>
+        {% for func in funcionarios %}
+          <option value="{{ func.id }}" {{ 'selected' if func.id == v_func }}>{{ func.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="campos-linha">
+      <div class="campo">
+        <label for="inicio">Início</label>
+        <input type="date" id="inicio" name="inicio" value="{{ v_inicio }}" required>
+      </div>
+      <div class="campo">
+        <label for="dias">Dias</label>
+        <input type="number" id="dias" name="dias" min="1" max="{{ dias_max }}" value="{{ v_dias }}" required>
+      </div>
+      <div class="campo">
+        <label for="fim">Fim (calculado)</label>
+        <input type="text" id="fim" value="{{ ferias.fim|data if ferias and not dados else '' }}" readonly tabindex="-1">
+      </div>
+    </div>
+    <div class="acoes" style="margin:-6px 0 16px">
+      <span class="texto-suave">Atalhos:</span>
+      {% for n in [5, 10, 14, 15, 20, 30] %}
+        <button type="button" class="btn btn-pequeno" data-dias="{{ n }}">{{ n }} dias</button>
+      {% endfor %}
+    </div>
+
+    <div class="campo">
+      <label for="observacao">Observação</label>
+      <textarea id="observacao" name="observacao" maxlength="500" placeholder="Opcional (ex.: venda de 10 dias, acordo com a gestão…)">{{ v_obs }}</textarea>
+    </div>
+
+    {% if current_user.admin %}
+      <label class="checkbox"><input type="checkbox" name="aprovada" value="1" {{ 'checked' if v_aprovada }}> Férias aprovadas</label>
+    {% endif %}
+
+    <div id="analise-ao-vivo" class="alertas" style="margin:12px 0 0"></div>
+
+    {% if avisos %}
+      <div class="alerta alerta-aviso" style="margin-top:12px">
+        <div>
+          <strong>Atenção antes de salvar:</strong>
+          <ul>{% for a in avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+  <div class="card-titulo" style="border-top:1px solid var(--borda);border-bottom:none;justify-content:flex-end;gap:8px">
+    <a href="{{ url_for('ferias.lista') }}" class="btn">Cancelar</a>
+    {% if avisos %}
+      <button type="submit" name="confirmar" value="1" class="btn btn-ambar">Salvar mesmo assim</button>
+    {% else %}
+      <button type="submit" class="btn btn-primario">Salvar</button>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('form-ferias');
+  const campos = {
+    funcionario: document.getElementById('funcionario_id'),
+    inicio: document.getElementById('inicio'),
+    dias: document.getElementById('dias'),
+    fim: document.getElementById('fim'),
+  };
+  const painel = document.getElementById('analise-ao-vivo');
+  const token = document.querySelector('meta[name="csrf-token"]').content;
+  let temporizador;
+
+  function escapar(texto) {
+    const div = document.createElement('div');
+    div.textContent = texto;
+    return div.innerHTML;
+  }
+
+  function bloco(classe, titulo, itens) {
+    if (!itens.length) return '';
+    return '<div class="alerta ' + classe + '"><div><strong>' + titulo + '</strong><ul>' +
+      itens.map(i => '<li>' + escapar(i) + '</li>').join('') + '</ul></div></div>';
+  }
+
+  async function analisar() {
+    if (!campos.inicio.value || !campos.dias.value) { campos.fim.value = ''; painel.innerHTML = ''; return; }
+    try {
+      const resp = await fetch('{{ url_for("ferias.analisar") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+        body: JSON.stringify({
+          funcionario_id: campos.funcionario.value,
+          inicio: campos.inicio.value,
+          dias: campos.dias.value,
+          ferias_id: form.dataset.feriasId || null,
+        }),
+      });
+      if (!resp.ok) return;
+      const r = await resp.json();
+      campos.fim.value = r.fim || '';
+      painel.innerHTML = bloco('alerta-erro', 'Impede o salvamento:', r.erros) +
+                         bloco('alerta-aviso', 'Avisos:', r.avisos);
+      if (!r.erros.length && !r.avisos.length && campos.funcionario.value) {
+        painel.innerHTML = '<div class="alerta alerta-sucesso">Período sem conflitos.</div>';
+      }
+    } catch (e) { /* validação ao vivo é opcional; o servidor valida ao salvar */ }
+  }
+
+  function agendar() { clearTimeout(temporizador); temporizador = setTimeout(analisar, 250); }
+
+  ['change', 'input'].forEach(ev => {
+    campos.funcionario.addEventListener(ev, agendar);
+    campos.inicio.addEventListener(ev, agendar);
+    campos.dias.addEventListener(ev, agendar);
+  });
+  document.querySelectorAll('[data-dias]').forEach(btn => btn.addEventListener('click', () => {
+    campos.dias.value = btn.dataset.dias;
+    agendar();
+  }));
+
+  {% if not avisos %}analisar();{% else %}campos.fim.value = '';
+  analisar().then(() => { painel.innerHTML = ''; });{% endif %}
+})();
+</script>
+{% endblock %}

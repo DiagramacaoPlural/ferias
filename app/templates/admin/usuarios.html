@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone with context %}
+{% block titulo %}Usuários{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Usuários</h1>
+    <p>Quem pode acessar o sistema e o que cada um pode fazer.</p>
+  </div>
+  <div class="acoes"><a href="{{ url_for('admin.usuario_form') }}" class="btn btn-primario">{{ icone('mais') }} Novo usuário</a></div>
+</div>
+
+<div class="card">
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead><tr><th>Login</th><th>Perfil</th><th>Programação / calendário</th><th>Cronograma</th><th>Situação</th><th class="acoes-col">Ações</th></tr></thead>
+      <tbody>
+        {% for u in usuarios %}
+          <tr>
+            <td>
+              <strong>{{ u.login }}</strong>
+              {% if u.trocar_senha %}<br><small class="texto-suave">deve trocar a senha</small>{% endif %}
+            </td>
+            <td>{% if u.admin %}<span class="badge badge-admin">Administrador</span>{% else %}Usuário{% endif %}</td>
+            <td>{{ '✔' if u.pode_calendario() else '—' }}</td>
+            <td>{{ '✔' if u.pode_cronograma() else '—' }}</td>
+            <td>{% if u.ativo %}<span class="badge badge-aprovada">Ativo</span>{% else %}<span class="badge badge-inativo">Inativo</span>{% endif %}</td>
+            <td class="acoes-col"><a href="{{ url_for('admin.usuario_form', usuario_id=u.id) }}" class="btn btn-pequeno btn-icone" title="Editar">{{ icone('editar') }}</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
