@@ -35,6 +35,41 @@ def test_login_invalido(app):
     assert "Usuário ou senha inválidos" in resp.get_data(as_text=True)
 
 
+def test_bloqueio_apos_varias_falhas(app):
+    client = app.test_client()
+    for _ in range(5):
+        entrar(client, senha="errada")
+    resp = client.post("/login", data={"login": "admin", "senha": "admin"})
+    assert resp.status_code == 429
+    assert "Muitas tentativas" in resp.get_data(as_text=True)
+
+
+def test_login_com_sucesso_zera_falhas_do_usuario(app):
+    client = app.test_client()
+    for _ in range(3):
+        entrar(client, senha="errada")
+    assert "Painel" in entrar(client).get_data(as_text=True)
+    client.get("/logout")
+    with app.app_context():
+        from app.models import TentativaLogin
+
+        restantes = db.session.scalars(db.select(TentativaLogin.chave)).all()
+        assert all(not c.startswith("login:") for c in restantes)
+
+
+def test_cabecalhos_de_seguranca(app):
+    resp = app.test_client().get("/login")
+    assert resp.headers["X-Frame-Options"] == "DENY"
+    assert resp.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_redirecionamento_externo_bloqueado(app):
+    client = app.test_client()
+    resp = client.post("/login?next=https://site-malicioso.com", data={"login": "admin", "senha": "admin"})
+    assert resp.status_code == 302
+    assert "site-malicioso" not in resp.headers["Location"]
+
+
 def test_paginas_principais_carregam(app):
     client = app.test_client()
     entrar(client)

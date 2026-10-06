@@ -1,5 +1,6 @@
 """Carga inicial do banco a partir da planilha original (Férias_Final.xlsm)."""
 
+import os
 from datetime import date, datetime
 from pathlib import Path
 
@@ -109,6 +110,6 @@ def inicializar_banco(pasta_planilha: Path | None) -> None:
 
     if not db.session.scalar(db.select(db.func.count(Usuario.id))):
         admin = Usuario(login="admin", admin=True, trocar_senha=True)
-        admin.definir_senha("admin")
+        admin.definir_senha(os.environ.get("ADMIN_SENHA_INICIAL") or "admin")
         db.session.add(admin)
         db.session.commit()

@@ -26,6 +26,72 @@ Use os mesmos usuários e senhas da aba USUARIOS da planilha (ex.: `Gercilio` / 
 No primeiro login o sistema exige a troca da senha. Se não houver planilha, é criado o usuário
 `admin` com senha `admin`.
 
+## Publicar na internet (PythonAnywhere, gratuito)
+
+O endereço final será `https://SEUUSUARIO.pythonanywhere.com`. Nos comandos abaixo, troque
+`SEUUSUARIO` pelo nome de usuário criado no PythonAnywhere.
+
+**1. Token do GitHub** (o repositório é privado): no GitHub da Diagramação, vá em
+*Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token*,
+escolha o repositório `ferias`, permissão **Contents: Read-only**, e copie o token.
+
+**2. Conta:** crie uma conta *Beginner* (gratuita) em <https://www.pythonanywhere.com>.
+
+**3. Baixar o sistema:** em *Consoles → Bash*, rode (quando pedir a senha, cole o token):
+
+```bash
+git clone https://DiagramacaoPlural@github.com/DiagramacaoPlural/ferias.git
+cd ferias
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**4. Criar o site:** aba *Web → Add a new web app → Manual configuration* → escolha a versão
+mais recente do Python (3.10 ou superior). Depois, na mesma aba:
+
+- **Virtualenv:** `/home/SEUUSUARIO/ferias/.venv`
+- **Source code:** `/home/SEUUSUARIO/ferias`
+- **Static files:** URL `/static/` → diretório `/home/SEUUSUARIO/ferias/app/static`
+- **Force HTTPS:** ativado
+
+**5. Arquivo WSGI:** clique no link *WSGI configuration file*, apague todo o conteúdo e cole:
+
+```python
+import os
+import sys
+
+sys.path.insert(0, "/home/SEUUSUARIO/ferias")
+
+os.environ["COOKIE_SEGURO"] = "1"
+os.environ["ATRAS_DE_PROXY"] = "1"
+os.environ["ADMIN_SENHA_INICIAL"] = "troque-por-uma-senha-forte"
+
+from wsgi import application  # noqa: E402
+```
+
+**6. Iniciar:** clique em **Reload** e acesse `https://SEUUSUARIO.pythonanywhere.com`.
+Entre com `admin` e a senha definida em `ADMIN_SENHA_INICIAL`; o sistema pedirá uma nova senha.
+
+**7. Dados:** em *Configurações → Importar planilha*, envie o `Férias_Final.xlsm`. Os usuários
+importados entram com a senha da planilha e precisam trocá-la no primeiro acesso; se preferir,
+defina uma senha nova para cada um em *Usuários* antes de avisar a equipe.
+
+**Atualizar depois de mudanças no GitHub:** no console Bash, `cd ferias && git pull`, depois
+**Reload** na aba Web.
+
+**Observações do plano gratuito:** é preciso clicar em *Run until 3 months from today* na aba Web
+a cada 3 meses para o site continuar no ar. O banco fica em `/home/SEUUSUARIO/ferias/instance/ferias.db`
+(faça backup baixando esse arquivo pela aba *Files*).
+
+### Segurança
+
+- Após 5 tentativas de login erradas (por usuário ou por IP), o acesso fica bloqueado por 15 minutos.
+- Com `COOKIE_SEGURO=1`, os cookies de sessão só trafegam por HTTPS. Não use essa opção ao rodar
+  localmente em `http://127.0.0.1`.
+- `ATRAS_DE_PROXY=1` faz o sistema reconhecer o HTTPS e o IP real repassados pelo provedor; use
+  apenas quando houver um proxy na frente (como no PythonAnywhere).
+
 ## Funcionalidades
 
 | Tela | O que faz |
@@ -67,6 +133,7 @@ app/
   static/        CSS
 tests/           testes automatizados (python -m pytest)
 run.py           inicia o servidor
+wsgi.py          ponto de entrada para hospedagem
 iniciar.bat      atalho para Windows
 ```
 

@@ -118,6 +118,16 @@ class Configuracao(db.Model):
             db.session.add(cls(chave=chave, valor=str(valor)))
 
 
+class TentativaLogin(db.Model):
+    """Falhas de login recentes, usadas para bloquear tentativas repetidas."""
+
+    __tablename__ = "tentativas_login"
+
+    id = db.Column(db.Integer, primary_key=True)
+    chave = db.Column(db.String(120), nullable=False, index=True)
+    data = db.Column(db.DateTime, default=datetime.now, nullable=False, index=True)
+
+
 class Historico(db.Model):
     __tablename__ = "historico"
 
