@@ -74,6 +74,31 @@ def _equipe_do_formulario() -> list[Funcionario]:
     return list(db.session.scalars(db.select(Funcionario).where(Funcionario.id.in_([int(i) for i in ids if i.isdigit()]))))
 
 
+def _funcionarios_do_diario() -> list[Funcionario]:
+    ids = [i for i in request.form.getlist("funcionarios") if str(i).isdigit()]
+    if not ids:
+        unico = request.form.get("funcionario_id")
+        if unico and str(unico).isdigit():
+            ids = [unico]
+    if not ids:
+        return []
+    return list(
+        db.session.scalars(
+            db.select(Funcionario).where(Funcionario.id.in_([int(i) for i in ids])).order_by(Funcionario.nome)
+        )
+    )
+
+
+def _dias_do_periodo(inicio: date, fim: date, so_uteis: bool) -> list[date]:
+    dias = []
+    dia = inicio
+    while dia <= fim:
+        if not so_uteis or dia.weekday() < 5:
+            dias.append(dia)
+        dia += timedelta(days=1)
+    return dias
+
+
 def conflitos_mesmo_local(etapas: list[EtapaProva]) -> list[tuple[EtapaProva, EtapaProva]]:
     datadas = [e for e in etapas if e.inicio and e.fim]
     pares = []
@@ -392,54 +417,76 @@ def diario_form(lancamento_id: int | None = None):
 
     if request.method == "POST":
         etapa = db.session.get(EtapaProva, request.form.get("etapa_id", type=int) or 0)
-        funcionario = db.session.get(Funcionario, request.form.get("funcionario_id", type=int) or 0)
-        data_lanc = _data_form("data")
         tipo = request.form.get("tipo") or "TRABALHO"
+        so_uteis = request.form.get("so_uteis") == "1"
+        tarefa = (request.form.get("tarefa") or "").strip() or None
+        observacao = (request.form.get("observacao") or "").strip() or None
+        realizada = request.form.get("realizada") == "1"
+        escolhidos = _funcionarios_do_diario()
+        inicio = _data_form("inicio") or _data_form("data")
+        fim = _data_form("fim") or inicio
+
         if not etapa:
             erros.append("Selecione a etapa.")
-        if not funcionario:
-            erros.append("Selecione o diagramador.")
-        if not data_lanc:
-            erros.append("Informe a data.")
+        if not escolhidos:
+            erros.append("Selecione pelo menos um diagramador.")
+        if lancamento and len(escolhidos) != 1:
+            erros.append("Na edição, escolha um diagramador.")
+        if not inicio:
+            erros.append("Informe a data inicial.")
+        if inicio and fim and fim < inicio:
+            erros.append("A data final não pode ser anterior à inicial.")
+        if inicio and fim and (fim - inicio).days > 180:
+            erros.append("O período não pode passar de 180 dias.")
         if tipo not in TIPOS_LANCAMENTO:
             erros.append("Tipo de lançamento inválido.")
-        try:
-            verba = _decimal_form("verba")
-        except ValueError as erro:
-            verba = None
-            erros.append(str(erro))
-        if verba is None and etapa and funcionario:
-            verba = calcular_verba(etapa.local, tipo, funcionario.nome)
 
-        if etapa and data_lanc and etapa.inicio and etapa.fim:
-            if not (etapa.inicio <= data_lanc <= etapa.fim):
+        try:
+            verba_informada = _decimal_form("verba")
+        except ValueError as erro:
+            verba_informada = None
+            erros.append(str(erro))
+
+        dias = _dias_do_periodo(inicio, fim, so_uteis) if inicio and fim and fim >= inicio else []
+        if inicio and fim and not erros and not dias:
+            erros.append("Não há dias nesse período com o filtro escolhido.")
+
+        if etapa and dias and etapa.inicio and etapa.fim:
+            fora = [d for d in dias if d < etapa.inicio or d > etapa.fim]
+            if fora:
                 avisos.append(
-                    f"A data fica fora do período da etapa ({etapa.inicio.strftime('%d/%m/%Y')} "
-                    f"a {etapa.fim.strftime('%d/%m/%Y')})."
+                    f"{len(fora)} dia(s) ficam fora do período da etapa "
+                    f"({etapa.inicio.strftime('%d/%m/%Y')} a {etapa.fim.strftime('%d/%m/%Y')})."
                 )
-        if funcionario and data_lanc:
-            ferias = ferias_no_intervalo(data_lanc, data_lanc, apenas_ativos=True)
-            if any(f.funcionario_id == funcionario.id for f in ferias):
-                avisos.append(f"{funcionario.nome} está de férias nesta data.")
+        if escolhidos and dias:
+            ferias = ferias_no_intervalo(dias[0], dias[-1], apenas_ativos=True)
+            ids = {f.id for f in escolhidos}
+            for periodo in ferias:
+                if periodo.funcionario_id in ids and any(periodo.inicio <= d <= periodo.fim for d in dias):
+                    avisos.append(
+                        f"{periodo.funcionario.nome} está de férias de "
+                        f"{periodo.inicio.strftime('%d/%m/%Y')} a {periodo.fim.strftime('%d/%m/%Y')}."
+                    )
 
         if not erros:
             if avisos and not request.form.get("confirmar"):
                 erros.append("Há avisos para este lançamento. Confirme para salvar mesmo assim.")
-            else:
-                if not lancamento:
-                    lancamento = LancamentoDiario()
-                    db.session.add(lancamento)
+            elif lancamento:
+                funcionario = escolhidos[0]
+                verba = verba_informada
+                if verba is None:
+                    verba = calcular_verba(etapa.local, tipo, funcionario.nome)
                 lancamento.etapa = etapa
                 lancamento.funcionario = funcionario
-                lancamento.data = data_lanc
+                lancamento.data = inicio
                 lancamento.tipo = tipo
-                lancamento.tarefa = (request.form.get("tarefa") or "").strip() or None
-                lancamento.realizada = request.form.get("realizada") == "1"
+                lancamento.tarefa = tarefa
+                lancamento.realizada = realizada
                 lancamento.verba = verba
-                lancamento.observacao = (request.form.get("observacao") or "").strip() or None
+                lancamento.observacao = observacao
                 lancamento.criado_por = current_user.login
                 try:
-                    registrar("Controle diário", f"{funcionario.nome} em {etapa.rotulo_completo} ({data_lanc})")
+                    registrar("Controle diário", f"Editar {funcionario.nome} em {etapa.rotulo_completo} ({inicio})")
                     db.session.commit()
                 except IntegrityError:
                     db.session.rollback()
@@ -447,6 +494,48 @@ def diario_form(lancamento_id: int | None = None):
                 else:
                     flash("Lançamento salvo.", "sucesso")
                     return redirect(url_for("provas.diario"))
+            else:
+                criados, ignorados = 0, 0
+                for funcionario in escolhidos:
+                    verba = calcular_verba(etapa.local, tipo, funcionario.nome)
+                    if verba_informada is not None and len(escolhidos) == 1:
+                        verba = verba_informada
+                    for dia in dias:
+                        ja = db.session.scalar(
+                            db.select(LancamentoDiario).filter_by(
+                                etapa_id=etapa.id, funcionario_id=funcionario.id, data=dia
+                            )
+                        )
+                        if ja:
+                            ignorados += 1
+                            continue
+                        db.session.add(
+                            LancamentoDiario(
+                                etapa=etapa,
+                                funcionario=funcionario,
+                                data=dia,
+                                tipo=tipo,
+                                tarefa=tarefa,
+                                realizada=realizada,
+                                verba=verba,
+                                observacao=observacao,
+                                criado_por=current_user.login,
+                            )
+                        )
+                        criados += 1
+                registrar(
+                    "Controle diário",
+                    f"{criados} lançamento(s) em {etapa.rotulo_completo} "
+                    f"({inicio.strftime('%d/%m/%Y')} a {fim.strftime('%d/%m/%Y')})",
+                )
+                db.session.commit()
+                if criados and ignorados:
+                    flash(f"{criados} lançamento(s) salvo(s). {ignorados} já existiam e foram mantidos.", "sucesso")
+                elif criados:
+                    flash(f"{criados} lançamento(s) salvo(s).", "sucesso")
+                else:
+                    flash("Nada novo para salvar: esses dias já estavam lançados.", "aviso")
+                return redirect(url_for("provas.diario"))
 
     return render_template(
         "provas/diario_form.html",

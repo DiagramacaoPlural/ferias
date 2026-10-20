@@ -9,7 +9,7 @@
   </div>
   <div class="acoes">
     <a href="{{ url_for('provas.exportar') }}" class="btn">{{ icone('excel') }} Exportar</a>
-    <a href="{{ url_for('provas.diario_form') }}" class="btn btn-primario">{{ icone('mais') }} Novo lançamento</a>
+    <a href="{{ url_for('provas.diario_form') }}" class="btn btn-primario">{{ icone('mais') }} Lançar período</a>
   </div>
 </div>
 
@@ -57,7 +57,7 @@
             <td>{{ item.tarefa or '' }}{% if not item.realizada %} <span class="texto-suave">(não realizada)</span>{% endif %}</td>
             <td class="num">{% if item.verba is not none %}{{ '%.2f'|format(item.verba) }}{% endif %}</td>
             <td class="acoes-col">
-              <a href="{{ url_for('provas.diario_form', lancamento_id=item.id) }}" class="btn btn-pequeno">{{ icone('editar') }}</a>
+              <a href="{{ url_for('provas.diario_form', lancamento_id=item.id) }}" class="btn btn-pequeno">{{ icone('editar') }} Editar</a>
               {{ botao_post(url_for('provas.excluir_diario', lancamento_id=item.id), '', 'btn btn-pequeno btn-perigo', confirmar='Excluir este lançamento?', icone_nome='lixo') }}
             </td>
           </tr>

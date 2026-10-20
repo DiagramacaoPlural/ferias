@@ -81,8 +81,9 @@ def test_criar_projeto_etapa_e_lancamento(app):
         "/provas/diario/novo",
         data={
             "etapa_id": etapa_id,
-            "funcionario_id": carlos_id,
-            "data": "2026-06-16",
+            "funcionarios": [carlos_id],
+            "inicio": "2026-06-16",
+            "fim": "2026-06-16",
             "tipo": "TRABALHO",
             "tarefa": "Miolo caderno 1",
             "realizada": "1",
@@ -90,7 +91,7 @@ def test_criar_projeto_etapa_e_lancamento(app):
         },
         follow_redirects=True,
     )
-    assert "Lançamento salvo" in resp.get_data(as_text=True)
+    assert "lançamento" in resp.get_data(as_text=True).lower()
 
     export = client.get("/provas/exportar")
     assert export.status_code == 200
@@ -101,21 +102,49 @@ def test_criar_projeto_etapa_e_lancamento(app):
         assert lanc.tarefa == "Miolo caderno 1"
         assert float(lanc.verba) == 45.5
 
+    with app.app_context():
+        edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
+        edson_id = edson.id
+
     resp = client.post(
         "/provas/diario/novo",
         data={
             "etapa_id": etapa_id,
-            "funcionario_id": carlos_id,
-            "data": "2026-06-17",
+            "funcionarios": [carlos_id, edson_id],
+            "inicio": "2026-06-17",
+            "fim": "2026-06-18",
+            "so_uteis": "1",
             "tipo": "TRABALHO",
             "realizada": "1",
         },
         follow_redirects=True,
     )
-    assert "Lançamento salvo" in resp.get_data(as_text=True)
+    assert "4 lançamento" in resp.get_data(as_text=True)
     with app.app_context():
-        auto = db.session.scalar(db.select(LancamentoDiario).filter_by(data=date(2026, 6, 17)))
+        auto = db.session.scalar(db.select(LancamentoDiario).filter_by(data=date(2026, 6, 17), funcionario_id=carlos_id))
         assert float(auto.verba) == 170
+        assert db.session.scalar(db.select(db.func.count(LancamentoDiario.id))) == 5
+
+    with app.app_context():
+        item = db.session.scalar(db.select(LancamentoDiario).filter_by(data=date(2026, 6, 16)))
+        item_id = item.id
+    pagina = client.get(f"/provas/diario/{item_id}").get_data(as_text=True)
+    assert "Editar lançamento" in pagina
+    client.post(
+        f"/provas/diario/{item_id}",
+        data={
+            "etapa_id": etapa_id,
+            "funcionario_id": carlos_id,
+            "inicio": "2026-06-16",
+            "tipo": "FOLGA",
+            "realizada": "1",
+        },
+        follow_redirects=True,
+    )
+    with app.app_context():
+        item = db.session.get(LancamentoDiario, item_id)
+        assert item.tipo == "FOLGA"
+        assert float(item.verba) == 0
 
 
 def test_sobreposicao_mesmo_local(app):
