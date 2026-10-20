@@ -37,11 +37,12 @@
     <div class="card-corpo">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <p class="texto-suave" style="margin-top:0">
-        Importe <strong>Férias_Final.xlsm</strong> (abas CALENDARIO e USUARIOS).
+        Importe <strong>Férias_Final.xlsm</strong> (abas CALENDARIO e USUARIOS)
+        ou o PDF de <strong>Programação de Férias</strong> da folha (atualiza a data de admissão e o limite).
         Registros já existentes não são duplicados.
       </p>
       <div class="campo">
-        <input type="file" name="planilha" accept=".xlsx,.xlsm" required>
+        <input type="file" name="planilha" accept=".xlsx,.xlsm,.pdf" required>
       </div>
       <button type="submit" class="btn">Importar</button>
     </div>
@@ -57,7 +58,7 @@
       <input type="hidden" name="min_disponiveis" value="{{ min_disponiveis }}">
       <input type="hidden" name="dias_cronograma" value="{{ dias_cronograma }}">
       <p class="texto-suave" style="margin-top:0">
-        Um mês antes da data limite (admissão + 24 meses − 1 dia) o sistema avisa no painel
+        Um mês antes da data limite da folha (22 meses após a admissão, em dia útil) o sistema avisa no painel
         e envia e-mail para os gestores. O e-mail só sai se o SMTP abaixo estiver preenchido.
       </p>
       <div class="campo">

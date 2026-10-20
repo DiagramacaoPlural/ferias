@@ -8,7 +8,7 @@ from flask_login import current_user
 from ..alertas import enviar_alertas_pendentes, prazos_dos_funcionarios, smtp_configurado
 from ..models import Configuracao, Funcionario, Historico, Usuario, db
 from ..regras import EMAILS_ALERTA_LIMITE, MESES
-from ..seed import importar_planilha, nomes_abas
+from ..seed import importar_planilha, importar_programacao_pdf, nomes_abas
 from . import registrar, requer
 from .auth import SENHA_MIN
 
@@ -206,25 +206,32 @@ def configuracoes():
 @requer("admin")
 def importar():
     arquivo = request.files.get("planilha")
-    if not arquivo or not arquivo.filename.lower().endswith((".xlsx", ".xlsm")):
-        flash("Selecione uma planilha .xlsx ou .xlsm.", "erro")
+    nome = (arquivo.filename or "").lower() if arquivo else ""
+    if not arquivo or not nome.endswith((".xlsx", ".xlsm", ".pdf")):
+        flash("Selecione a planilha .xlsx/.xlsm ou o PDF de programação de férias.", "erro")
         return redirect(url_for("admin.configuracoes"))
 
     with tempfile.TemporaryDirectory() as pasta:
         caminho = Path(pasta) / Path(arquivo.filename).name
         arquivo.save(caminho)
         try:
-            abas = nomes_abas(caminho)
             partes = []
-            if "CALENDARIO" in abas or "USUARIOS" in abas:
-                resumo = importar_planilha(caminho)
-                partes.append(
-                    f"{resumo['funcionarios']} funcionário(s), {resumo['ferias']} férias "
-                    f"e {resumo['usuarios']} usuário(s) novos"
-                )
-        except Exception as erro:  # planilha corrompida ou fora do formato esperado
+            if nome.endswith(".pdf"):
+                resumo = importar_programacao_pdf(caminho)
+                partes.append(f"{resumo['atualizados']} data(s) de admissão atualizada(s)")
+                if resumo["sem_cadastro"]:
+                    partes.append("sem cadastro: " + ", ".join(resumo["sem_cadastro"]))
+            else:
+                abas = nomes_abas(caminho)
+                if "CALENDARIO" in abas or "USUARIOS" in abas:
+                    resumo = importar_planilha(caminho)
+                    partes.append(
+                        f"{resumo['funcionarios']} funcionário(s), {resumo['ferias']} férias "
+                        f"e {resumo['usuarios']} usuário(s) novos"
+                    )
+        except Exception as erro:  # arquivo corrompido ou fora do formato esperado
             db.session.rollback()
-            flash(f"Não foi possível importar a planilha: {erro}", "erro")
+            flash(f"Não foi possível importar: {erro}", "erro")
             return redirect(url_for("admin.configuracoes"))
 
     if not partes:

@@ -211,6 +211,31 @@ def test_importacao_da_planilha_original(app):
         assert importar_planilha(planilhas[0])["ferias"] == 0
 
 
+def test_importacao_do_pdf_de_programacao(app):
+    from pathlib import Path
+
+    from app.seed import importar_programacao_pdf, ler_programacao_pdf
+
+    pdfs = list(Path(__file__).resolve().parent.parent.glob("*Férias*.pdf")) + list(
+        Path(__file__).resolve().parent.parent.glob("*Ferias*.pdf")
+    )
+    if not pdfs:
+        pytest.skip("PDF de programação não encontrado")
+    pessoas = ler_programacao_pdf(pdfs[0])
+    assert {p["nome"].split()[0] for p in pessoas} >= {"CLAUDINEI", "EDSON", "GABRIEL", "WAGNER"}
+    wagner = next(p for p in pessoas if p["nome"].startswith("WAGNER"))
+    assert wagner["admissao"] == date(2025, 4, 29)
+    assert wagner["limite"] == date(2027, 2, 26)
+
+    with app.app_context():
+        db.session.add(Funcionario(nome="Wagner"))
+        db.session.commit()
+        resumo = importar_programacao_pdf(pdfs[0])
+        assert resumo["atualizados"] >= 1
+        salvo = db.session.scalar(db.select(Funcionario).filter_by(nome="Wagner"))
+        assert salvo.data_admissao == date(2025, 4, 29)
+
+
 def test_coluna_limite_e_email_de_alerta(app, monkeypatch):
     enviados = []
 
@@ -249,7 +274,7 @@ def test_coluna_limite_e_email_de_alerta(app, monkeypatch):
 
     lista = client.get("/admin/funcionarios").get_data(as_text=True)
     assert "Limite para férias" in lista
-    assert "28/04/2027" in lista
+    assert "26/02/2027" in lista
 
     config = client.get("/admin/configuracoes").get_data(as_text=True)
     assert "marcelo.marcolino@plural.com.br" in config

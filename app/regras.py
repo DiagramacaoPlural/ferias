@@ -78,6 +78,21 @@ def somar_meses(dia: date, meses: int) -> date:
     return date(ano, mes, min(dia.day, calendar.monthrange(ano, mes)[1]))
 
 
+def ajustar_dia_util(dia: date) -> date:
+    """Recua sábado/domingo para a sexta anterior (como na folha de programação)."""
+    if dia.weekday() == 5:
+        return dia - timedelta(days=1)
+    if dia.weekday() == 6:
+        return dia - timedelta(days=2)
+    return dia
+
+
+def data_limite_folha(admissao: date, ciclo: int = 0) -> date:
+    """Data limite da programação da folha: 22 meses após o início do aquisitivo."""
+    bruto = somar_meses(somar_anos(admissao, ciclo), 22) - timedelta(days=1)
+    return ajustar_dia_util(bruto)
+
+
 @dataclass
 class PrazoGozo:
     limite: date | None
@@ -97,7 +112,7 @@ def calcular_prazo_gozo(
     nome: str = "",
     funcionario_id: int | None = None,
 ) -> PrazoGozo:
-    """Limite para gozo: fim do período concessivo (admissão + 24 meses − 1 dia).
+    """Limite da folha: 22 meses após a admissão, em dia útil.
 
     Se aquele período já teve 30 dias programados, avança para o ciclo seguinte.
     O alerta dispara 1 mês antes do limite.
@@ -108,8 +123,9 @@ def calcular_prazo_gozo(
     ciclo = 0
     while ciclo < 80:
         concessivo_ini = somar_anos(admissao, ciclo + 1)
-        limite = somar_anos(admissao, ciclo + 2) - timedelta(days=1)
-        dias = sum(p.dias for p in ferias if concessivo_ini <= p.inicio <= limite)
+        concessivo_fim = somar_anos(admissao, ciclo + 2) - timedelta(days=1)
+        limite = data_limite_folha(admissao, ciclo)
+        dias = sum(p.dias for p in ferias if concessivo_ini <= p.inicio <= concessivo_fim)
         if dias < DIAS_MAX_CICLO:
             alerta_em = somar_meses(limite, -1)
             if hoje > limite:

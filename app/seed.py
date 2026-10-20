@@ -119,6 +119,71 @@ def _escolher_planilha(planilhas: list[Path], *palavras: str) -> Path | None:
     return None
 
 
+_LINHA_PROGRAMACAO = (
+    r"(?P<limite>\d{2}/\d{2}/\d{4})\s+20\s+10\s+Sim"
+    r"(?P<saida>\d{2}/\d{2}/\d{4})"
+    r".{0,20}?"
+    r"(?P<aq_ini>\d{2}/\d{2}/\d{4})\s+a\s+(?P<aq_fim>\d{2}/\d{2}/\d{4})"
+    r"(?:(?P<nome>[^\d\n]+?)(?P<matricula>\d{4,}))?"
+)
+
+
+def ler_programacao_pdf(caminho: Path) -> list[dict]:
+    """Lê o PDF de Programação de Férias da folha (admissão = início do 1º aquisitivo)."""
+    import re
+
+    from pypdf import PdfReader
+
+    texto = "\n".join((pagina.extract_text() or "") for pagina in PdfReader(str(caminho)).pages)
+    pessoas, vistos = [], set()
+    for m in re.finditer(_LINHA_PROGRAMACAO, texto):
+        nome = " ".join((m.group("nome") or "").split())
+        if not nome:
+            continue
+        chave = nome.casefold()
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        pessoas.append(
+            {
+                "nome": nome,
+                "matricula": m.group("matricula"),
+                "admissao": datetime.strptime(m.group("aq_ini"), "%d/%m/%Y").date(),
+                "limite": datetime.strptime(m.group("limite"), "%d/%m/%Y").date(),
+            }
+        )
+    return pessoas
+
+
+def _casar_funcionario(nome_pdf: str, funcionarios: list[Funcionario]) -> Funcionario | None:
+    primeiro = nome_pdf.split()[0].casefold()
+    candidatos = [f for f in funcionarios if f.nome.split()[0].casefold() == primeiro]
+    if len(candidatos) == 1:
+        return candidatos[0]
+    pdf = nome_pdf.casefold()
+    for f in funcionarios:
+        if f.nome.casefold() in pdf or pdf.startswith(f.nome.casefold()):
+            return f
+    return None
+
+
+def importar_programacao_pdf(caminho: Path) -> dict:
+    """Atualiza a data de admissão dos funcionários já cadastrados a partir do PDF da folha."""
+    pessoas = ler_programacao_pdf(caminho)
+    funcionarios = db.session.scalars(db.select(Funcionario)).all()
+    resumo = {"lidos": len(pessoas), "atualizados": 0, "sem_cadastro": []}
+    for pessoa in pessoas:
+        func = _casar_funcionario(pessoa["nome"], funcionarios)
+        if not func:
+            resumo["sem_cadastro"].append(pessoa["nome"])
+            continue
+        if func.data_admissao != pessoa["admissao"]:
+            func.data_admissao = pessoa["admissao"]
+            resumo["atualizados"] += 1
+    db.session.commit()
+    return resumo
+
+
 def nomes_abas(caminho: Path) -> list[str]:
     from openpyxl import load_workbook
 

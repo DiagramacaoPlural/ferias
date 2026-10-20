@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, meses_do_ciclo, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, data_limite_folha, meses_do_ciclo, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -16,23 +16,31 @@ def test_primeira_parcela_13_so_a_partir_de_fevereiro():
 
 def test_limite_de_gozo_e_alerta_um_mes_antes():
     admissao = date(2025, 4, 29)
-    limite = date(2027, 4, 28)
+    limite = date(2027, 2, 26)
     prazo = calcular_prazo_gozo(admissao, [], date(2026, 10, 20), "Wagner", 1)
     assert prazo.limite == limite
-    assert prazo.alerta_em == date(2027, 3, 28)
+    assert prazo.alerta_em == date(2027, 1, 26)
     assert prazo.situacao == "ok"
 
-    alerta = calcular_prazo_gozo(admissao, [], date(2027, 3, 28), "Wagner", 1)
+    alerta = calcular_prazo_gozo(admissao, [], date(2027, 1, 26), "Wagner", 1)
     assert alerta.situacao == "alerta"
-    assert alerta.dias_restantes == 31
 
-    vencido = calcular_prazo_gozo(admissao, [], date(2027, 4, 29), "Wagner", 1)
+    vencido = calcular_prazo_gozo(admissao, [], date(2027, 2, 27), "Wagner", 1)
     assert vencido.situacao == "vencido"
     assert vencido.limite == limite
 
     gozado = [Periodo("Wagner", date(2026, 5, 10), date(2026, 6, 8), 30)]
     proximo = calcular_prazo_gozo(admissao, gozado, date(2026, 10, 20), "Wagner", 1)
-    assert proximo.limite == date(2028, 4, 28)
+    assert proximo.limite == date(2028, 2, 28)
+
+
+def test_data_limite_confere_com_a_folha():
+    assert data_limite_folha(date(2025, 8, 29)) == date(2027, 6, 28)
+    assert data_limite_folha(date(2025, 6, 16)) == date(2027, 4, 15)
+    assert data_limite_folha(date(2025, 4, 11)) == date(2027, 2, 10)
+    assert data_limite_folha(date(2025, 12, 18)) == date(2027, 10, 15)
+    assert data_limite_folha(date(2025, 7, 10)) == date(2027, 5, 7)
+    assert data_limite_folha(date(2025, 4, 29)) == date(2027, 2, 26)
 
 
 def test_somar_anos_e_meses():

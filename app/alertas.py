@@ -68,8 +68,8 @@ def _montar_mensagem(pendentes: list[PrazoGozo], hoje: date) -> tuple[str, str]:
     if any(p.situacao == "vencido" for p in pendentes):
         assunto = "Alerta: prazo de férias vencido ou a vencer"
     corpo = (
-        "Há funcionários com o fim do período concessivo de férias em até 1 mês, ou já vencido "
-        "(CLT: o gozo deve ocorrer nos 12 meses seguintes ao período aquisitivo).\n\n"
+        "Há funcionários com a data limite de férias da folha em até 1 mês, ou já vencida "
+        "(22 meses após a admissão).\n\n"
         + "\n".join(linhas)
         + "\n\nProgramem as férias no Controle de Férias."
     )
