@@ -149,21 +149,21 @@ def usuario_form(usuario_id: int | None = None):
 def configuracoes():
     if request.method == "POST":
         mes = request.form.get("mes_inicio_ciclo", type=int)
-        limite = request.form.get("max_simultaneos", type=int)
+        minimo = request.form.get("min_disponiveis", type=int)
         dias_crono = request.form.get("dias_cronograma", type=int)
         if not mes or not 1 <= mes <= 12:
             flash("Mês de início do ciclo inválido.", "erro")
-        elif limite is None or limite < 1:
-            flash("O limite de pessoas simultâneas deve ser pelo menos 1.", "erro")
+        elif minimo is None or minimo < 1:
+            flash("O mínimo de pessoas disponíveis no setor deve ser pelo menos 1.", "erro")
         elif not dias_crono or not 7 <= dias_crono <= 364:
             flash("A janela do cronograma deve ter entre 7 e 364 dias.", "erro")
         else:
             Configuracao.definir("mes_inicio_ciclo", mes)
-            Configuracao.definir("max_simultaneos", limite)
+            Configuracao.definir("min_disponiveis", minimo)
             Configuracao.definir("dias_cronograma", dias_crono)
             registrar(
                 "Configurações alteradas",
-                f"ciclo inicia em {MESES[mes - 1]}, máx. simultâneos {limite}, cronograma {dias_crono} dias",
+                f"ciclo inicia em {MESES[mes - 1]}, mín. {minimo} disponíveis no setor, cronograma {dias_crono} dias",
             )
             db.session.commit()
             flash("Configurações salvas.", "sucesso")
@@ -173,7 +173,7 @@ def configuracoes():
         "admin/configuracoes.html",
         meses=MESES,
         mes_inicio_ciclo=Configuracao.obter_int("mes_inicio_ciclo"),
-        max_simultaneos=Configuracao.obter_int("max_simultaneos"),
+        min_disponiveis=Configuracao.obter_int("min_disponiveis"),
         dias_cronograma=Configuracao.obter_int("dias_cronograma"),
     )
 

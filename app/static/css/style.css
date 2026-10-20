@@ -305,6 +305,30 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 
 /* ------------------------------------------------------------ utilidades */
 
+.sugestoes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+
+.cobertura {
+  display: flex; align-items: flex-end; gap: 3px; height: 160px;
+  padding: 8px 4px 28px; overflow-x: auto;
+}
+.cobertura-col {
+  flex: 1 0 10px; min-width: 10px; height: 100%;
+  display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
+  position: relative;
+}
+.cobertura-barra {
+  width: 100%; max-width: 14px; border-radius: 4px 4px 0 0;
+  background: var(--verde); min-height: 4px;
+}
+.cobertura-col.conflito .cobertura-barra { background: var(--vermelho); }
+.cobertura-valor {
+  font-size: 10px; color: var(--texto-suave); margin-bottom: 4px; font-variant-numeric: tabular-nums;
+}
+.cobertura-col.conflito .cobertura-valor { color: var(--vermelho); font-weight: 700; }
+.cobertura-rotulo {
+  position: absolute; bottom: -22px; font-size: 10px; color: var(--texto-suave); white-space: nowrap;
+}
+
 .texto-suave { color: var(--texto-suave); }
 .texto-verde { color: var(--verde); }
 .texto-vermelho { color: var(--vermelho); }

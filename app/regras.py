@@ -31,9 +31,16 @@ class Periodo:
 
 
 @dataclass
+class Alternativa:
+    inicio: date
+    fim: date
+
+
+@dataclass
 class Analise:
     erros: list[str] = field(default_factory=list)
     avisos: list[str] = field(default_factory=list)
+    alternativas: list[Alternativa] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -90,6 +97,69 @@ def ocupacao_por_dia(periodos: list[Periodo], inicio: date, fim: date) -> dict[d
     return ocupacao
 
 
+def limite_ausentes(total_ativos: int, min_disponiveis: int) -> int:
+    """Quantas pessoas podem estar de férias sem desfalcar o setor."""
+    return max(total_ativos - min_disponiveis, 0)
+
+
+def _inicio_recomendado(dia: date) -> bool:
+    return dia.weekday() not in (4, 5)
+
+
+def cabe_no_setor(
+    inicio: date,
+    dias: int,
+    ocupacao: dict[date, set[str]],
+    total_ativos: int,
+    min_disponiveis: int,
+    proprios: list[Periodo],
+) -> bool:
+    fim = calcular_fim(inicio, dias)
+    for p in proprios:
+        if sobrepoe(inicio, fim, p.inicio, p.fim):
+            return False
+    dia = inicio
+    while dia <= fim:
+        if total_ativos - (len(ocupacao.get(dia, set())) + 1) < min_disponiveis:
+            return False
+        dia += timedelta(days=1)
+    return True
+
+
+def sugerir_alternativas(
+    inicio_original: date,
+    dias: int,
+    ocupacao: dict[date, set[str]],
+    total_ativos: int,
+    min_disponiveis: int,
+    proprios: list[Periodo],
+    janela_ini: date,
+    janela_fim: date,
+    max_opcoes: int = 3,
+) -> list[Alternativa]:
+    """Procura outros períodos da mesma duração que mantêm o mínimo no setor."""
+    ultimo_inicio = janela_fim - timedelta(days=dias - 1)
+    if ultimo_inicio < janela_ini:
+        return []
+
+    candidatos: list[tuple[int, date]] = []
+    dia = janela_ini
+    while dia <= ultimo_inicio:
+        if dia != inicio_original and _inicio_recomendado(dia):
+            if cabe_no_setor(dia, dias, ocupacao, total_ativos, min_disponiveis, proprios):
+                candidatos.append((abs((dia - inicio_original).days), dia))
+        dia += timedelta(days=1)
+    candidatos.sort()
+
+    escolhidos: list[date] = []
+    for _, candidato in candidatos:
+        if all(abs((candidato - ja).days) >= 14 for ja in escolhidos):
+            escolhidos.append(candidato)
+        if len(escolhidos) >= max_opcoes:
+            break
+    return [Alternativa(d, calcular_fim(d, dias)) for d in escolhidos]
+
+
 def analisar_periodo(
     funcionario: str,
     inicio: date,
@@ -98,6 +168,8 @@ def analisar_periodo(
     periodos_de_outros: list[Periodo],
     max_simultaneos: int,
     mes_inicio_ciclo: int,
+    total_ativos: int | None = None,
+    min_disponiveis: int | None = None,
 ) -> Analise:
     """Valida um período de férias.
 
@@ -156,22 +228,52 @@ def analisar_periodo(
             )
 
     ocupacao = ocupacao_por_dia(periodos_de_outros, inicio, fim)
-    pico_dia, pico_nomes = None, set()
-    for dia, nomes in sorted(ocupacao.items()):
-        if len(nomes) + 1 > max_simultaneos and len(nomes) > len(pico_nomes):
-            pico_dia, pico_nomes = dia, nomes
-    if pico_dia:
-        nomes = ", ".join(sorted(pico_nomes))
-        analise.avisos.append(
-            f"Conflito na equipe: em {pico_dia:%d/%m/%Y} haveria {len(pico_nomes) + 1} pessoas de férias "
-            f"(limite configurado: {max_simultaneos}). Também de férias: {nomes}."
-        )
+    if total_ativos is not None and min_disponiveis is not None:
+        pior_disp, pico_dia, pico_nomes = total_ativos, None, set()
+        dia = inicio
+        while dia <= fim:
+            nomes = ocupacao.get(dia, set())
+            disponiveis = total_ativos - (len(nomes) + 1)
+            if disponiveis < min_disponiveis and disponiveis < pior_disp:
+                pior_disp, pico_dia, pico_nomes = disponiveis, dia, nomes
+            dia += timedelta(days=1)
+        if pico_dia:
+            nomes = ", ".join(sorted(pico_nomes))
+            complemento = f" Também de férias: {nomes}." if nomes else ""
+            analise.avisos.append(
+                f"O setor ficaria com {pior_disp} pessoa(s) disponível(is) em {pico_dia:%d/%m/%Y} "
+                f"(mínimo: {min_disponiveis}).{complemento}"
+            )
+            ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo)
+            ocupacao_ciclo = ocupacao_por_dia(periodos_de_outros, ciclo_ini, ciclo_fim)
+            analise.alternativas = sugerir_alternativas(
+                inicio, dias, ocupacao_ciclo, total_ativos, min_disponiveis,
+                outros_do_funcionario, ciclo_ini, ciclo_fim,
+            )
+            if analise.alternativas:
+                opcoes = "; ".join(f"{a.inicio:%d/%m/%Y} a {a.fim:%d/%m/%Y}" for a in analise.alternativas)
+                analise.avisos.append(f"Alternativa de programação: {opcoes}.")
+            else:
+                analise.avisos.append(
+                    "Não há outro período da mesma duração neste ciclo que mantenha o mínimo no setor."
+                )
+    else:
+        pico_dia, pico_nomes = None, set()
+        for dia, nomes in sorted(ocupacao.items()):
+            if len(nomes) + 1 > max_simultaneos and len(nomes) > len(pico_nomes):
+                pico_dia, pico_nomes = dia, nomes
+        if pico_dia:
+            nomes = ", ".join(sorted(pico_nomes))
+            analise.avisos.append(
+                f"Conflito na equipe: em {pico_dia:%d/%m/%Y} haveria {len(pico_nomes) + 1} pessoas de férias "
+                f"(limite configurado: {max_simultaneos}). Também de férias: {nomes}."
+            )
 
     return analise
 
 
 def analisar_periodo_db(funcionario, inicio: date, dias: int, ferias_id: int | None = None) -> Analise:
-    from .models import Configuracao, Ferias, db
+    from .models import Configuracao, Ferias, Funcionario, db
 
     def para_periodo(f):
         return Periodo(f.funcionario.nome, f.inicio, f.fim, f.dias, f.id)
@@ -186,10 +288,9 @@ def analisar_periodo_db(funcionario, inicio: date, dias: int, ferias_id: int | N
     existentes = db.session.scalars(consulta).all()
 
     do_funcionario = [para_periodo(f) for f in existentes if f.funcionario_id == funcionario.id]
-    de_outros = [
-        para_periodo(f) for f in existentes
-        if f.funcionario_id != funcionario.id and sobrepoe(inicio, fim, f.inicio, f.fim)
-    ]
+    de_outros = [para_periodo(f) for f in existentes if f.funcionario_id != funcionario.id]
+    total_ativos = db.session.scalar(db.select(db.func.count(Funcionario.id)).filter_by(ativo=True)) or 0
+    min_disponiveis = Configuracao.obter_int("min_disponiveis")
 
     return analisar_periodo(
         funcionario.nome,
@@ -197,6 +298,8 @@ def analisar_periodo_db(funcionario, inicio: date, dias: int, ferias_id: int | N
         dias,
         do_funcionario,
         de_outros,
-        Configuracao.obter_int("max_simultaneos"),
+        limite_ausentes(total_ativos, min_disponiveis),
         Configuracao.obter_int("mes_inicio_ciclo"),
+        total_ativos=total_ativos,
+        min_disponiveis=min_disponiveis,
     )

@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, timedelta
 
-from app.regras import Periodo, analisar_periodo, calcular_fim, ciclo_de, meses_do_ciclo
+from app.regras import Periodo, analisar_periodo, calcular_fim, ciclo_de, meses_do_ciclo, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -83,6 +83,31 @@ def test_aviso_mais_de_3_periodos():
     ]
     a = analisar(date(2026, 12, 1), 5, proprios=proprios)
     assert any("4 períodos" in av for av in a.avisos)
+
+
+def test_setor_desfalcado_gera_aviso_e_alternativas():
+    outro = Periodo("Bruno", date(2026, 12, 1), date(2026, 12, 20), 20)
+    a = analisar_periodo(
+        "Ana", date(2026, 12, 7), 10, [], [outro], 1, 5,
+        total_ativos=4, min_disponiveis=3,
+    )
+    assert any("disponível" in av for av in a.avisos)
+    assert a.alternativas
+    for alt in a.alternativas:
+        assert not sobrepoe(alt.inicio, alt.fim, outro.inicio, outro.fim)
+        assert alt.inicio.weekday() not in (4, 5)
+
+
+def test_sugestao_respeita_minimo_no_setor():
+    from app.regras import ocupacao_por_dia
+
+    outro = Periodo("Bruno", date(2026, 12, 1), date(2026, 12, 20), 20)
+    ocupacao = ocupacao_por_dia([outro], date(2026, 11, 1), date(2027, 1, 31))
+    alts = sugerir_alternativas(
+        date(2026, 12, 7), 10, ocupacao, 4, 3, [], date(2026, 11, 1), date(2027, 1, 31),
+    )
+    assert alts
+    assert alts[0].fim - alts[0].inicio == timedelta(days=9)
 
 
 def test_conflito_com_equipe_respeita_limite():

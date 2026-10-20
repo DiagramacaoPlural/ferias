@@ -101,7 +101,7 @@ a cada 3 meses para o site continuar no ar. O banco fica em `/home/SEUUSUARIO/fe
 | **Calendário anual** | Os 12 meses do ciclo com as férias programadas e aprovadas (equivale aos painéis do formulário VBA). |
 | **Cronograma** | Gráfico de Gantt com navegação por semanas, destaque de fins de semana e do dia de hoje, e linha de ausentes por dia. |
 | **Funcionários / Usuários** | Cadastros com permissões (administrador, acesso à programação, acesso ao cronograma). |
-| **Configurações** | Mês de início do ciclo, limite de pessoas de férias ao mesmo tempo, janela do cronograma e importação de planilha. |
+| **Configurações** | Mês de início do ciclo, mínimo de pessoas disponíveis no setor, janela do cronograma e importação de planilha. |
 | **Histórico** | Registro de quem fez o quê (criação, alteração, aprovação, exclusão, login). |
 
 ## Melhorias em relação à planilha
@@ -111,7 +111,7 @@ a cada 3 meses para o site continuar no ar. O banco fica em `/home/SEUUSUARIO/fe
 - **Vários períodos por funcionário** (fracionamento das férias).
 - **Validações da CLT (art. 134)** como avisos: mínimo de 5 dias por período, até 3 períodos, um período com pelo menos 14 dias, início vedado na sexta ou sábado, total acima de 30 dias no ciclo.
 - **Bloqueio de sobreposição** de períodos do mesmo funcionário.
-- **Alerta de conflito na equipe** quando o número de pessoas de férias ao mesmo tempo passa do limite configurado (a planilha só sinalizava no Cronograma).
+- **Cobertura do setor:** o padrão é manter pelo menos 3 funcionários que não estejam de férias. A programação tem um gráfico semanal; se alguma semana ficar abaixo disso, o sistema sugere outras datas.
 - **Validação ao vivo** no formulário: o fim e os avisos aparecem enquanto se digita.
 - **Segurança:** login real, senhas criptografadas, troca obrigatória da senha inicial, proteção CSRF e permissões aplicadas no servidor.
 - **Aprovação** registra quem aprovou e quando; somente administradores aprovam ou alteram férias já aprovadas.

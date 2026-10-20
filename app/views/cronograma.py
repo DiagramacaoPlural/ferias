@@ -2,9 +2,9 @@ from datetime import date, datetime, timedelta
 
 from flask import Blueprint, render_template, request
 
-from ..consultas import ferias_no_intervalo, funcionarios_ativos
+from ..consultas import ferias_no_intervalo, funcionarios_ativos, minimo_no_setor
 from ..models import Configuracao
-from ..regras import DIAS_SEMANA_ABREV, MESES
+from ..regras import DIAS_SEMANA_ABREV, MESES, limite_ausentes
 from . import requer
 
 bp = Blueprint("cronograma", __name__, url_prefix="/cronograma")
@@ -33,7 +33,9 @@ def visualizar():
 
     dias = [inicio + timedelta(days=i) for i in range((fim - inicio).days + 1)]
     ferias = ferias_no_intervalo(inicio, fim, apenas_ativos=True)
-    limite = Configuracao.obter_int("max_simultaneos")
+    ativos = funcionarios_ativos()
+    min_disp = minimo_no_setor()
+    limite = limite_ausentes(len(ativos), min_disp)
 
     meses_cabecalho = []
     for dia in dias:
@@ -45,7 +47,7 @@ def visualizar():
 
     ausentes = {dia: [] for dia in dias}
     linhas = []
-    for func in funcionarios_ativos():
+    for func in ativos:
         periodos = [f for f in ferias if f.funcionario_id == func.id]
         celulas = []
         for dia in dias:
@@ -66,6 +68,7 @@ def visualizar():
         linhas=linhas,
         ausentes=ausentes,
         limite=limite,
+        min_disponiveis=min_disp,
         dias_semana=DIAS_SEMANA_ABREV,
         anterior=inicio - timedelta(days=semanas * 7),
         proximo=inicio + timedelta(days=semanas * 7),

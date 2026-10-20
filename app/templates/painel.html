@@ -34,10 +34,10 @@
 {% if conflitos %}
 <div class="alerta alerta-erro mt">
   <div>
-    <strong>Conflitos na equipe</strong> (mais de {{ limite }} pessoa{{ 's' if limite > 1 }} de férias ao mesmo tempo):
+    <strong>Setor desfalcado</strong> (menos de {{ min_disponiveis }} pessoa{{ 's' if min_disponiveis != 1 }} disponível{{ 'eis' if min_disponiveis != 1 }}):
     <ul>
       {% for c in conflitos %}
-        <li>{{ c.inicio|data }}{% if c.fim != c.inicio %} a {{ c.fim|data }}{% endif %} — {{ c.nomes|join(', ') }} (até {{ c.pico }} simultâneas)</li>
+        <li>{{ c.inicio|data }}{% if c.fim != c.inicio %} a {{ c.fim|data }}{% endif %} — {{ c.nomes|join(', ') }} ({{ c.pico }} de férias)</li>
       {% endfor %}
     </ul>
   </div>

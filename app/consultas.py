@@ -37,6 +37,47 @@ def para_periodos(ferias: list[Ferias]) -> list[Periodo]:
     return [Periodo(f.funcionario.nome, f.inicio, f.fim, f.dias, f.id) for f in ferias]
 
 
+def minimo_no_setor() -> int:
+    return Configuracao.obter_int("min_disponiveis")
+
+
+def serie_cobertura(
+    ferias: list[Ferias],
+    inicio: date,
+    fim: date,
+    total_ativos: int,
+    min_disponiveis: int,
+) -> list[dict]:
+    """Uma barra por semana: menor número de pessoas disponíveis naquela semana."""
+    ocupacao = ocupacao_por_dia(para_periodos(ferias), inicio, fim)
+    segunda = inicio - timedelta(days=inicio.weekday())
+    semanas: list[dict] = []
+    while segunda <= fim:
+        domingo = segunda + timedelta(days=6)
+        pior_disp, pior_dia, pior_nomes = total_ativos, None, []
+        dia = max(segunda, inicio)
+        ultimo = min(domingo, fim)
+        while dia <= ultimo:
+            nomes = ocupacao.get(dia, set())
+            disponiveis = total_ativos - len(nomes)
+            if disponiveis < pior_disp:
+                pior_disp, pior_dia, pior_nomes = disponiveis, dia, sorted(nomes)
+            dia += timedelta(days=1)
+        semanas.append(
+            {
+                "inicio": segunda,
+                "rotulo": f"{segunda.day:02d}/{segunda.month:02d}",
+                "disponiveis": pior_disp,
+                "conflito": pior_disp < min_disponiveis,
+                "pct": round(pior_disp / total_ativos * 100) if total_ativos else 0,
+                "nomes": pior_nomes,
+                "pior_dia": pior_dia,
+            }
+        )
+        segunda += timedelta(days=7)
+    return semanas
+
+
 def conflitos(ferias: list[Ferias], inicio: date, fim: date, limite: int) -> list[Conflito]:
     """Agrupa dias consecutivos em que há mais pessoas de férias que o limite."""
     ocupacao = ocupacao_por_dia(para_periodos(ferias), inicio, fim)

@@ -71,6 +71,14 @@
         <div>
           <strong>Atenção antes de salvar:</strong>
           <ul>{% for a in avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+          {% if alternativas %}
+            <p style="margin:10px 0 6px"><strong>Use uma destas datas para manter 3 no setor:</strong></p>
+            <div class="sugestoes">
+              {% for alt in alternativas %}
+                <button type="button" class="btn btn-pequeno" data-inicio="{{ alt.inicio.isoformat() }}">{{ alt.inicio|data }} a {{ alt.fim|data }}</button>
+              {% endfor %}
+            </div>
+          {% endif %}
         </div>
       </div>
     {% endif %}
@@ -128,10 +136,25 @@
       if (!resp.ok) return;
       const r = await resp.json();
       campos.fim.value = r.fim || '';
-      painel.innerHTML = bloco('alerta-erro', 'Impede o salvamento:', r.erros) +
-                         bloco('alerta-aviso', 'Avisos:', r.avisos);
+      let html = bloco('alerta-erro', 'Impede o salvamento:', r.erros) +
+                 bloco('alerta-aviso', 'Avisos:', r.avisos);
+      if ((r.alternativas || []).length) {
+        html += '<div class="alerta alerta-info"><div><strong>Alternativas que mantêm o mínimo no setor:</strong><div class="sugestoes" style="margin-top:8px">';
+        r.alternativas.forEach(function (a) {
+          html += '<button type="button" class="btn btn-pequeno" data-inicio="' + escapar(a.inicio) + '">' +
+                  escapar(a.rotulo) + ' a ' + escapar(a.fim) + '</button>';
+        });
+        html += '</div></div></div>';
+      }
+      painel.innerHTML = html;
+      painel.querySelectorAll('[data-inicio]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          campos.inicio.value = btn.dataset.inicio;
+          agendar();
+        });
+      });
       if (!r.erros.length && !r.avisos.length && campos.funcionario.value) {
-        painel.innerHTML = '<div class="alerta alerta-sucesso">Período sem conflitos.</div>';
+        painel.innerHTML = '<div class="alerta alerta-sucesso">Período sem conflitos. O setor permanece com a cobertura mínima.</div>';
       }
     } catch (e) { /* validação ao vivo é opcional; o servidor valida ao salvar */ }
   }
@@ -145,6 +168,10 @@
   });
   document.querySelectorAll('[data-dias]').forEach(btn => btn.addEventListener('click', () => {
     campos.dias.value = btn.dataset.dias;
+    agendar();
+  }));
+  document.querySelectorAll('[data-inicio]').forEach(btn => btn.addEventListener('click', () => {
+    campos.inicio.value = btn.dataset.inicio;
     agendar();
   }));
 

@@ -56,6 +56,18 @@
               {% if avisos[f.id] %}
                 <span class="aviso-icone" title="{{ avisos[f.id]|join('\n') }}">⚠</span>
               {% endif %}
+              {% if alternativas.get(f.id) and (current_user.admin or not f.aprovada) %}
+                <div class="sugestoes">
+                  <span class="texto-suave">Alternativa:</span>
+                  {% for alt in alternativas[f.id] %}
+                    <form method="post" action="{{ url_for('ferias.mover', ferias_id=f.id) }}" class="inline">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="inicio" value="{{ alt.inicio.isoformat() }}">
+                      <button type="submit" class="btn btn-pequeno" title="Reagendar para {{ alt.inicio|data }} a {{ alt.fim|data }}">{{ alt.inicio|data('%d/%m') }}–{{ alt.fim|data('%d/%m') }}</button>
+                    </form>
+                  {% endfor %}
+                </div>
+              {% endif %}
             </td>
             <td class="nowrap">{{ f.inicio|data }}</td>
             <td class="nowrap">{{ f.fim|data }}</td>
@@ -86,5 +98,54 @@
   {% else %}
     <div class="vazio">Nenhuma férias encontrada para os filtros selecionados.</div>
   {% endif %}
+</div>
+
+<div class="card mt">
+  <div class="card-titulo">
+    <div>
+      <h2>Cobertura do setor</h2>
+      <p class="texto-suave" style="margin:4px 0 0">Pessoas disponíveis por semana. O setor precisa de pelo menos <strong>{{ min_disponiveis }}</strong> (de {{ total_ativos }} ativos).</p>
+    </div>
+    <div class="legenda">
+      <span><i style="background:var(--verde)"></i>Com cobertura</span>
+      <span><i style="background:var(--vermelho)"></i>Menos de {{ min_disponiveis }} disponíveis</span>
+    </div>
+  </div>
+  <div class="card-corpo">
+    {% if cobertura %}
+      <div class="cobertura" role="img" aria-label="Gráfico de pessoas disponíveis no setor">
+        {% for s in cobertura %}
+          <div class="cobertura-col {{ 'conflito' if s.conflito }}"
+               title="Semana de {{ s.inicio|data }}: {{ s.disponiveis }} disponível(is){% if s.nomes %} · de férias: {{ s.nomes|join(', ') }}{% endif %}">
+            <span class="cobertura-valor">{{ s.disponiveis }}</span>
+            <span class="cobertura-barra" style="height: {{ 8 if s.pct < 8 else s.pct }}%"></span>
+            {% if loop.index0 % 4 == 0 %}<span class="cobertura-rotulo">{{ s.rotulo }}</span>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="vazio">Sem dados de cobertura neste ciclo.</div>
+    {% endif %}
+
+    {% set semanas_conflito = cobertura|selectattr('conflito')|list %}
+    {% if semanas_conflito %}
+      <div class="alerta alerta-erro" style="margin-top:16px">
+        <div>
+          <strong>Semanas com menos de {{ min_disponiveis }} no setor</strong>
+          <ul>
+            {% for s in semanas_conflito %}
+              <li>
+                Semana de {{ s.inicio|data }} — {{ s.disponiveis }} disponível(is)
+                {% if s.nomes %} · de férias: {{ s.nomes|join(', ') }}{% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+          <p style="margin:8px 0 0">Use os botões <em>Alternativa</em> na tabela acima para reagendar quem está programado nesses períodos.</p>
+        </div>
+      </div>
+    {% else %}
+      <div class="alerta alerta-sucesso" style="margin-top:16px">Nenhuma semana com menos de {{ min_disponiveis }} pessoas disponíveis.</div>
+    {% endif %}
+  </div>
 </div>
 {% endblock %}

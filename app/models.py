@@ -93,7 +93,7 @@ class Configuracao(db.Model):
 
     PADROES = {
         "mes_inicio_ciclo": "5",
-        "max_simultaneos": "1",
+        "min_disponiveis": "3",
         "dias_cronograma": "56",
     }
 

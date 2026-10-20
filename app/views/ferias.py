@@ -4,7 +4,7 @@ from io import BytesIO
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import current_user
 
-from ..consultas import ciclo_atual, ferias_no_intervalo, funcionarios_ativos
+from ..consultas import ciclo_atual, ferias_no_intervalo, funcionarios_ativos, minimo_no_setor, serie_cobertura
 from ..models import STATUS_APROVADA, STATUS_PROGRAMADA, Configuracao, Ferias, Funcionario, db
 from ..regras import (
     DIAS_MAX_CICLO,
@@ -69,18 +69,32 @@ def lista():
     funcionario_id = request.args.get("funcionario", type=int)
     status = request.args.get("status", "")
 
-    ferias = [f for f in ferias_no_intervalo(ciclo_ini, ciclo_fim) if ciclo_ini <= f.inicio <= ciclo_fim]
+    todas = [f for f in ferias_no_intervalo(ciclo_ini, ciclo_fim) if ciclo_ini <= f.inicio <= ciclo_fim]
+    ferias = todas
     if funcionario_id:
         ferias = [f for f in ferias if f.funcionario_id == funcionario_id]
     if status in (STATUS_APROVADA, STATUS_PROGRAMADA):
         ferias = [f for f in ferias if f.status == status]
 
-    avisos = {f.id: analisar_periodo_db(f.funcionario, f.inicio, f.dias, f.id).avisos for f in ferias}
+    avisos, alternativas = {}, {}
+    for f in ferias:
+        analise = analisar_periodo_db(f.funcionario, f.inicio, f.dias, f.id)
+        avisos[f.id] = analise.avisos
+        if analise.alternativas:
+            alternativas[f.id] = analise.alternativas
+
+    ativos = funcionarios_ativos()
+    min_disp = minimo_no_setor()
+    cobertura = serie_cobertura(todas, ciclo_ini, ciclo_fim, len(ativos), min_disp)
 
     return render_template(
         "ferias/lista.html",
         ferias=ferias,
         avisos=avisos,
+        alternativas=alternativas,
+        cobertura=cobertura,
+        total_ativos=len(ativos),
+        min_disponiveis=min_disp,
         ciclo_ini=ciclo_ini,
         ciclos=_ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
@@ -101,12 +115,12 @@ def formulario(ferias_id: int | None = None):
         flash("Férias aprovadas só podem ser alteradas por um administrador.", "aviso")
         return redirect(url_for("ferias.lista"))
 
-    avisos, erros = [], []
+    avisos, erros, alternativas = [], [], []
     if request.method == "POST":
         funcionario, inicio, dias, erros = _ler_formulario()
         if not erros:
             analise = analisar_periodo_db(funcionario, inicio, dias, ferias_id)
-            erros, avisos = analise.erros, analise.avisos
+            erros, avisos, alternativas = analise.erros, analise.avisos, analise.alternativas
 
         confirmado = request.form.get("confirmar") == "1"
         if not erros and (not avisos or confirmado):
@@ -144,6 +158,7 @@ def formulario(ferias_id: int | None = None):
         funcionarios=funcionarios,
         erros=erros,
         avisos=avisos,
+        alternativas=alternativas,
         dados=request.form if request.method == "POST" else None,
         dias_max=DIAS_MAX_CICLO,
     )
@@ -171,6 +186,10 @@ def analisar():
         fim=fim.strftime("%d/%m/%Y") if fim else None,
         erros=analise.erros,
         avisos=analise.avisos,
+        alternativas=[
+            {"inicio": a.inicio.isoformat(), "fim": a.fim.strftime("%d/%m/%Y"), "rotulo": a.inicio.strftime("%d/%m/%Y")}
+            for a in analise.alternativas
+        ],
     )
 
 
@@ -187,6 +206,35 @@ def alternar_aprovacao(ferias_id: int):
     registrar(acao, f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}")
     db.session.commit()
     flash(f"{acao}: {ferias.funcionario.nome}.", "sucesso")
+    return redirect(request.referrer or url_for("ferias.lista"))
+
+
+@bp.route("/<int:ferias_id>/mover", methods=["POST"])
+@requer("calendario")
+def mover(ferias_id: int):
+    ferias = db.get_or_404(Ferias, ferias_id)
+    if not _pode_editar(ferias):
+        flash("Férias aprovadas só podem ser alteradas por um administrador.", "aviso")
+        return redirect(url_for("ferias.lista"))
+    try:
+        inicio = datetime.strptime(request.form.get("inicio", ""), "%Y-%m-%d").date()
+    except ValueError:
+        flash("Data alternativa inválida.", "erro")
+        return redirect(url_for("ferias.lista"))
+
+    analise = analisar_periodo_db(ferias.funcionario, inicio, ferias.dias, ferias.id)
+    if analise.erros:
+        flash(analise.erros[0], "erro")
+        return redirect(url_for("ferias.lista"))
+
+    anterior = f"{ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}"
+    ferias.definir_periodo(inicio, ferias.dias)
+    registrar(
+        "Férias reagendadas",
+        f"{ferias.funcionario.nome}: {anterior} → {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}",
+    )
+    db.session.commit()
+    flash(f"Férias de {ferias.funcionario.nome} movidas para {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}.", "sucesso")
     return redirect(request.referrer or url_for("ferias.lista"))
 
 

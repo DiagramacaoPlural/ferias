@@ -21,7 +21,13 @@ def app(tmp_path):
         admin.trocar_senha = False
         comum = Usuario(login="joao", acessa_calendario=True, acessa_cronograma=False, trocar_senha=False)
         comum.definir_senha("senha123")
-        db.session.add_all([comum, Funcionario(nome="Carlos"), Funcionario(nome="Edson")])
+        db.session.add_all([
+            comum,
+            Funcionario(nome="Carlos"),
+            Funcionario(nome="Edson"),
+            Funcionario(nome="Ana"),
+            Funcionario(nome="Bruno"),
+        ])
         db.session.commit()
     yield app
 
@@ -122,6 +128,24 @@ def test_aviso_exige_confirmacao(app):
     client.post("/ferias/nova", data={**dados, "confirmar": "1"})
     with app.app_context():
         assert db.session.scalar(db.select(db.func.count(Ferias.id))) == 1
+
+
+def test_programacao_mostra_cobertura_e_alternativa(app):
+    client = app.test_client()
+    entrar(client)
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
+        ana = db.session.scalar(db.select(Funcionario).filter_by(nome="Ana"))
+        ids = (carlos.id, edson.id, ana.id)
+
+    for fid in ids:
+        client.post("/ferias/nova", data={"funcionario_id": fid, "inicio": "2026-12-01", "dias": "10", "confirmar": "1"})
+
+    pagina = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
+    assert "Cobertura do setor" in pagina
+    assert "Semanas com menos de 3 no setor" in pagina
+    assert "Alternativa:" in pagina
 
 
 def test_analise_ao_vivo(app):
