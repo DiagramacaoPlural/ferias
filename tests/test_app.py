@@ -53,7 +53,6 @@ def test_paginas_principais_carregam(app):
     client = app.test_client()
     entrar(client)
     for url in ["/", "/ferias/", "/ferias/nova", "/ferias/calendario", "/cronograma/",
-                "/provas/", "/provas/projetos", "/provas/cronograma", "/provas/diario", "/provas/relatorios",
                 "/admin/funcionarios", "/admin/usuarios", "/admin/configuracoes", "/admin/historico"]:
         assert client.get(url).status_code == 200, url
 

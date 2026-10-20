@@ -65,9 +65,8 @@ def create_app(config: dict | None = None) -> Flask:
     from .views.cronograma import bp as cronograma_bp
     from .views.ferias import bp as ferias_bp
     from .views.main import bp as main_bp
-    from .views.provas import bp as provas_bp
 
-    for blueprint in (auth_bp, main_bp, ferias_bp, cronograma_bp, provas_bp, admin_bp):
+    for blueprint in (auth_bp, main_bp, ferias_bp, cronograma_bp, admin_bp):
         app.register_blueprint(blueprint)
 
     _registrar_filtros(app)
@@ -141,5 +140,4 @@ def _registrar_filtros(app: Flask) -> None:
     def injetar_globais():
         from flask import request
 
-        endpoint = request.endpoint or ""
-        return {"hoje": date.today(), "modulo_provas": endpoint.startswith("provas")}
+        return {"hoje": date.today()}

@@ -28,28 +28,6 @@
         <label for="dias_cronograma">Janela padrão do cronograma (dias)</label>
         <input type="number" id="dias_cronograma" name="dias_cronograma" min="7" max="364" step="7" value="{{ dias_cronograma }}">
       </div>
-      <h2 class="subtitulo-secao">Verbas (auxílio Alymente)</h2>
-      <p class="texto-suave" style="margin-top:0">Valores da planilha Provas, usados no controle diário. Em SP a verba é sempre 0; em folga comum também.</p>
-      <div class="campos-linha">
-        <div class="campo">
-          <label for="verba_df_trabalho">DF · dia de trabalho</label>
-          <input type="number" id="verba_df_trabalho" name="verba_df_trabalho" min="0" value="{{ verba_df_trabalho }}">
-        </div>
-        <div class="campo">
-          <label for="verba_df_especial">DF · folga DF / feriado</label>
-          <input type="number" id="verba_df_especial" name="verba_df_especial" min="0" value="{{ verba_df_especial }}">
-        </div>
-      </div>
-      <div class="campos-linha">
-        <div class="campo">
-          <label for="verba_thiago_trabalho">Thiago · dia de trabalho</label>
-          <input type="number" id="verba_thiago_trabalho" name="verba_thiago_trabalho" min="0" value="{{ verba_thiago_trabalho }}">
-        </div>
-        <div class="campo">
-          <label for="verba_thiago_feriado">Thiago · feriado trabalhado</label>
-          <input type="number" id="verba_thiago_feriado" name="verba_thiago_feriado" min="0" value="{{ verba_thiago_feriado }}">
-        </div>
-      </div>
       <button type="submit" class="btn btn-primario">Salvar configurações</button>
     </div>
   </form>
@@ -59,8 +37,7 @@
     <div class="card-corpo">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <p class="texto-suave" style="margin-top:0">
-        Detecta o tipo da planilha: <strong>Férias_Final.xlsm</strong> (abas CALENDARIO e USUARIOS)
-        ou <strong>Provas.xlsm</strong> (abas Cronograma, Projetos e Controle_Diario).
+        Importe <strong>Férias_Final.xlsm</strong> (abas CALENDARIO e USUARIOS).
         Registros já existentes não são duplicados.
       </p>
       <div class="campo">
