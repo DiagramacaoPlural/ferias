@@ -8,7 +8,7 @@ from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from .models import Usuario, db
+from .models import Usuario, db, garantir_esquema
 from .regras import MESES, MESES_ABREV
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -83,6 +83,7 @@ def create_app(config: dict | None = None) -> Flask:
 
     with app.app_context():
         db.create_all()
+        garantir_esquema()
         from .seed import inicializar_banco
 
         inicializar_banco(BASE_DIR if app.config["IMPORTAR_PLANILHA_INICIAL"] else None)

@@ -246,6 +246,9 @@ textarea { resize: vertical; min-height: 70px; }
 
 .checkbox { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; cursor: pointer; }
 .checkbox input { width: 16px; height: 16px; accent-color: var(--azul); }
+.campo-opcao { margin-bottom: 16px; }
+.campo-opcao .checkbox { margin-bottom: 4px; }
+.ajuda-campo { margin: 0 0 0 24px; color: var(--texto-suave); font-size: 12.5px; }
 
 .filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .filtros select { width: auto; min-width: 150px; }

@@ -86,6 +86,46 @@ def test_criar_aprovar_e_exportar(app):
     assert resp.data[:2] == b"PK"
 
 
+def test_primeira_parcela_13_no_formulario_e_na_lista(app):
+    client = app.test_client()
+    entrar(client)
+    pagina = client.get("/ferias/nova").get_data(as_text=True)
+    assert "Antecipar a 1ª parcela do 13º" in pagina
+    assert "Somente para férias com início a partir de fevereiro" in pagina
+
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+
+    recusado = client.post(
+        "/ferias/nova",
+        data={"funcionario_id": carlos.id, "inicio": "2027-01-11", "dias": "10", "adianta_13": "1", "confirmar": "1"},
+    )
+    html = recusado.get_data(as_text=True)
+    assert "a partir de fevereiro" in html
+    with app.app_context():
+        assert db.session.scalar(db.select(db.func.count(Ferias.id))) == 0
+
+    resp = client.post(
+        "/ferias/nova",
+        data={"funcionario_id": carlos.id, "inicio": "2027-02-01", "dias": "10", "adianta_13": "1", "confirmar": "1"},
+        follow_redirects=True,
+    )
+    assert "Férias salvas" in resp.get_data(as_text=True)
+    with app.app_context():
+        ferias = db.session.scalar(db.select(Ferias))
+        assert ferias.adianta_13 is True
+        assert ferias.inicio == date(2027, 2, 1)
+
+    lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
+    assert "1ª parcela" in lista
+
+    ao_vivo = client.post(
+        "/ferias/analisar",
+        json={"funcionario_id": carlos.id, "inicio": "2027-01-11", "dias": 10, "adianta_13": True},
+    )
+    assert any("fevereiro" in e for e in ao_vivo.get_json()["erros"])
+
+
 def test_aviso_exige_confirmacao(app):
     client = app.test_client()
     entrar(client)

@@ -1,11 +1,17 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, ciclo_de, meses_do_ciclo, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, ciclo_de, meses_do_ciclo, pode_adiantar_13, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
     return analisar_periodo(nome, inicio, dias, list(proprios), list(outros), limite, 5)
+
+
+def test_primeira_parcela_13_so_a_partir_de_fevereiro():
+    assert not pode_adiantar_13(date(2027, 1, 31))
+    assert pode_adiantar_13(date(2027, 2, 1))
+    assert pode_adiantar_13(date(2026, 12, 1))
 
 
 def test_fim_conta_o_dia_de_inicio():

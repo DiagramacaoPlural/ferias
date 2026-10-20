@@ -44,6 +44,7 @@
           <th>Fim</th>
           <th class="num">Dias</th>
           <th>Status</th>
+          <th>13º</th>
           <th>Observação</th>
           <th class="acoes-col">Ações</th>
         </tr>
@@ -76,6 +77,7 @@
               {{ status(f) }}
               {% if f.aprovada and f.aprovado_por %}<br><small class="texto-suave">por {{ f.aprovado_por }}</small>{% endif %}
             </td>
+            <td>{% if f.adianta_13 %}<span class="badge badge-admin badge-sem">1ª parcela</span>{% else %}<span class="texto-suave">—</span>{% endif %}</td>
             <td class="texto-suave">{{ f.observacao or '' }}</td>
             <td class="acoes-col">
               {% if current_user.admin %}

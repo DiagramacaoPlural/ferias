@@ -6,6 +6,7 @@
 {% set v_inicio = (dados.get('inicio') if dados else (ferias.inicio.isoformat() if ferias else '')) %}
 {% set v_dias = (dados.get('dias') if dados else (ferias.dias if ferias else 30)) %}
 {% set v_obs = (dados.get('observacao') if dados else (ferias.observacao if ferias and ferias.observacao else '')) %}
+{% set v_13 = (dados.get('adianta_13') == '1' if dados else (ferias.adianta_13 if ferias else false)) %}
 {% set v_aprovada = (dados.get('aprovada') == '1' if dados else (ferias.aprovada if ferias else false)) %}
 
 <div class="cabecalho">
@@ -53,6 +54,14 @@
       {% for n in [5, 10, 14, 15, 20, 30] %}
         <button type="button" class="btn btn-pequeno" data-dias="{{ n }}">{{ n }} dias</button>
       {% endfor %}
+    </div>
+
+    <div class="campo-opcao">
+      <label class="checkbox">
+        <input type="checkbox" id="adianta_13" name="adianta_13" value="1" {{ 'checked' if v_13 }}>
+        Antecipar a 1ª parcela do 13º
+      </label>
+      <p class="ajuda-campo">Somente para férias com início a partir de fevereiro.</p>
     </div>
 
     <div class="campo">
@@ -103,6 +112,7 @@
     inicio: document.getElementById('inicio'),
     dias: document.getElementById('dias'),
     fim: document.getElementById('fim'),
+    adianta13: document.getElementById('adianta_13'),
   };
   const painel = document.getElementById('analise-ao-vivo');
   const token = document.querySelector('meta[name="csrf-token"]').content;
@@ -130,6 +140,7 @@
           funcionario_id: campos.funcionario.value,
           inicio: campos.inicio.value,
           dias: campos.dias.value,
+          adianta_13: campos.adianta13.checked,
           ferias_id: form.dataset.feriasId || null,
         }),
       });
@@ -165,6 +176,7 @@
     campos.funcionario.addEventListener(ev, agendar);
     campos.inicio.addEventListener(ev, agendar);
     campos.dias.addEventListener(ev, agendar);
+    campos.adianta13.addEventListener(ev, agendar);
   });
   document.querySelectorAll('[data-dias]').forEach(btn => btn.addEventListener('click', () => {
     campos.dias.value = btn.dataset.dias;

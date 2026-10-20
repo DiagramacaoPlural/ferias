@@ -24,7 +24,7 @@
         <div class="mes-coluna programadas">
           <h3>Programadas</h3>
           {% for f in mes.programadas %}
-            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }}{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}
@@ -32,7 +32,7 @@
         <div class="mes-coluna aprovadas">
           <h3>Aprovadas</h3>
           {% for f in mes.aprovadas %}
-            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }}{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}

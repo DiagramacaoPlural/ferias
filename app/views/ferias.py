@@ -14,10 +14,12 @@ from ..consultas import (
 )
 from ..models import STATUS_APROVADA, STATUS_PROGRAMADA, Configuracao, Ferias, Funcionario, db
 from ..regras import (
+    AVISO_13_FEVEREIRO,
     DIAS_MAX_CICLO,
     analisar_periodo_db,
     calcular_fim,
     meses_do_ciclo,
+    pode_adiantar_13,
     rotulo_ciclo,
     sobrepoe,
     ultimo_dia_mes,
@@ -67,6 +69,16 @@ def _ler_formulario():
     if not dias:
         erros.append("Informe a quantidade de dias.")
     return funcionario, inicio, dias, erros
+
+
+def _quer_adiantar_13(fonte) -> bool:
+    return str(fonte.get("adianta_13") or "").strip().lower() in ("1", "true", "on")
+
+
+def _erro_adianta_13(inicio: date | None, adianta: bool) -> str | None:
+    if adianta and inicio and not pode_adiantar_13(inicio):
+        return AVISO_13_FEVEREIRO
+    return None
 
 
 @bp.route("/")
@@ -127,6 +139,9 @@ def formulario(ferias_id: int | None = None):
     avisos, erros, alternativas = [], [], []
     if request.method == "POST":
         funcionario, inicio, dias, erros = _ler_formulario()
+        adianta_13 = _quer_adiantar_13(request.form)
+        if erro_13 := _erro_adianta_13(inicio, adianta_13):
+            erros.append(erro_13)
         if not erros:
             analise = analisar_periodo_db(funcionario, inicio, dias, ferias_id)
             erros, avisos, alternativas = analise.erros, analise.avisos, analise.alternativas
@@ -140,6 +155,7 @@ def formulario(ferias_id: int | None = None):
             ferias.funcionario = funcionario
             ferias.definir_periodo(inicio, dias)
             ferias.observacao = request.form.get("observacao", "").strip() or None
+            ferias.adianta_13 = adianta_13
 
             if current_user.admin:
                 aprovar = request.form.get("aprovada") == "1"
@@ -150,6 +166,8 @@ def formulario(ferias_id: int | None = None):
                     ferias.aprovado_por = ferias.aprovado_em = None
 
             descricao = f"{funcionario.nome}: {inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} ({dias} dias)"
+            if adianta_13:
+                descricao += " · 1ª parcela do 13º"
             if avisos:
                 descricao += f" | salvo com {len(avisos)} aviso(s)"
             registrar("Férias criadas" if novo else "Férias alteradas", descricao)
@@ -186,14 +204,17 @@ def analisar():
         return jsonify(fim=None, erros=[], avisos=[])
 
     fim = calcular_fim(inicio, dias) if dias > 0 else None
+    erros_13 = []
+    if erro_13 := _erro_adianta_13(inicio, _quer_adiantar_13(dados)):
+        erros_13.append(erro_13)
     if not funcionario:
-        return jsonify(fim=fim.strftime("%d/%m/%Y") if fim else None, erros=[], avisos=[])
+        return jsonify(fim=fim.strftime("%d/%m/%Y") if fim else None, erros=erros_13, avisos=[])
 
     ferias_id = int(dados["ferias_id"]) if str(dados.get("ferias_id") or "").isdigit() else None
     analise = analisar_periodo_db(funcionario, inicio, dias, ferias_id)
     return jsonify(
         fim=fim.strftime("%d/%m/%Y") if fim else None,
-        erros=analise.erros,
+        erros=erros_13 + analise.erros,
         avisos=analise.avisos,
         alternativas=[
             {"inicio": a.inicio.isoformat(), "fim": a.fim.strftime("%d/%m/%Y"), "rotulo": a.inicio.strftime("%d/%m/%Y")}
@@ -318,20 +339,20 @@ def exportar():
 
     ws = wb.active
     ws.title = "Férias"
-    ws.append(["Funcionário", "Início", "Fim", "Dias", "Status", "Observação", "Aprovado por", "Aprovado em"])
+    ws.append(["Funcionário", "Início", "Fim", "Dias", "Status", "1ª parcela 13º", "Observação", "Aprovado por", "Aprovado em"])
     for f in ferias:
         ws.append([
             f.funcionario.nome, f.inicio, f.fim, f.dias, f.status_rotulo,
-            f.observacao or "", f.aprovado_por or "", f.aprovado_em,
+            "Sim" if f.adianta_13 else "Não", f.observacao or "", f.aprovado_por or "", f.aprovado_em,
         ])
         linha = ws.max_row
         ws.cell(row=linha, column=2).number_format = "DD/MM/YYYY"
         ws.cell(row=linha, column=3).number_format = "DD/MM/YYYY"
-        ws.cell(row=linha, column=8).number_format = "DD/MM/YYYY HH:MM"
+        ws.cell(row=linha, column=9).number_format = "DD/MM/YYYY HH:MM"
         if f.aprovada:
-            for col in range(1, 9):
+            for col in range(1, 10):
                 ws.cell(row=linha, column=col).fill = verde
-    formatar_cabecalho(ws, [24, 13, 13, 8, 13, 40, 16, 18])
+    formatar_cabecalho(ws, [24, 13, 13, 8, 13, 16, 40, 16, 18])
 
     resumo = wb.create_sheet("Resumo por funcionário")
     resumo.append(["Funcionário", "Períodos", "Dias aprovados", "Dias programados", "Saldo (de 30)"])

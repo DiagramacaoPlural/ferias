@@ -64,6 +64,7 @@ class Ferias(db.Model):
     fim = db.Column(db.Date, nullable=False, index=True)
     status = db.Column(db.String(20), default=STATUS_PROGRAMADA, nullable=False)
     observacao = db.Column(db.String(500))
+    adianta_13 = db.Column(db.Boolean, default=False, nullable=False)
     criado_por = db.Column(db.String(60))
     criado_em = db.Column(db.DateTime, default=datetime.now)
     aprovado_por = db.Column(db.String(60))
@@ -116,6 +117,17 @@ class Configuracao(db.Model):
             item.valor = str(valor)
         else:
             db.session.add(cls(chave=chave, valor=str(valor)))
+
+
+def garantir_esquema() -> None:
+    """Inclui colunas novas em bancos já existentes (create_all não altera tabela)."""
+    inspector = db.inspect(db.engine)
+    if "ferias" not in inspector.get_table_names():
+        return
+    colunas = {c["name"] for c in inspector.get_columns("ferias")}
+    if "adianta_13" not in colunas:
+        with db.engine.begin() as conn:
+            conn.execute(db.text("ALTER TABLE ferias ADD COLUMN adianta_13 BOOLEAN NOT NULL DEFAULT 0"))
 
 
 class TentativaLogin(db.Model):

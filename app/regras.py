@@ -19,6 +19,9 @@ DIAS_MIN_PERIODO = 5
 DIAS_MIN_PERIODO_PRINCIPAL = 14
 DIAS_MAX_CICLO = 30
 MAX_PERIODOS = 3
+AVISO_13_FEVEREIRO = (
+    "A 1ª parcela do 13º só pode ser antecipada em férias com início a partir de fevereiro."
+)
 
 
 @dataclass
@@ -50,6 +53,11 @@ class Analise:
 def calcular_fim(inicio: date, dias: int) -> date:
     """O dia de início conta como 1º dia de férias."""
     return inicio + timedelta(days=dias - 1)
+
+
+def pode_adiantar_13(inicio: date) -> bool:
+    """A 1ª parcela do 13º só vale para férias que começam em fevereiro ou depois."""
+    return inicio.month >= 2
 
 
 def ciclo_de(dia: date, mes_inicio: int) -> tuple[date, date]:
