@@ -119,6 +119,7 @@ def test_programacao_mostra_cobertura_e_alternativa(app):
     assert "Cobertura do setor" in pagina
     assert "Semanas com menos de 3 no setor" in pagina
     assert "Alternativa:" in pagina
+    assert pagina.find("Resumo mensal") < pagina.find("grafico-cobertura")
 
 
 def test_analise_ao_vivo(app):

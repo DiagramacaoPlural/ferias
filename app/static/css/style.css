@@ -355,8 +355,9 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 }
 .kpi-mini .kpi-valor { font-size: 28px; font-weight: 700; line-height: 1.1; }
 .subtitulo-secao { margin: 22px 0 10px; color: var(--texto); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+.card-corpo > .subtitulo-secao:first-child { margin-top: 0; }
 
-.grafico-legenda { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--texto-suave); margin-bottom: 8px; }
+.grafico-legenda { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--texto-suave); margin: 22px 0 8px; }
 .grafico-legenda i { display: inline-block; width: 18px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 1px; }
 .legenda-area { background: rgba(37, 99, 235, .25); box-shadow: inset 0 -2px 0 var(--azul); }
 .legenda-limite { background: repeating-linear-gradient(90deg, var(--vermelho) 0 6px, transparent 6px 10px); height: 3px !important; vertical-align: 3px; }

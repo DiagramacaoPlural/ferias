@@ -136,6 +136,23 @@
   </div>
 
   <div class="card-corpo">
+    <h3 class="subtitulo-secao">Resumo mensal (pior semana de cada mês)</h3>
+    {% if painel.meses %}
+    <div class="meses-cobertura">
+      {% for mes in painel.meses %}
+        <div class="mes-cobertura {{ 'risco' if mes.conflito else 'atencao' }}"
+             title="{{ mes.nome }}: {{ mes.disponiveis }} disponíveis, {{ mes.ausentes }} de férias{% if mes.nomes %} · {{ mes.nomes|join(', ') }}{% endif %}">
+          <span class="mes-cobertura-nome">{{ mes.rotulo }}</span>
+          <strong>{{ mes.disponiveis }}</strong>
+          <span class="texto-suave">no setor</span>
+          <span class="mes-cobertura-ausentes">{{ mes.ausentes }} de férias</span>
+        </div>
+      {% endfor %}
+    </div>
+    {% else %}
+      <p class="texto-suave">Nenhum mês com férias neste ciclo.</p>
+    {% endif %}
+
     <div class="grafico-legenda">
       <span><i class="legenda-area"></i> Pessoas de férias na semana</span>
       {% if painel.svg.y_limite %}
@@ -166,19 +183,6 @@
         {% endfor %}
         <text x="14" y="16" class="grafico-eixo-titulo">De férias</text>
       </svg>
-    </div>
-
-    <h3 class="subtitulo-secao">Resumo mensal (pior semana de cada mês)</h3>
-    <div class="meses-cobertura">
-      {% for mes in painel.meses %}
-        <div class="mes-cobertura {{ 'risco' if mes.conflito else ('atencao' if mes.ausentes else 'ok') }}"
-             title="{{ mes.nome }}: {{ mes.disponiveis }} disponíveis, {{ mes.ausentes }} de férias{% if mes.nomes %} · {{ mes.nomes|join(', ') }}{% endif %}">
-          <span class="mes-cobertura-nome">{{ mes.rotulo }}</span>
-          <strong>{{ mes.disponiveis }}</strong>
-          <span class="texto-suave">no setor</span>
-          {% if mes.ausentes %}<span class="mes-cobertura-ausentes">{{ mes.ausentes }} de férias</span>{% endif %}
-        </div>
-      {% endfor %}
     </div>
 
     {% if painel.concentracoes %}

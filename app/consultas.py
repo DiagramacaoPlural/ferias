@@ -117,6 +117,7 @@ def painel_cobertura(semanas: list[dict], total_ativos: int, min_disponiveis: in
                 "conflito": s["conflito"],
             }
         )
+    meses = [m for m in meses if m["ausentes"]]
 
     largura, altura = 920, 280
     esq, dir_, topo, base = 48, 18, 24, 44

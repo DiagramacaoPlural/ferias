@@ -88,6 +88,7 @@ def test_aviso_mais_de_3_periodos():
 
 def test_painel_cobertura_destaca_pico():
     semanas = [
+        {"inicio": date(2026, 11, 3), "disponiveis": 12, "ausentes": 0, "conflito": False, "nomes": []},
         {"inicio": date(2026, 12, 1), "disponiveis": 12, "ausentes": 0, "conflito": False, "nomes": []},
         {"inicio": date(2026, 12, 8), "disponiveis": 8, "ausentes": 4, "conflito": False, "nomes": ["A", "B", "C", "D"]},
         {"inicio": date(2027, 1, 5), "disponiveis": 9, "ausentes": 3, "conflito": False, "nomes": ["A", "B", "C"]},
@@ -98,6 +99,7 @@ def test_painel_cobertura_destaca_pico():
     assert painel["kpi"]["riscos"] == 0
     assert "4" in painel["svg"]["linha"]
     assert painel["concentracoes"][0]["disponiveis"] == 8
+    assert [m["rotulo"] for m in painel["meses"]] == ["dez/26", "jan/27"]
 
 
 def test_setor_desfalcado_gera_aviso_e_alternativas():
