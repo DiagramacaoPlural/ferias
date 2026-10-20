@@ -98,6 +98,10 @@ class Configuracao(db.Model):
         "mes_inicio_ciclo": "5",
         "min_disponiveis": "3",
         "dias_cronograma": "56",
+        "verba_df_trabalho": "170",
+        "verba_df_especial": "200",
+        "verba_thiago_trabalho": "70",
+        "verba_thiago_feriado": "85",
     }
 
     @classmethod

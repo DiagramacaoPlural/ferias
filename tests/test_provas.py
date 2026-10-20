@@ -3,9 +3,25 @@ from pathlib import Path
 
 import pytest
 
+from decimal import Decimal
+
 from app.models import EtapaProva, Funcionario, LancamentoDiario, ProjetoProva, db
 from app.seed import classificar_etapa, importar_provas
+from app.verbas import calcular_verba
 from app.views.provas import conflitos_mesmo_local
+
+
+def test_verba_segue_regra_da_planilha():
+    padrao = {}
+    assert calcular_verba("SP", "TRABALHO", "Carlos", padrao) == 0
+    assert calcular_verba("DF", "FOLGA", "Carlos", padrao) == 0
+    assert calcular_verba("DF", "TRABALHO", "Carlos", padrao) == Decimal("170")
+    assert calcular_verba("DF", "FOLGA_DF", "Carlos", padrao) == Decimal("200")
+    assert calcular_verba("DF", "FERIADO_TRABALHADO", "Carlos", padrao) == Decimal("200")
+    assert calcular_verba("DF", "TRABALHO", "Thiago/PJ", padrao) == Decimal("70")
+    assert calcular_verba("DF", "FERIADO_TRABALHADO", "Thiago", padrao) == Decimal("85")
+    assert calcular_verba("DF", "FOLGA_DF", "Thiago", padrao) == 0
+    assert calcular_verba(None, "TRABALHO", "Carlos", padrao) == 0
 
 
 def test_classificar_etapa():
@@ -84,6 +100,22 @@ def test_criar_projeto_etapa_e_lancamento(app):
         lanc = db.session.scalar(db.select(LancamentoDiario))
         assert lanc.tarefa == "Miolo caderno 1"
         assert float(lanc.verba) == 45.5
+
+    resp = client.post(
+        "/provas/diario/novo",
+        data={
+            "etapa_id": etapa_id,
+            "funcionario_id": carlos_id,
+            "data": "2026-06-17",
+            "tipo": "TRABALHO",
+            "realizada": "1",
+        },
+        follow_redirects=True,
+    )
+    assert "Lançamento salvo" in resp.get_data(as_text=True)
+    with app.app_context():
+        auto = db.session.scalar(db.select(LancamentoDiario).filter_by(data=date(2026, 6, 17)))
+        assert float(auto.verba) == 170
 
 
 def test_sobreposicao_mesmo_local(app):

@@ -18,6 +18,7 @@ from ..models import (
     db,
 )
 from ..regras import DIAS_SEMANA_ABREV, MESES, sobrepoe as periodos_sobrepoem
+from ..verbas import calcular_verba, taxas as carregar_taxas
 from . import registrar, requer
 
 bp = Blueprint("provas", __name__, url_prefix="/provas")
@@ -407,6 +408,8 @@ def diario_form(lancamento_id: int | None = None):
         except ValueError as erro:
             verba = None
             erros.append(str(erro))
+        if verba is None and etapa and funcionario:
+            verba = calcular_verba(etapa.local, tipo, funcionario.nome)
 
         if etapa and data_lanc and etapa.inicio and etapa.fim:
             if not (etapa.inicio <= data_lanc <= etapa.fim):
@@ -455,6 +458,7 @@ def diario_form(lancamento_id: int | None = None):
         avisos=avisos,
         dados=request.form if request.method == "POST" else None,
         etapa_padrao=request.args.get("etapa", type=int),
+        taxas_verba={chave: str(valor) for chave, valor in carregar_taxas().items()},
     )
 
 

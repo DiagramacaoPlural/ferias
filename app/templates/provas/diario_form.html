@@ -31,7 +31,7 @@
       <select id="etapa_id" name="etapa_id" required>
         <option value="">Selecione…</option>
         {% for e in etapas %}
-          <option value="{{ e.id }}" {{ 'selected' if e.id == v_etapa }}>{{ e.rotulo_completo }}</option>
+          <option value="{{ e.id }}" data-local="{{ e.local or '' }}" {{ 'selected' if e.id == v_etapa }}>{{ e.rotulo_completo }}</option>
         {% endfor %}
       </select>
     </div>
@@ -42,7 +42,7 @@
         <select id="funcionario_id" name="funcionario_id" required>
           <option value="">Selecione…</option>
           {% for f in funcionarios %}
-            <option value="{{ f.id }}" {{ 'selected' if f.id == v_func }}>{{ f.nome }}</option>
+            <option value="{{ f.id }}" data-nome="{{ f.nome }}" {{ 'selected' if f.id == v_func }}>{{ f.nome }}</option>
           {% endfor %}
         </select>
       </div>
@@ -64,6 +64,7 @@
       <div class="campo">
         <label for="verba">Verba / auxílio</label>
         <input type="text" id="verba" name="verba" value="{{ v_verba }}" inputmode="decimal" placeholder="0,00">
+        <small>Calculada como na planilha: DF R$ {{ taxas_verba.verba_df_trabalho }} (Thiago R$ {{ taxas_verba.verba_thiago_trabalho }}); SP sem verba. Folga DF/feriado em DF: R$ {{ taxas_verba.verba_df_especial }}.</small>
       </div>
     </div>
 
@@ -91,4 +92,38 @@
     <button type="submit" class="btn btn-primario">Salvar lançamento</button>
   </div>
 </form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const taxas = {{ taxas_verba|tojson }};
+  const etapa = document.getElementById("etapa_id");
+  const func = document.getElementById("funcionario_id");
+  const tipo = document.getElementById("tipo");
+  const campo = document.getElementById("verba");
+  const editando = {{ 'true' if lancamento else 'false' }};
+
+  function numero(chave) { return Number(taxas[chave] || 0); }
+  function calcular() {
+    const local = (etapa.selectedOptions[0] && etapa.selectedOptions[0].dataset.local || "").toUpperCase();
+    const nome = ((func.selectedOptions[0] && func.selectedOptions[0].dataset.nome) || "").toLowerCase();
+    const t = tipo.value;
+    if (local !== "DF" || t === "FOLGA") return 0;
+    if (nome.includes("thiago")) {
+      if (t === "FOLGA_DF") return 0;
+      if (t === "FERIADO_TRABALHADO") return numero("verba_thiago_feriado");
+      return numero("verba_thiago_trabalho");
+    }
+    if (t === "FOLGA_DF" || t === "FERIADO_TRABALHADO") return numero("verba_df_especial");
+    return numero("verba_df_trabalho");
+  }
+  function atualizar() {
+    campo.value = String(calcular()).replace(".", ",");
+  }
+  etapa.addEventListener("change", atualizar);
+  func.addEventListener("change", atualizar);
+  tipo.addEventListener("change", atualizar);
+  if (!editando) atualizar();
+})();
+</script>
 {% endblock %}

@@ -151,16 +151,26 @@ def configuracoes():
         mes = request.form.get("mes_inicio_ciclo", type=int)
         minimo = request.form.get("min_disponiveis", type=int)
         dias_crono = request.form.get("dias_cronograma", type=int)
+        verbas = {
+            "verba_df_trabalho": request.form.get("verba_df_trabalho", type=int),
+            "verba_df_especial": request.form.get("verba_df_especial", type=int),
+            "verba_thiago_trabalho": request.form.get("verba_thiago_trabalho", type=int),
+            "verba_thiago_feriado": request.form.get("verba_thiago_feriado", type=int),
+        }
         if not mes or not 1 <= mes <= 12:
             flash("Mês de início do ciclo inválido.", "erro")
         elif minimo is None or minimo < 1:
             flash("O mínimo de pessoas disponíveis no setor deve ser pelo menos 1.", "erro")
         elif not dias_crono or not 7 <= dias_crono <= 364:
             flash("A janela do cronograma deve ter entre 7 e 364 dias.", "erro")
+        elif any(v is None or v < 0 for v in verbas.values()):
+            flash("Os valores de verba devem ser números inteiros a partir de 0.", "erro")
         else:
             Configuracao.definir("mes_inicio_ciclo", mes)
             Configuracao.definir("min_disponiveis", minimo)
             Configuracao.definir("dias_cronograma", dias_crono)
+            for chave, valor in verbas.items():
+                Configuracao.definir(chave, valor)
             registrar(
                 "Configurações alteradas",
                 f"ciclo inicia em {MESES[mes - 1]}, mín. {minimo} disponíveis no setor, cronograma {dias_crono} dias",
@@ -175,6 +185,10 @@ def configuracoes():
         mes_inicio_ciclo=Configuracao.obter_int("mes_inicio_ciclo"),
         min_disponiveis=Configuracao.obter_int("min_disponiveis"),
         dias_cronograma=Configuracao.obter_int("dias_cronograma"),
+        verba_df_trabalho=Configuracao.obter_int("verba_df_trabalho"),
+        verba_df_especial=Configuracao.obter_int("verba_df_especial"),
+        verba_thiago_trabalho=Configuracao.obter_int("verba_thiago_trabalho"),
+        verba_thiago_feriado=Configuracao.obter_int("verba_thiago_feriado"),
     )
 
 
