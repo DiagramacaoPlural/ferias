@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar etapa' if etapa else 'Nova etapa' }}{% endblock %}
+{% block conteudo %}
+{% set v_projeto = (dados.get('projeto_id')|int if dados else (etapa.projeto_id if etapa else projeto_padrao or 0)) %}
+{% set v_tipo = (dados.get('tipo') if dados else (etapa.tipo if etapa else 'Diagramação')) %}
+{% set v_local = (dados.get('local') if dados else (etapa.local if etapa else '')) %}
+{% set v_inicio = (dados.get('inicio') if dados else (etapa.inicio.isoformat() if etapa and etapa.inicio else '')) %}
+{% set v_fim = (dados.get('fim') if dados else (etapa.fim.isoformat() if etapa and etapa.fim else '')) %}
+{% set v_pcs = (dados.get('pcs_adicionais') if dados else (etapa.pcs_adicionais if etapa else 0)) %}
+{% set v_obs = (dados.get('observacao') if dados else (etapa.observacao if etapa and etapa.observacao else '')) %}
+{% set equipe_ids = dados.getlist('equipe')|map('int')|list if dados else ((etapa.equipe|map(attribute='id')|list) if etapa else []) %}
+
+<div class="cabecalho">
+  <div>
+    <h1>{{ 'Editar etapa' if etapa else 'Nova etapa' }}</h1>
+    <p>Diagramação DF/SP, produção, manuseio FGV ou aplicação.</p>
+  </div>
+  <div class="acoes">
+    <a href="{{ url_for('provas.projeto_form', projeto_id=v_projeto) if v_projeto else url_for('provas.projetos') }}" class="btn">Voltar</a>
+  </div>
+</div>
+
+{% if erros %}
+  <div class="alertas"><div class="alerta alerta-erro"><div><strong>Não foi possível salvar:</strong><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div></div></div>
+{% endif %}
+
+<form method="post" class="card form-estreito" id="form-etapa">
+  <div class="card-corpo">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="campo">
+      <label for="projeto_id">Projeto</label>
+      <select id="projeto_id" name="projeto_id" required>
+        <option value="">Selecione…</option>
+        {% for p in projetos %}
+          <option value="{{ p.id }}" {{ 'selected' if p.id == v_projeto }}>{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="campos-linha">
+      <div class="campo">
+        <label for="tipo">Tipo</label>
+        <select id="tipo" name="tipo" required>
+          {% for t in tipos %}
+            <option value="{{ t }}" {{ 'selected' if t == v_tipo }}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo" id="campo-local">
+        <label for="local">Local</label>
+        <select id="local" name="local">
+          <option value="">—</option>
+          {% for l in locais %}
+            <option value="{{ l }}" {{ 'selected' if l == v_local }}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="campos-linha">
+      <div class="campo">
+        <label for="inicio">Início</label>
+        <input type="date" id="inicio" name="inicio" value="{{ v_inicio }}">
+      </div>
+      <div class="campo">
+        <label for="fim">Término</label>
+        <input type="date" id="fim" name="fim" value="{{ v_fim }}">
+      </div>
+      <div class="campo">
+        <label for="pcs_adicionais">PCs adicionais</label>
+        <input type="number" id="pcs_adicionais" name="pcs_adicionais" min="0" value="{{ v_pcs }}">
+      </div>
+    </div>
+
+    <div class="campo">
+      <label>Equipe (diagramadores)</label>
+      <div class="grade-check">
+        {% for f in funcionarios %}
+          <label class="checkbox"><input type="checkbox" name="equipe" value="{{ f.id }}" {{ 'checked' if f.id in equipe_ids }}> {{ f.nome }}{{ ' (inativo)' if not f.ativo }}</label>
+        {% else %}
+          <span class="texto-suave">Cadastre funcionários em Administração.</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="observacao">Observação</label>
+      <textarea id="observacao" name="observacao" maxlength="500">{{ v_obs }}</textarea>
+    </div>
+
+    {% if avisos %}
+      <div class="alerta alerta-aviso">
+        <div>
+          <strong>Atenção:</strong>
+          <ul>{% for a in avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+      <label class="checkbox"><input type="checkbox" name="confirmar" value="1"> Salvar mesmo assim</label>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primario">Salvar etapa</button>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  const tipo = document.getElementById("tipo");
+  const local = document.getElementById("campo-local");
+  function atualizar() {
+    local.style.display = tipo.value === "Diagramação" ? "" : "none";
+  }
+  tipo.addEventListener("change", atualizar);
+  atualizar();
+})();
+</script>
+{% endblock %}

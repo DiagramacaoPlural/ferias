@@ -2,34 +2,7 @@ from datetime import date
 
 import pytest
 
-from app import create_app
 from app.models import Ferias, Funcionario, Usuario, db
-
-
-@pytest.fixture
-def app(tmp_path):
-    app = create_app(
-        {
-            "TESTING": True,
-            "WTF_CSRF_ENABLED": False,
-            "SQLALCHEMY_DATABASE_URI": f"sqlite:///{tmp_path / 'teste.db'}",
-            "IMPORTAR_PLANILHA_INICIAL": False,
-        }
-    )
-    with app.app_context():
-        admin = db.session.scalar(db.select(Usuario).filter_by(login="admin"))
-        admin.trocar_senha = False
-        comum = Usuario(login="joao", acessa_calendario=True, acessa_cronograma=False, trocar_senha=False)
-        comum.definir_senha("senha123")
-        db.session.add_all([
-            comum,
-            Funcionario(nome="Carlos"),
-            Funcionario(nome="Edson"),
-            Funcionario(nome="Ana"),
-            Funcionario(nome="Bruno"),
-        ])
-        db.session.commit()
-    yield app
 
 
 def entrar(client, login="admin", senha="admin"):
@@ -80,6 +53,7 @@ def test_paginas_principais_carregam(app):
     client = app.test_client()
     entrar(client)
     for url in ["/", "/ferias/", "/ferias/nova", "/ferias/calendario", "/cronograma/",
+                "/provas/", "/provas/projetos", "/provas/cronograma", "/provas/diario", "/provas/relatorios",
                 "/admin/funcionarios", "/admin/usuarios", "/admin/configuracoes", "/admin/historico"]:
         assert client.get(url).status_code == 200, url
 
@@ -182,7 +156,10 @@ def test_importacao_da_planilha_original(app):
 
     from app.seed import importar_planilha
 
-    planilhas = list(Path(__file__).resolve().parent.parent.glob("*.xlsm"))
+    planilhas = [
+        p for p in Path(__file__).resolve().parent.parent.glob("*.xlsm")
+        if "prova" not in p.name.lower()
+    ]
     if not planilhas:
         pytest.skip("planilha original não encontrada")
     with app.app_context():

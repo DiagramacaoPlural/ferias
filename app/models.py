@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from flask_login import UserMixin
 from flask_sqlalchemy import SQLAlchemy
@@ -38,6 +38,9 @@ class Usuario(UserMixin, db.Model):
 
     def pode_cronograma(self) -> bool:
         return self.admin or self.acessa_cronograma
+
+    def pode_provas(self) -> bool:
+        return self.admin or self.acessa_calendario or self.acessa_cronograma
 
 
 class Funcionario(db.Model):
@@ -126,6 +129,137 @@ class TentativaLogin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chave = db.Column(db.String(120), nullable=False, index=True)
     data = db.Column(db.DateTime, default=datetime.now, nullable=False, index=True)
+
+
+equipe_etapa = db.Table(
+    "equipe_etapa",
+    db.Column("etapa_id", db.Integer, db.ForeignKey("etapas_prova.id"), primary_key=True),
+    db.Column("funcionario_id", db.Integer, db.ForeignKey("funcionarios.id"), primary_key=True),
+)
+
+
+class ProjetoProva(db.Model):
+    __tablename__ = "projetos_prova"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(160), unique=True, nullable=False)
+    ordem = db.Column(db.Integer, default=0, nullable=False)
+    ativo = db.Column(db.Boolean, default=True, nullable=False)
+
+    etapas = db.relationship(
+        "EtapaProva", back_populates="projeto", cascade="all, delete-orphan", order_by="EtapaProva.ordem"
+    )
+
+    @property
+    def inicio(self):
+        datas = [e.inicio for e in self.etapas if e.inicio]
+        return min(datas) if datas else None
+
+    @property
+    def fim(self):
+        datas = [e.fim for e in self.etapas if e.fim]
+        return max(datas) if datas else None
+
+    @property
+    def dias(self) -> int:
+        if self.inicio and self.fim:
+            return (self.fim - self.inicio).days + 1
+        return 0
+
+
+class EtapaProva(db.Model):
+    __tablename__ = "etapas_prova"
+
+    id = db.Column(db.Integer, primary_key=True)
+    projeto_id = db.Column(db.Integer, db.ForeignKey("projetos_prova.id"), nullable=False, index=True)
+    tipo = db.Column(db.String(60), nullable=False)
+    local = db.Column(db.String(10))
+    inicio = db.Column(db.Date, index=True)
+    fim = db.Column(db.Date, index=True)
+    ordem = db.Column(db.Integer, default=0, nullable=False)
+    pcs_adicionais = db.Column(db.Integer, default=0, nullable=False)
+    observacao = db.Column(db.String(500))
+
+    projeto = db.relationship("ProjetoProva", back_populates="etapas")
+    equipe = db.relationship("Funcionario", secondary=equipe_etapa)
+    lancamentos = db.relationship("LancamentoDiario", back_populates="etapa", cascade="all, delete-orphan")
+
+    @property
+    def rotulo(self) -> str:
+        return f"{self.tipo} {self.local}".strip() if self.local else self.tipo
+
+    @property
+    def rotulo_completo(self) -> str:
+        return f"{self.projeto.nome} · {self.rotulo}"
+
+    @property
+    def dias(self) -> int:
+        if self.inicio and self.fim:
+            return (self.fim - self.inicio).days + 1
+        return 0
+
+    def progresso(self, referencia: date | None = None) -> float:
+        if not self.inicio or not self.fim:
+            return 0
+        hoje = referencia or date.today()
+        if hoje < self.inicio:
+            return 0
+        if hoje > self.fim:
+            return 1
+        total = max((self.fim - self.inicio).days, 1)
+        return min((hoje - self.inicio).days / total, 1)
+
+    def status_em(self, referencia: date | None = None) -> str:
+        if not self.inicio or not self.fim:
+            return "sem_data"
+        hoje = referencia or date.today()
+        if hoje < self.inicio:
+            return "futura"
+        if hoje > self.fim:
+            return "concluida"
+        return "andamento"
+
+    @property
+    def total_pcs(self) -> int:
+        return len(self.equipe) + (self.pcs_adicionais or 0)
+
+
+TIPOS_ETAPA = ["Diagramação", "Produção", "Manuseio FGV", "Aplicação"]
+LOCAIS_PROVA = ["DF", "SP"]
+TIPOS_LANCAMENTO = {
+    "TRABALHO": "Trabalho",
+    "FOLGA": "Folga",
+    "FOLGA_DF": "Folga DF",
+    "FERIADO_TRABALHADO": "Feriado trabalhado",
+}
+
+
+class LancamentoDiario(db.Model):
+    __tablename__ = "lancamentos_diarios"
+    __table_args__ = (db.UniqueConstraint("etapa_id", "funcionario_id", "data", name="uk_lancamento_dia"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    etapa_id = db.Column(db.Integer, db.ForeignKey("etapas_prova.id"), nullable=False, index=True)
+    funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=False, index=True)
+    data = db.Column(db.Date, nullable=False, index=True)
+    tipo = db.Column(db.String(30), default="TRABALHO", nullable=False)
+    tarefa = db.Column(db.String(200))
+    realizada = db.Column(db.Boolean, default=True, nullable=False)
+    verba = db.Column(db.Numeric(10, 2))
+    observacao = db.Column(db.String(500))
+    criado_por = db.Column(db.String(60))
+    criado_em = db.Column(db.DateTime, default=datetime.now)
+
+    etapa = db.relationship("EtapaProva", back_populates="lancamentos")
+    funcionario = db.relationship("Funcionario")
+
+    @property
+    def tipo_rotulo(self) -> str:
+        return TIPOS_LANCAMENTO.get(self.tipo, self.tipo)
+
+    @property
+    def dia_util(self) -> bool:
+        return self.tipo == "TRABALHO" and self.data.weekday() < 5
 
 
 class Historico(db.Model):

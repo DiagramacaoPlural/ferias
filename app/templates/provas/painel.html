@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone with context %}
+{% block titulo %}Painel de provas{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Painel de provas</h1>
+    <p>Cronograma de diagramação, produção e aplicação · hoje é {{ hoje|data }}</p>
+  </div>
+  <div class="acoes">
+    <a href="{{ url_for('provas.projeto_form') }}" class="btn">{{ icone('mais') }} Novo projeto</a>
+    <a href="{{ url_for('provas.diario_form') }}" class="btn btn-primario">{{ icone('mais') }} Lançar dia</a>
+  </div>
+</div>
+
+<div class="grade grade-4">
+  <div class="card kpi">
+    <div class="kpi-icone" style="background:#ccfbf1">📋</div>
+    <div><div class="kpi-valor">{{ projetos|length }}</div><div class="kpi-rotulo">Projetos</div></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-icone" style="background:var(--azul-claro)">▶</div>
+    <div><div class="kpi-valor">{{ andamento|length }}</div><div class="kpi-rotulo">Etapas em andamento</div></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-icone" style="background:var(--ambar-claro)">⏳</div>
+    <div><div class="kpi-valor">{{ futuras|length }}</div><div class="kpi-rotulo">Próximas etapas</div></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-icone" style="background:var(--vermelho-claro)">⚠</div>
+    <div><div class="kpi-valor">{{ conflitos|length }}</div><div class="kpi-rotulo">Sobreposições no mesmo local</div></div>
+  </div>
+</div>
+
+{% if conflitos %}
+<div class="alerta alerta-aviso mt">
+  <div>
+    <strong>Duas etapas do mesmo tipo no mesmo local ao mesmo tempo:</strong>
+    <ul>
+      {% for a, b in conflitos %}
+        <li>{{ a.rotulo_completo }} ({{ a.inicio|data }} a {{ a.fim|data }}) e {{ b.rotulo_completo }} ({{ b.inicio|data }} a {{ b.fim|data }})</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+{% if avisos %}
+<div class="alerta alerta-info mt">
+  <div>
+    <strong>Equipe com férias no período da etapa:</strong>
+    <ul>{% for a in avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+  </div>
+</div>
+{% endif %}
+
+<div class="grade grade-2 mt">
+  <div class="card">
+    <div class="card-titulo"><h2>Em andamento</h2><span class="texto-suave">{{ andamento|length }}</span></div>
+    {% if andamento %}
+      <ul class="lista-simples">
+        {% for e in andamento %}
+          <li>
+            <span>{{ e.rotulo_completo }}<br><span class="secundario">{{ e.inicio|data }} a {{ e.fim|data }} · {{ e.dias }} dias</span></span>
+            <span class="badge badge-andamento">{{ (e.progresso() * 100)|round|int }}%</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="vazio">Nenhuma etapa em andamento hoje.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-titulo"><h2>Próximas etapas</h2></div>
+    {% if futuras %}
+      <ul class="lista-simples">
+        {% for e in futuras %}
+          <li>
+            <span>{{ e.rotulo_completo }}<br><span class="secundario">{{ e.inicio|data }} a {{ e.fim|data }}</span></span>
+            <a href="{{ url_for('provas.etapa_form', etapa_id=e.id) }}">abrir</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="vazio">Nenhuma etapa futura com data.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if sem_data %}
+<div class="card mt">
+  <div class="card-titulo"><h2>Etapas ainda sem data</h2><span class="texto-suave">{{ sem_data|length }}</span></div>
+  <ul class="lista-simples">
+    {% for e in sem_data %}
+      <li>
+        <span>{{ e.rotulo_completo }}</span>
+        <a href="{{ url_for('provas.etapa_form', etapa_id=e.id) }}" class="btn btn-pequeno">Informar datas</a>
+      </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

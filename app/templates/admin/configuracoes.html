@@ -37,8 +37,9 @@
     <div class="card-corpo">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <p class="texto-suave" style="margin-top:0">
-        Importa as abas <strong>CALENDARIO</strong> (funcionários e férias) e <strong>USUARIOS</strong>
-        de uma planilha no formato da original. Registros já existentes são ignorados.
+        Detecta o tipo da planilha: <strong>Férias_Final.xlsm</strong> (abas CALENDARIO e USUARIOS)
+        ou <strong>Provas.xlsm</strong> (abas Cronograma, Projetos e Controle_Diario).
+        Registros já existentes não são duplicados.
       </p>
       <div class="campo">
         <input type="file" name="planilha" accept=".xlsx,.xlsm" required>

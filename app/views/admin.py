@@ -7,7 +7,7 @@ from flask_login import current_user
 
 from ..models import Configuracao, Funcionario, Historico, Usuario, db
 from ..regras import MESES
-from ..seed import importar_planilha
+from ..seed import importar_planilha, importar_provas, nomes_abas
 from . import registrar, requer
 from .auth import SENHA_MIN
 
@@ -190,17 +190,29 @@ def importar():
         caminho = Path(pasta) / Path(arquivo.filename).name
         arquivo.save(caminho)
         try:
-            resumo = importar_planilha(caminho)
+            abas = nomes_abas(caminho)
+            partes = []
+            if "CALENDARIO" in abas or "USUARIOS" in abas:
+                resumo = importar_planilha(caminho)
+                partes.append(
+                    f"{resumo['funcionarios']} funcionário(s), {resumo['ferias']} férias "
+                    f"e {resumo['usuarios']} usuário(s) novos"
+                )
+            if "Projetos" in abas or "Controle_Diario" in abas:
+                resumo = importar_provas(caminho)
+                partes.append(
+                    f"{resumo['projetos']} projeto(s), {resumo['etapas']} etapa(s) "
+                    f"e {resumo['lancamentos']} lançamento(s) de provas"
+                )
         except Exception as erro:  # planilha corrompida ou fora do formato esperado
             db.session.rollback()
             flash(f"Não foi possível importar a planilha: {erro}", "erro")
             return redirect(url_for("admin.configuracoes"))
 
-    flash(
-        f"Importação concluída: {resumo['funcionarios']} funcionário(s), {resumo['ferias']} férias "
-        f"e {resumo['usuarios']} usuário(s) novos.",
-        "sucesso",
-    )
+    if not partes:
+        flash("A planilha não tem as abas esperadas (CALENDARIO/USUARIOS ou Projetos).", "aviso")
+    else:
+        flash("Importação concluída: " + "; ".join(partes) + ".", "sucesso")
     return redirect(url_for("admin.configuracoes"))
 
 

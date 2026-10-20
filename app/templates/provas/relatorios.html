@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone with context %}
+{% block titulo %}Relatórios de provas{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Relatórios</h1>
+    <p>Dias corridos, PCs, lançamentos e sobreposição de diagramação</p>
+  </div>
+  <div class="acoes">
+    <a href="{{ url_for('provas.exportar') }}" class="btn">{{ icone('excel') }} Exportar Excel</a>
+  </div>
+</div>
+
+{% if conflitos %}
+<div class="alerta alerta-aviso">
+  <div>
+    <strong>Sobreposição no mesmo local:</strong>
+    <ul>
+      {% for a, b in conflitos %}
+        <li>{{ a.rotulo_completo }} e {{ b.rotulo_completo }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-titulo"><h2>Dias corridos e PCs por projeto</h2></div>
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Projeto</th>
+          <th>Período</th>
+          <th class="num">Dias corridos</th>
+          <th class="num">PCs (equipe + extras)</th>
+          <th class="num">Dias lançados</th>
+          <th class="num">Verba</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bloco in por_projeto %}
+          {% set p = bloco.projeto %}
+          <tr>
+            <td><a href="{{ url_for('provas.projeto_form', projeto_id=p.id) }}">{{ p.nome }}</a></td>
+            <td class="nowrap">{% if p.inicio %}{{ p.inicio|data }} a {{ p.fim|data }}{% else %}—{% endif %}</td>
+            <td class="num">{{ p.dias or '—' }}</td>
+            <td class="num">{{ p.etapas|map(attribute='total_pcs')|sum }}</td>
+            <td class="num">{{ bloco.uteis }}</td>
+            <td class="num">{{ '%.2f'|format(bloco.verba) }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="vazio">Nenhum projeto.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt">
+  <div class="card-titulo"><h2>Por diagramador</h2></div>
+  {% if por_pessoa %}
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Diagramador</th>
+          <th class="num">Dias úteis</th>
+          <th class="num">Folgas</th>
+          <th class="num">Feriados trabalhados</th>
+          <th class="num">Verba</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in por_pessoa %}
+          <tr>
+            <td>{{ p.nome }}</td>
+            <td class="num">{{ p.uteis }}</td>
+            <td class="num">{{ p.folgas }}</td>
+            <td class="num">{{ p.feriados }}</td>
+            <td class="num">{{ '%.2f'|format(p.verba) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="vazio">Os totais por pessoa aparecem quando houver lançamentos no controle diário.</div>
+  {% endif %}
+</div>
+{% endblock %}

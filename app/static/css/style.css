@@ -72,7 +72,30 @@ h3 { font-size: 14px; }
   background: linear-gradient(135deg, #38bdf8, var(--azul));
   display: grid; place-items: center;
   font-size: 18px;
+  flex-shrink: 0;
 }
+.marca-icone.provas { background: linear-gradient(135deg, #5eead4, #0d9488); }
+
+.modulos {
+  display: flex;
+  gap: 4px;
+  padding: 12px 10px 0;
+}
+.modulos a {
+  flex: 1;
+  text-align: center;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: #94a3b8;
+  background: rgba(255,255,255,.05);
+}
+.modulos a:hover { color: #fff; text-decoration: none; background: var(--lateral-hover); }
+.modulos a.ativo { background: var(--azul); color: #fff; }
+.modulo-provas .modulos a.ativo,
+.modulo-provas .menu a.ativo { background: #0d9488; }
 
 .menu { padding: 12px 10px; flex: 1; overflow-y: auto; }
 .menu-titulo {
@@ -164,6 +187,25 @@ form.inline { display: inline; }
 .badge-inativo { background: #e2e8f0; color: #475569; }
 .badge-admin { background: var(--azul-claro); color: var(--azul-escuro); }
 .badge-sem::before { display: none; }
+.badge-andamento { background: var(--azul-claro); color: var(--azul-escuro); }
+.badge-futura { background: #e2e8f0; color: #475569; }
+.badge-concluida { background: var(--verde-claro); color: #166534; }
+.badge-sem_data { background: var(--ambar-claro); color: #92400e; }
+.badge-local-df { box-shadow: inset 0 0 0 1px #2563eb; }
+.badge-local-sp { box-shadow: inset 0 0 0 1px #0d9488; }
+.badge-trabalho { background: var(--verde-claro); color: #166534; }
+.badge-folga, .badge-folga_df { background: var(--ambar-claro); color: #92400e; }
+.badge-feriado_trabalhado { background: var(--azul-claro); color: var(--azul-escuro); }
+.grade-check { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 2px 12px; }
+.linha-inativa td { opacity: .55; }
+.gantt .col-etapa { font-weight: 400; padding-left: 28px; font-size: 12px; }
+.gantt .linha-projeto .col-nome { font-weight: 700; background: #f8fafc; }
+.gantt .linha-projeto td { background: #f8fafc; height: 22px; }
+.gantt .barra-etapa.df { background: #2563eb; }
+.gantt .barra-etapa.sp { background: #0d9488; }
+.gantt .barra-etapa.producao { background: #d97706; }
+.gantt .barra-etapa.manuseio { background: #7c3aed; }
+.gantt .barra-etapa.aplicacao { background: #16a34a; }
 
 /* ------------------------------------------------------------ tabelas */
 

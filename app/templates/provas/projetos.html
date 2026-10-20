@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone, botao_post with context %}
+{% block titulo %}Projetos de prova{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Projetos</h1>
+    <p>{{ projetos|length }} prova(s) no cronograma</p>
+  </div>
+  <div class="acoes">
+    <a href="{{ url_for('provas.exportar') }}" class="btn">{{ icone('excel') }} Exportar Excel</a>
+    <a href="{{ url_for('provas.projeto_form') }}" class="btn btn-primario">{{ icone('mais') }} Novo projeto</a>
+  </div>
+</div>
+
+<div class="card">
+  {% if projetos %}
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Projeto</th>
+          <th>Período</th>
+          <th class="num">Dias</th>
+          <th>Etapas</th>
+          <th class="acoes-col"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in projetos %}
+          <tr class="{{ 'linha-inativa' if not p.ativo }}">
+            <td>
+              <a href="{{ url_for('provas.projeto_form', projeto_id=p.id) }}"><strong>{{ p.nome }}</strong></a>
+              {% if not p.ativo %}<span class="badge badge-inativo">inativo</span>{% endif %}
+            </td>
+            <td class="nowrap">
+              {% if p.inicio %}{{ p.inicio|data }} a {{ p.fim|data }}{% else %}<span class="texto-suave">sem datas</span>{% endif %}
+            </td>
+            <td class="num">{{ p.dias or '—' }}</td>
+            <td>
+              {% for e in p.etapas %}
+                <a href="{{ url_for('provas.etapa_form', etapa_id=e.id) }}" class="badge badge-{{ e.status_em() }} {% if e.local %}badge-local-{{ e.local|lower }}{% endif %}" title="{{ e.inicio|data }} a {{ e.fim|data }}">{{ e.rotulo }}</a>
+              {% else %}
+                <span class="texto-suave">sem etapas</span>
+              {% endfor %}
+            </td>
+            <td class="acoes-col">
+              <a href="{{ url_for('provas.etapa_form') }}?projeto={{ p.id }}" class="btn btn-pequeno">{{ icone('mais') }} Etapa</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="vazio">Nenhum projeto ainda. Importe o <strong>Provas.xlsm</strong> em Configurações ou cadastre o primeiro.</div>
+  {% endif %}
+</div>
+{% endblock %}

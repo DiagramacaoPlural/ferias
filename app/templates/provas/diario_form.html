@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar lançamento' if lancamento else 'Novo lançamento' }}{% endblock %}
+{% block conteudo %}
+{% set v_etapa = (dados.get('etapa_id')|int if dados else (lancamento.etapa_id if lancamento else etapa_padrao or 0)) %}
+{% set v_func = (dados.get('funcionario_id')|int if dados else (lancamento.funcionario_id if lancamento else 0)) %}
+{% set v_data = (dados.get('data') if dados else (lancamento.data.isoformat() if lancamento else hoje.isoformat())) %}
+{% set v_tipo = (dados.get('tipo') if dados else (lancamento.tipo if lancamento else 'TRABALHO')) %}
+{% set v_tarefa = (dados.get('tarefa') if dados else (lancamento.tarefa if lancamento and lancamento.tarefa else '')) %}
+{% set v_realizada = (dados.get('realizada') == '1' if dados else (lancamento.realizada if lancamento else true)) %}
+{% set v_verba = (dados.get('verba') if dados else (lancamento.verba if lancamento and lancamento.verba is not none else '')) %}
+{% set v_obs = (dados.get('observacao') if dados else (lancamento.observacao if lancamento and lancamento.observacao else '')) %}
+
+<div class="cabecalho">
+  <div>
+    <h1>{{ 'Editar lançamento' if lancamento else 'Lançar dia' }}</h1>
+    <p>Registro operacional que na planilha ficava na aba Controle_Diario.</p>
+  </div>
+  <div class="acoes"><a href="{{ url_for('provas.diario') }}" class="btn">Voltar</a></div>
+</div>
+
+{% if erros %}
+  <div class="alertas"><div class="alerta alerta-erro"><div><strong>Não foi possível salvar:</strong><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div></div></div>
+{% endif %}
+
+<form method="post" class="card form-estreito">
+  <div class="card-corpo">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="campo">
+      <label for="etapa_id">Etapa</label>
+      <select id="etapa_id" name="etapa_id" required>
+        <option value="">Selecione…</option>
+        {% for e in etapas %}
+          <option value="{{ e.id }}" {{ 'selected' if e.id == v_etapa }}>{{ e.rotulo_completo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="campos-linha">
+      <div class="campo">
+        <label for="funcionario_id">Diagramador</label>
+        <select id="funcionario_id" name="funcionario_id" required>
+          <option value="">Selecione…</option>
+          {% for f in funcionarios %}
+            <option value="{{ f.id }}" {{ 'selected' if f.id == v_func }}>{{ f.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label for="data">Data</label>
+        <input type="date" id="data" name="data" value="{{ v_data }}" required>
+      </div>
+    </div>
+
+    <div class="campos-linha">
+      <div class="campo">
+        <label for="tipo">Tipo</label>
+        <select id="tipo" name="tipo">
+          {% for chave, rotulo in tipos.items() %}
+            <option value="{{ chave }}" {{ 'selected' if chave == v_tipo }}>{{ rotulo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label for="verba">Verba / auxílio</label>
+        <input type="text" id="verba" name="verba" value="{{ v_verba }}" inputmode="decimal" placeholder="0,00">
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="tarefa">Tarefa</label>
+      <input type="text" id="tarefa" name="tarefa" value="{{ v_tarefa }}" maxlength="200">
+    </div>
+    <label class="checkbox"><input type="checkbox" name="realizada" value="1" {{ 'checked' if v_realizada }}> Tarefa realizada</label>
+
+    <div class="campo">
+      <label for="observacao">Observação</label>
+      <textarea id="observacao" name="observacao" maxlength="500">{{ v_obs }}</textarea>
+    </div>
+
+    {% if avisos %}
+      <div class="alerta alerta-aviso">
+        <div>
+          <strong>Atenção:</strong>
+          <ul>{% for a in avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+      <label class="checkbox"><input type="checkbox" name="confirmar" value="1"> Salvar mesmo assim</label>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primario">Salvar lançamento</button>
+  </div>
+</form>
+{% endblock %}

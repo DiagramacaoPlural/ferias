@@ -1,7 +1,9 @@
-# Controle de Férias
+# Controle de Férias e Provas
 
-Sistema web para programar, aprovar e acompanhar as férias da equipe. Substitui a
-planilha `Férias_Final.xlsm` (formulário VBA + abas CALENDARIO, Cronograma e USUARIOS).
+Sistema web da Diagramação com dois módulos no mesmo login: **Férias** (planilha
+`Férias_Final.xlsm`) e **Provas** (planilha `Provas.xlsm`, cronograma de diagramação DF/SP,
+produção, manuseio FGV, aplicação e controle diário). Troque de módulo pelo seletor
+no menu lateral.
 
 ## Como iniciar
 
@@ -17,8 +19,10 @@ python run.py            # só neste computador
 python run.py --rede     # libera para outros computadores da rede (http://SEU-IP:5000)
 ```
 
-Na primeira execução o sistema cria o banco `instance/ferias.db` e **importa automaticamente
-a planilha `.xlsm` que estiver na pasta** (funcionários, férias e usuários).
+Na primeira execução o sistema cria o banco `instance/ferias.db` e **importa automaticamente**
+`Férias_Final.xlsm` (funcionários, férias e usuários) e `Provas.xlsm` (projetos e etapas do
+cronograma), se estiverem na pasta. Em um banco já existente, o módulo de provas é importado
+na próxima inicialização, se ainda não houver projetos.
 
 ### Primeiro acesso
 

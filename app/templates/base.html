@@ -5,23 +5,42 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>{% block titulo %}{% endblock %} · Controle de Férias</title>
+  <title>{% block titulo %}{% endblock %} · {{ 'Controle de Provas' if modulo_provas else 'Controle de Férias' }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏖️</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>{{ '📋' if modulo_provas else '🏖️' }}</text></svg>">
 </head>
 <body>
 <div class="app">
-  <aside class="lateral">
-    <div class="marca"><span class="marca-icone">🏖️</span> Controle de Férias</div>
+  <aside class="lateral {{ 'modulo-provas' if modulo_provas }}">
+    <div class="marca">
+      <span class="marca-icone {{ 'provas' if modulo_provas }}">{{ '📋' if modulo_provas else '🏖️' }}</span>
+      {{ 'Controle de Provas' if modulo_provas else 'Controle de Férias' }}
+    </div>
+    {% if current_user.pode_calendario() or current_user.pode_cronograma() or current_user.pode_provas() %}
+    <div class="modulos">
+      <a href="{{ url_for('main.painel') }}" class="{{ '' if modulo_provas else 'ativo' }}">Férias</a>
+      <a href="{{ url_for('provas.painel') }}" class="{{ 'ativo' if modulo_provas }}">Provas</a>
+    </div>
+    {% endif %}
     <nav class="menu">
       {% set ep = request.endpoint or '' %}
-      {% if current_user.pode_calendario() %}
-        <a href="{{ url_for('main.painel') }}" class="{{ 'ativo' if ep == 'main.painel' }}">{{ icone('painel') }} Painel</a>
-        <a href="{{ url_for('ferias.lista') }}" class="{{ 'ativo' if ep in ('ferias.lista', 'ferias.formulario') }}">{{ icone('ferias') }} Programação</a>
-        <a href="{{ url_for('ferias.calendario') }}" class="{{ 'ativo' if ep == 'ferias.calendario' }}">{{ icone('calendario') }} Calendário anual</a>
-      {% endif %}
-      {% if current_user.pode_cronograma() %}
-        <a href="{{ url_for('cronograma.visualizar') }}" class="{{ 'ativo' if ep == 'cronograma.visualizar' }}">{{ icone('cronograma') }} Cronograma</a>
+      {% if modulo_provas %}
+        {% if current_user.pode_provas() %}
+          <a href="{{ url_for('provas.painel') }}" class="{{ 'ativo' if ep == 'provas.painel' }}">{{ icone('painel') }} Painel</a>
+          <a href="{{ url_for('provas.projetos') }}" class="{{ 'ativo' if ep.startswith('provas.projeto') or ep.startswith('provas.etapa') }}">{{ icone('provas') }} Projetos</a>
+          <a href="{{ url_for('provas.cronograma') }}" class="{{ 'ativo' if ep == 'provas.cronograma' }}">{{ icone('cronograma') }} Cronograma</a>
+          <a href="{{ url_for('provas.diario') }}" class="{{ 'ativo' if ep.startswith('provas.diario') }}">{{ icone('diario') }} Controle diário</a>
+          <a href="{{ url_for('provas.relatorios') }}" class="{{ 'ativo' if ep == 'provas.relatorios' }}">{{ icone('historico') }} Relatórios</a>
+        {% endif %}
+      {% else %}
+        {% if current_user.pode_calendario() %}
+          <a href="{{ url_for('main.painel') }}" class="{{ 'ativo' if ep == 'main.painel' }}">{{ icone('painel') }} Painel</a>
+          <a href="{{ url_for('ferias.lista') }}" class="{{ 'ativo' if ep in ('ferias.lista', 'ferias.formulario') }}">{{ icone('ferias') }} Programação</a>
+          <a href="{{ url_for('ferias.calendario') }}" class="{{ 'ativo' if ep == 'ferias.calendario' }}">{{ icone('calendario') }} Calendário anual</a>
+        {% endif %}
+        {% if current_user.pode_cronograma() %}
+          <a href="{{ url_for('cronograma.visualizar') }}" class="{{ 'ativo' if ep == 'cronograma.visualizar' }}">{{ icone('cronograma') }} Cronograma</a>
+        {% endif %}
       {% endif %}
       {% if current_user.admin %}
         <div class="menu-titulo">Administração</div>
