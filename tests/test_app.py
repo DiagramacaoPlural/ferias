@@ -162,6 +162,47 @@ def test_acoes_em_lote_aprova_e_define_13(app):
         assert ferias[ids[1]].adianta_13 is True
 
 
+def test_dados_do_funcionario_no_formulario(app):
+    client = app.test_client()
+    entrar(client)
+    pagina = client.get("/ferias/nova").get_data(as_text=True)
+    assert 'id="resumo-funcionario"' in pagina
+    assert "/funcionario/0/dados" in pagina
+
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
+        cid, eid = carlos.id, edson.id
+
+    client.post(
+        "/ferias/nova",
+        data={"funcionario_id": cid, "inicio": "2026-12-28", "dias": "8", "observacao": "parada de Thiago", "confirmar": "1"},
+    )
+    client.post(
+        "/ferias/nova",
+        data={"funcionario_id": eid, "inicio": "2027-02-10", "dias": "10", "adianta_13": "1", "confirmar": "1"},
+    )
+
+    dados = client.get(f"/ferias/funcionario/{eid}/dados?inicio=2026-12-28").get_json()
+    assert dados["nome"] == "Edson"
+    assert dados["usados"] == 10
+    assert dados["restante"] == 20
+    assert dados["periodos"][0]["inicio"] == "2027-02-10"
+    assert dados["periodos"][0]["dias"] == 10
+    assert dados["periodos"][0]["adianta_13"] is True
+
+    with app.app_context():
+        ana = db.session.scalar(db.select(Funcionario).filter_by(nome="Ana"))
+        aid = ana.id
+    vazio = client.get(f"/ferias/funcionario/{aid}/dados?inicio=2026-12-28").get_json()
+    assert vazio["nome"] == "Ana"
+    assert vazio["periodos"] == []
+
+    atual = client.get(f"/ferias/funcionario/{cid}/dados?inicio=2026-12-28").get_json()
+    assert atual["periodos"][0]["observacao"] == "parada de Thiago"
+    assert atual["periodos"][0]["dias"] == 8
+
+
 def test_aviso_exige_confirmacao(app):
     client = app.test_client()
     entrar(client)

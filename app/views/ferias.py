@@ -1,9 +1,10 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from io import BytesIO
 
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import current_user
 
+from ..alertas import prazos_dos_funcionarios
 from ..consultas import (
     ciclo_atual,
     ferias_no_intervalo,
@@ -188,6 +189,54 @@ def formulario(ferias_id: int | None = None):
         alternativas=alternativas,
         dados=request.form if request.method == "POST" else None,
         dias_max=DIAS_MAX_CICLO,
+    )
+
+
+@bp.route("/funcionario/<int:funcionario_id>/dados")
+@requer("calendario")
+def dados_funcionario(funcionario_id: int):
+    """Dados do ciclo para preencher o formulário ao trocar o funcionário."""
+    funcionario = db.session.get(Funcionario, funcionario_id)
+    if not funcionario:
+        abort(404)
+    referencia = None
+    bruto = request.args.get("inicio", "")
+    if bruto:
+        try:
+            referencia = datetime.strptime(bruto, "%Y-%m-%d").date()
+        except ValueError:
+            referencia = None
+    ciclo_ini, ciclo_fim = ciclo_atual(referencia)
+    if referencia is None:
+        do_atual = [f for f in funcionario.ferias if ciclo_ini <= f.inicio <= ciclo_fim]
+        if not do_atual:
+            futuras = [f for f in funcionario.ferias if f.inicio > ciclo_fim]
+            if futuras:
+                ciclo_ini, ciclo_fim = ciclo_atual(futuras[0].inicio)
+    _, prox_fim = ciclo_atual(ciclo_fim + timedelta(days=1))
+    periodos = [f for f in funcionario.ferias if ciclo_ini <= f.inicio <= prox_fim]
+    usados = sum(f.dias for f in funcionario.ferias if ciclo_ini <= f.inicio <= ciclo_fim)
+    prazo = prazos_dos_funcionarios([funcionario]).get(funcionario.id)
+    return jsonify(
+        nome=funcionario.nome,
+        admissao=funcionario.data_admissao.strftime("%d/%m/%Y") if funcionario.data_admissao else None,
+        limite=prazo.limite.strftime("%d/%m/%Y") if prazo and prazo.limite else None,
+        usados=usados,
+        restante=max(DIAS_MAX_CICLO - usados, 0),
+        periodos=[
+            {
+                "id": f.id,
+                "inicio": f.inicio.isoformat(),
+                "fim": f.fim.strftime("%d/%m/%Y"),
+                "dias": f.dias,
+                "observacao": f.observacao or "",
+                "adianta_13": bool(f.adianta_13),
+                "aprovada": f.aprovada,
+                "status": f.status_rotulo,
+                "no_ciclo": ciclo_ini <= f.inicio <= ciclo_fim,
+            }
+            for f in periodos
+        ],
     )
 
 

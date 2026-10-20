@@ -11,7 +11,7 @@
 
 <div class="cabecalho">
   <div>
-    <h1>{{ 'Editar férias' if ferias else 'Programar férias' }}</h1>
+    <h1 id="titulo-form">{{ 'Editar férias' if ferias else 'Programar férias' }}</h1>
     <p>O dia de início conta como o 1º dia de férias.</p>
   </div>
   <div class="acoes"><a href="{{ url_for('ferias.lista') }}" class="btn">Voltar</a></div>
@@ -21,7 +21,8 @@
   <div class="alertas"><div class="alerta alerta-erro"><div><strong>Não foi possível salvar:</strong><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div></div></div>
 {% endif %}
 
-<form method="post" class="card form-estreito" id="form-ferias" data-ferias-id="{{ ferias.id if ferias else '' }}">
+<form method="post" class="card form-estreito" id="form-ferias" data-ferias-id="{{ ferias.id if ferias else '' }}"
+      action="{{ url_for('ferias.formulario', ferias_id=ferias.id) if ferias else url_for('ferias.formulario') }}">
   <div class="card-corpo">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -33,6 +34,7 @@
           <option value="{{ func.id }}" {{ 'selected' if func.id == v_func }}>{{ func.nome }}</option>
         {% endfor %}
       </select>
+      <div id="resumo-funcionario" class="resumo-funcionario" hidden></div>
     </div>
 
     <div class="campos-linha">
@@ -77,7 +79,7 @@
     </div>
 
     {% if current_user.admin %}
-      <label class="checkbox"><input type="checkbox" name="aprovada" value="1" {{ 'checked' if v_aprovada }}> Férias aprovadas</label>
+      <label class="checkbox"><input type="checkbox" id="aprovada" name="aprovada" value="1" {{ 'checked' if v_aprovada }}> Férias aprovadas</label>
     {% endif %}
 
     <div id="analise-ao-vivo" class="alertas" style="margin:12px 0 0"></div>
@@ -123,7 +125,13 @@
     adianta13Nao: document.getElementById('adianta_13_nao'),
   };
   const painel = document.getElementById('analise-ao-vivo');
+  const resumo = document.getElementById('resumo-funcionario');
+  const titulo = document.getElementById('titulo-form');
+  const observacao = document.getElementById('observacao');
+  const aprovada = document.getElementById('aprovada');
   const token = document.querySelector('meta[name="csrf-token"]').content;
+  const urlNova = '{{ url_for("ferias.formulario") }}';
+  const urlDados = '{{ url_for("ferias.dados_funcionario", funcionario_id=0) }}';
   let temporizador;
 
   function escapar(texto) {
@@ -180,11 +188,88 @@
 
   function agendar() { clearTimeout(temporizador); temporizador = setTimeout(analisar, 250); }
 
+  function aplicarPeriodo(p) {
+    form.dataset.feriasId = p ? String(p.id) : '';
+    form.action = p ? urlNova.replace(/\/nova$/, '/' + p.id + '/editar') : urlNova;
+    if (titulo) titulo.textContent = p ? 'Editar férias' : 'Programar férias';
+    if (!p) {
+      campos.inicio.value = '';
+      campos.dias.value = '30';
+      campos.fim.value = '';
+      if (observacao) observacao.value = '';
+      marcar13(false);
+      if (aprovada) aprovada.checked = false;
+      return;
+    }
+    campos.inicio.value = p.inicio;
+    campos.dias.value = p.dias;
+    if (observacao) observacao.value = p.observacao || '';
+    marcar13(!!p.adianta_13);
+    if (aprovada) aprovada.checked = !!p.aprovada;
+  }
+
+  function pintarResumo(dados) {
+    if (!resumo) return;
+    if (!dados) { resumo.hidden = true; resumo.innerHTML = ''; return; }
+    let html = '<p><strong>' + escapar(dados.nome) + '</strong> · ' + dados.usados + ' de 30 dias neste ciclo';
+    if (dados.restante) {
+      html += ' · ' + dados.restante + (dados.restante === 1 ? ' dia restante' : ' dias restantes');
+    }
+    if (dados.admissao) html += '<br>Admissão ' + escapar(dados.admissao);
+    if (dados.limite) html += ' · limite ' + escapar(dados.limite);
+    html += '</p>';
+    if ((dados.periodos || []).length) {
+      html += '<div class="sugestoes">';
+      dados.periodos.forEach(function (p) {
+        html += '<button type="button" class="btn btn-pequeno" data-periodo-id="' + p.id + '">' +
+                escapar(p.inicio.split('-').reverse().join('/')) + ' · ' + p.dias + ' dias · ' + escapar(p.status) + '</button>';
+      });
+      if (dados.restante > 0) {
+        html += '<button type="button" class="btn btn-pequeno" data-novo="1">Novo período</button>';
+      }
+      html += '</div>';
+    } else {
+      html += '<p class="texto-suave">Nenhum período neste ciclo. Preencha para programar.</p>';
+    }
+    resumo.innerHTML = html;
+    resumo.hidden = false;
+    resumo.querySelectorAll('[data-periodo-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const p = dados.periodos.find(x => String(x.id) === btn.dataset.periodoId);
+        if (p) { aplicarPeriodo(p); agendar(); }
+      });
+    });
+    const novo = resumo.querySelector('[data-novo]');
+    if (novo) novo.addEventListener('click', function () { aplicarPeriodo(null); agendar(); });
+  }
+
+  function urlDoFuncionario(id) {
+    let u = urlDados.replace('/0/', '/' + id + '/');
+    if (campos.inicio.value) u += '?inicio=' + encodeURIComponent(campos.inicio.value);
+    return u;
+  }
+
+  async function carregarFuncionario() {
+    const id = campos.funcionario.value;
+    if (!id) { pintarResumo(null); aplicarPeriodo(null); painel.innerHTML = ''; return; }
+    try {
+      const resp = await fetch(urlDoFuncionario(id));
+      if (!resp.ok) return;
+      const dados = await resp.json();
+      const atual = form.dataset.feriasId;
+      const mesmo = dados.periodos.find(p => String(p.id) === String(atual));
+      const doCiclo = dados.periodos.find(p => p.no_ciclo);
+      aplicarPeriodo(mesmo || doCiclo || dados.periodos[0] || null);
+      pintarResumo(dados);
+      agendar();
+    } catch (e) { /* resumo é auxiliar */ }
+  }
+
   ['change', 'input'].forEach(ev => {
-    campos.funcionario.addEventListener(ev, agendar);
     campos.inicio.addEventListener(ev, agendar);
     campos.dias.addEventListener(ev, agendar);
   });
+  campos.funcionario.addEventListener('change', carregarFuncionario);
   function marcar13(sim) {
     campos.adianta13Sim.checked = sim;
     campos.adianta13Nao.checked = !sim;
@@ -201,6 +286,11 @@
     agendar();
   }));
 
+  if (campos.funcionario.value) {
+    fetch(urlDoFuncionario(campos.funcionario.value))
+      .then(r => r.ok ? r.json() : null)
+      .then(function (dados) { if (dados) pintarResumo(dados); });
+  }
   {% if not avisos %}analisar();{% else %}campos.fim.value = '';
   analisar().then(() => { painel.innerHTML = ''; });{% endif %}
 })();
