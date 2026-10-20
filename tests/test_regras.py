@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from app.consultas import painel_cobertura
 from app.regras import Periodo, analisar_periodo, calcular_fim, ciclo_de, meses_do_ciclo, sobrepoe, sugerir_alternativas
 
 
@@ -83,6 +84,20 @@ def test_aviso_mais_de_3_periodos():
     ]
     a = analisar(date(2026, 12, 1), 5, proprios=proprios)
     assert any("4 períodos" in av for av in a.avisos)
+
+
+def test_painel_cobertura_destaca_pico():
+    semanas = [
+        {"inicio": date(2026, 12, 1), "disponiveis": 12, "ausentes": 0, "conflito": False, "nomes": []},
+        {"inicio": date(2026, 12, 8), "disponiveis": 8, "ausentes": 4, "conflito": False, "nomes": ["A", "B", "C", "D"]},
+        {"inicio": date(2027, 1, 5), "disponiveis": 9, "ausentes": 3, "conflito": False, "nomes": ["A", "B", "C"]},
+    ]
+    painel = painel_cobertura(semanas, 12, 3)
+    assert painel["kpi"]["pico"] == 4
+    assert painel["kpi"]["menor"] == 8
+    assert painel["kpi"]["riscos"] == 0
+    assert "4" in painel["svg"]["linha"]
+    assert painel["concentracoes"][0]["disponiveis"] == 8
 
 
 def test_setor_desfalcado_gera_aviso_e_alternativas():

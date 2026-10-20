@@ -100,47 +100,126 @@
   {% endif %}
 </div>
 
+{% if painel %}
 <div class="card mt">
   <div class="card-titulo">
     <div>
       <h2>Cobertura do setor</h2>
-      <p class="texto-suave" style="margin:4px 0 0">Pessoas disponíveis por semana. O setor precisa de pelo menos <strong>{{ min_disponiveis }}</strong> (de {{ total_ativos }} ativos).</p>
-    </div>
-    <div class="legenda">
-      <span><i style="background:var(--verde)"></i>Com cobertura</span>
-      <span><i style="background:var(--vermelho)"></i>Menos de {{ min_disponiveis }} disponíveis</span>
+      <p class="texto-suave" style="margin:4px 0 0">
+        Quantas pessoas saem de férias ao longo do ciclo. O setor precisa permanecer com pelo menos
+        <strong>{{ min_disponiveis }}</strong> dos {{ total_ativos }} funcionários ativos.
+      </p>
     </div>
   </div>
+
+  <div class="grade grade-4" style="padding:16px 20px 0">
+    <div class="kpi-mini">
+      <span class="kpi-rotulo">Menor cobertura</span>
+      <span class="kpi-valor {{ 'texto-vermelho' if painel.kpi.menor < min_disponiveis else 'texto-verde' }}">{{ painel.kpi.menor }}</span>
+      <span class="texto-suave">pessoas no setor</span>
+    </div>
+    <div class="kpi-mini">
+      <span class="kpi-rotulo">Pico de férias</span>
+      <span class="kpi-valor">{{ painel.kpi.pico }}</span>
+      <span class="texto-suave">pessoas simultâneas</span>
+    </div>
+    <div class="kpi-mini">
+      <span class="kpi-rotulo">Média no ciclo</span>
+      <span class="kpi-valor">{{ painel.kpi.media }}</span>
+      <span class="texto-suave">disponíveis por semana</span>
+    </div>
+    <div class="kpi-mini">
+      <span class="kpi-rotulo">Semanas em risco</span>
+      <span class="kpi-valor {{ 'texto-vermelho' if painel.kpi.riscos else 'texto-verde' }}">{{ painel.kpi.riscos }}</span>
+      <span class="texto-suave">abaixo do mínimo de {{ min_disponiveis }}</span>
+    </div>
+  </div>
+
   <div class="card-corpo">
-    {% if cobertura %}
-      <div class="cobertura" role="img" aria-label="Gráfico de pessoas disponíveis no setor">
-        {% for s in cobertura %}
-          <div class="cobertura-col {{ 'conflito' if s.conflito }}"
-               title="Semana de {{ s.inicio|data }}: {{ s.disponiveis }} disponível(is){% if s.nomes %} · de férias: {{ s.nomes|join(', ') }}{% endif %}">
-            <span class="cobertura-valor">{{ s.disponiveis }}</span>
-            <span class="cobertura-barra" style="height: {{ 8 if s.pct < 8 else s.pct }}%"></span>
-            {% if loop.index0 % 4 == 0 %}<span class="cobertura-rotulo">{{ s.rotulo }}</span>{% endif %}
-          </div>
+    <div class="grafico-legenda">
+      <span><i class="legenda-area"></i> Pessoas de férias na semana</span>
+      {% if painel.svg.y_limite %}
+        <span><i class="legenda-limite"></i> Limite ({{ painel.kpi.limite_ausentes }} de férias para manter {{ min_disponiveis }} no setor)</span>
+      {% else %}
+        <span class="texto-suave">Limite: {{ painel.kpi.limite_ausentes }} de férias · folga atual de {{ painel.kpi.folga }}</span>
+      {% endif %}
+    </div>
+
+    <div class="grafico-wrap">
+      <svg class="grafico-cobertura" viewBox="0 0 {{ painel.svg.largura }} {{ painel.svg.altura }}" role="img" aria-label="Pessoas de férias por semana no ciclo">
+        {% for g in painel.svg.grades %}
+          <line x1="{{ painel.svg.esq }}" x2="{{ painel.svg.dir }}" y1="{{ g.y }}" y2="{{ g.y }}" class="grafico-grade"></line>
+          <text x="{{ painel.svg.esq - 8 }}" y="{{ g.y + 4 }}" class="grafico-eixo" text-anchor="end">{{ g.valor }}</text>
         {% endfor %}
+        {% if painel.svg.y_limite %}
+          <line x1="{{ painel.svg.esq }}" x2="{{ painel.svg.dir }}" y1="{{ painel.svg.y_limite }}" y2="{{ painel.svg.y_limite }}" class="grafico-limite"></line>
+        {% endif %}
+        <polygon points="{{ painel.svg.area }}" class="grafico-area"></polygon>
+        <polyline points="{{ painel.svg.linha }}" class="grafico-linha"></polyline>
+        {% for m in painel.svg.marcadores %}
+          <circle cx="{{ m.x }}" cy="{{ m.y }}" r="4.5" class="grafico-ponto {{ 'risco' if m.conflito }}">
+            <title>{{ m.titulo }}</title>
+          </circle>
+        {% endfor %}
+        {% for m in painel.svg.meses %}
+          <text x="{{ m.x }}" y="{{ painel.svg.altura - 14 }}" class="grafico-mes">{{ m.rotulo }}</text>
+        {% endfor %}
+        <text x="14" y="16" class="grafico-eixo-titulo">De férias</text>
+      </svg>
+    </div>
+
+    <h3 class="subtitulo-secao">Resumo mensal (pior semana de cada mês)</h3>
+    <div class="meses-cobertura">
+      {% for mes in painel.meses %}
+        <div class="mes-cobertura {{ 'risco' if mes.conflito else ('atencao' if mes.ausentes else 'ok') }}"
+             title="{{ mes.nome }}: {{ mes.disponiveis }} disponíveis, {{ mes.ausentes }} de férias{% if mes.nomes %} · {{ mes.nomes|join(', ') }}{% endif %}">
+          <span class="mes-cobertura-nome">{{ mes.rotulo }}</span>
+          <strong>{{ mes.disponiveis }}</strong>
+          <span class="texto-suave">no setor</span>
+          {% if mes.ausentes %}<span class="mes-cobertura-ausentes">{{ mes.ausentes }} de férias</span>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if painel.concentracoes %}
+      <h3 class="subtitulo-secao">Maiores concentrações de férias</h3>
+      <div class="tabela-wrap">
+        <table class="tabela">
+          <thead>
+            <tr>
+              <th>Semana</th>
+              <th class="num">No setor</th>
+              <th class="num">De férias</th>
+              <th>Quem está fora</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in painel.concentracoes %}
+              <tr class="{{ 'linha-risco' if s.conflito }}">
+                <td class="nowrap">{{ s.inicio|data }}</td>
+                <td class="num {{ 'texto-vermelho' if s.conflito }}">{{ s.disponiveis }}</td>
+                <td class="num">{{ s.ausentes }}</td>
+                <td>{{ s.nomes|join(', ') }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-    {% else %}
-      <div class="vazio">Sem dados de cobertura neste ciclo.</div>
     {% endif %}
 
-    {% set semanas_conflito = cobertura|selectattr('conflito')|list %}
-    {% if semanas_conflito %}
+    {% if painel.em_risco %}
       <div class="alerta alerta-erro" style="margin-top:16px">
         <div>
           <strong>Semanas com menos de {{ min_disponiveis }} no setor</strong>
           <ul>
-            {% for s in semanas_conflito %}
+            {% for s in painel.em_risco %}
               <li>
                 Semana de {{ s.inicio|data }} — {{ s.disponiveis }} disponível(is)
                 {% if s.nomes %} · de férias: {{ s.nomes|join(', ') }}{% endif %}
               </li>
             {% endfor %}
           </ul>
-          <p style="margin:8px 0 0">Use os botões <em>Alternativa</em> na tabela acima para reagendar quem está programado nesses períodos.</p>
+          <p style="margin:8px 0 0">Use os botões <em>Alternativa</em> na tabela de programação para reagendar quem está nesses períodos.</p>
         </div>
       </div>
     {% else %}
@@ -148,4 +227,5 @@
     {% endif %}
   </div>
 </div>
+{% endif %}
 {% endblock %}

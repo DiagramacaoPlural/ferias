@@ -4,7 +4,14 @@ from io import BytesIO
 from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, send_file, url_for
 from flask_login import current_user
 
-from ..consultas import ciclo_atual, ferias_no_intervalo, funcionarios_ativos, minimo_no_setor, serie_cobertura
+from ..consultas import (
+    ciclo_atual,
+    ferias_no_intervalo,
+    funcionarios_ativos,
+    minimo_no_setor,
+    painel_cobertura,
+    serie_cobertura,
+)
 from ..models import STATUS_APROVADA, STATUS_PROGRAMADA, Configuracao, Ferias, Funcionario, db
 from ..regras import (
     DIAS_MAX_CICLO,
@@ -86,6 +93,7 @@ def lista():
     ativos = funcionarios_ativos()
     min_disp = minimo_no_setor()
     cobertura = serie_cobertura(todas, ciclo_ini, ciclo_fim, len(ativos), min_disp)
+    painel = painel_cobertura(cobertura, len(ativos), min_disp)
 
     return render_template(
         "ferias/lista.html",
@@ -93,6 +101,7 @@ def lista():
         avisos=avisos,
         alternativas=alternativas,
         cobertura=cobertura,
+        painel=painel,
         total_ativos=len(ativos),
         min_disponiveis=min_disp,
         ciclo_ini=ciclo_ini,
