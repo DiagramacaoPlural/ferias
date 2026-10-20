@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from flask import Blueprint, redirect, render_template, url_for
 from flask_login import current_user, login_required
 
+from ..alertas import enviar_alertas_pendentes, prazos_dos_funcionarios, prazos_que_alertam
 from ..consultas import ciclo_atual, conflitos, ferias_no_intervalo, funcionarios_ativos, minimo_no_setor
 from ..regras import DIAS_MAX_CICLO, limite_ausentes, rotulo_ciclo
 
@@ -57,5 +58,7 @@ def painel():
         "conflitos": conflitos(ferias_ciclo, ciclo_ini, ciclo_fim, limite),
         "min_disponiveis": min_disp,
         "saldos": saldos,
+        "prazos_alerta": prazos_que_alertam(prazos_dos_funcionarios(funcionarios)),
     }
+    enviar_alertas_pendentes()
     return render_template("painel.html", **contexto)

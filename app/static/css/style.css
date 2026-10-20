@@ -185,6 +185,9 @@ form.inline { display: inline; }
 .badge-aprovada { background: var(--verde-claro); color: #166534; }
 .badge-programada { background: var(--ambar-claro); color: #92400e; }
 .badge-inativo { background: #e2e8f0; color: #475569; }
+.badge-perigo { background: var(--vermelho-claro); color: #991b1b; }
+.prazo-alerta { color: #92400e; font-weight: 600; }
+.prazo-vencido { color: var(--vermelho); font-weight: 600; }
 .badge-admin { background: var(--azul-claro); color: var(--azul-escuro); }
 .badge-sem::before { display: none; }
 .badge-andamento { background: var(--azul-claro); color: var(--azul-escuro); }

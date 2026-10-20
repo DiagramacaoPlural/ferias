@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from app.models import Ferias, Funcionario, Usuario, db
+from app.models import Configuracao, Ferias, Funcionario, Usuario, db
 
 
 def entrar(client, login="admin", senha="admin"):
@@ -209,3 +209,62 @@ def test_importacao_da_planilha_original(app):
         assert carlos.ferias and carlos.ferias[0].fim == date(2026, 12, 20)
         assert resumo["usuarios"] == 3
         assert importar_planilha(planilhas[0])["ferias"] == 0
+
+
+def test_coluna_limite_e_email_de_alerta(app, monkeypatch):
+    enviados = []
+
+    class SMTP:
+        def __init__(self, *a, **k):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def ehlo(self):
+            pass
+
+        def starttls(self):
+            pass
+
+        def login(self, *a):
+            pass
+
+        def send_message(self, msg):
+            enviados.append(msg)
+
+    monkeypatch.setattr("app.alertas.smtplib.SMTP", SMTP)
+    client = app.test_client()
+    entrar(client)
+    with app.app_context():
+        db.session.add(Funcionario(nome="Wagner", data_admissao=date(2025, 4, 29), cargo="Diagramador"))
+        Configuracao.definir("smtp_host", "smtp.exemplo.com")
+        Configuracao.definir("smtp_user", "ferias@plural.com.br")
+        Configuracao.definir("smtp_remetente", "ferias@plural.com.br")
+        Configuracao.definir("smtp_password", "x")
+        db.session.commit()
+
+    lista = client.get("/admin/funcionarios").get_data(as_text=True)
+    assert "Limite para férias" in lista
+    assert "28/04/2027" in lista
+
+    config = client.get("/admin/configuracoes").get_data(as_text=True)
+    assert "marcelo.marcolino@plural.com.br" in config
+    assert "ricardo.rosas@plural.com.br" in config
+
+    from app.alertas import enviar_alertas_pendentes
+
+    with app.app_context():
+        primeiro = enviar_alertas_pendentes(hoje=date(2027, 3, 28))
+        assert primeiro["erro"] is None and primeiro["enviados"] == 1
+        segundo = enviar_alertas_pendentes(hoje=date(2027, 3, 28))
+        assert segundo["enviados"] == 0
+
+    assert enviados
+    assert "Wagner" in enviados[0].get_content()
+    destinos = enviados[0]["To"]
+    assert "marcelo.marcolino@plural.com.br" in destinos
+    assert "ricardo.rosas@plural.com.br" in destinos

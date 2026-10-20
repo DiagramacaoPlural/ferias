@@ -31,6 +31,30 @@
   </div>
 </div>
 
+{% if prazos_alerta %}
+<div class="alerta alerta-aviso mt">
+  <div>
+    <strong>Prazo para gozo de férias</strong>
+    (1 mês antes do fim do período concessivo, ou já vencido):
+    <ul>
+      {% for p in prazos_alerta %}
+        <li>
+          {{ p.nome }} — limite {{ p.limite|data }}
+          {% if p.situacao == 'vencido' %}
+            <strong>(vencido)</strong>
+          {% elif p.dias_restantes == 0 %}
+            (vence hoje)
+          {% else %}
+            ({{ p.dias_restantes }} dia{{ 's' if p.dias_restantes != 1 }})
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    <p style="margin:8px 0 0">O e-mail de alerta vai para Marcelo Marcolino e Ricardo Rosas quando o SMTP estiver configurado.</p>
+  </div>
+</div>
+{% endif %}
+
 {% if conflitos %}
 <div class="alerta alerta-erro mt">
   <div>

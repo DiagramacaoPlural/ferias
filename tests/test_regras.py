@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, ciclo_de, meses_do_ciclo, pode_adiantar_13, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, meses_do_ciclo, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -12,6 +12,33 @@ def test_primeira_parcela_13_so_a_partir_de_fevereiro():
     assert not pode_adiantar_13(date(2027, 1, 31))
     assert pode_adiantar_13(date(2027, 2, 1))
     assert pode_adiantar_13(date(2026, 12, 1))
+
+
+def test_limite_de_gozo_e_alerta_um_mes_antes():
+    admissao = date(2025, 4, 29)
+    limite = date(2027, 4, 28)
+    prazo = calcular_prazo_gozo(admissao, [], date(2026, 10, 20), "Wagner", 1)
+    assert prazo.limite == limite
+    assert prazo.alerta_em == date(2027, 3, 28)
+    assert prazo.situacao == "ok"
+
+    alerta = calcular_prazo_gozo(admissao, [], date(2027, 3, 28), "Wagner", 1)
+    assert alerta.situacao == "alerta"
+    assert alerta.dias_restantes == 31
+
+    vencido = calcular_prazo_gozo(admissao, [], date(2027, 4, 29), "Wagner", 1)
+    assert vencido.situacao == "vencido"
+    assert vencido.limite == limite
+
+    gozado = [Periodo("Wagner", date(2026, 5, 10), date(2026, 6, 8), 30)]
+    proximo = calcular_prazo_gozo(admissao, gozado, date(2026, 10, 20), "Wagner", 1)
+    assert proximo.limite == date(2028, 4, 28)
+
+
+def test_somar_anos_e_meses():
+    assert somar_anos(date(2024, 2, 29), 1) == date(2025, 2, 28)
+    assert somar_meses(date(2027, 4, 28), -1) == date(2027, 3, 28)
+    assert somar_meses(date(2027, 3, 31), -1) == date(2027, 2, 28)
 
 
 def test_fim_conta_o_dia_de_inicio():

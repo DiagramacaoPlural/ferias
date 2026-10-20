@@ -47,4 +47,63 @@
     </div>
   </form>
 </div>
+
+<div class="grade grade-2 mt">
+  <form method="post" class="card">
+    <div class="card-titulo"><h2>Alertas de prazo de férias</h2></div>
+    <div class="card-corpo">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="mes_inicio_ciclo" value="{{ mes_inicio_ciclo }}">
+      <input type="hidden" name="min_disponiveis" value="{{ min_disponiveis }}">
+      <input type="hidden" name="dias_cronograma" value="{{ dias_cronograma }}">
+      <p class="texto-suave" style="margin-top:0">
+        Um mês antes da data limite (admissão + 24 meses − 1 dia) o sistema avisa no painel
+        e envia e-mail para os gestores. O e-mail só sai se o SMTP abaixo estiver preenchido.
+      </p>
+      <div class="campo">
+        <label for="emails_alerta_limite">Destinatários</label>
+        <input type="text" id="emails_alerta_limite" name="emails_alerta_limite" value="{{ emails_alerta_limite }}">
+        <small>Separe os e-mails por vírgula.</small>
+      </div>
+      <div class="campo">
+        <label for="smtp_host">Servidor SMTP</label>
+        <input type="text" id="smtp_host" name="smtp_host" value="{{ smtp_host }}" placeholder="smtp.office365.com">
+      </div>
+      <div class="campos-linha">
+        <div class="campo">
+          <label for="smtp_port">Porta</label>
+          <input type="number" id="smtp_port" name="smtp_port" min="1" max="65535" value="{{ smtp_port }}">
+        </div>
+        <div class="campo">
+          <label for="smtp_user">Usuário SMTP</label>
+          <input type="text" id="smtp_user" name="smtp_user" value="{{ smtp_user }}" autocomplete="off">
+        </div>
+      </div>
+      <div class="campo">
+        <label for="smtp_remetente">Remetente</label>
+        <input type="text" id="smtp_remetente" name="smtp_remetente" value="{{ smtp_remetente }}" placeholder="mesmo e-mail do usuário SMTP">
+      </div>
+      <div class="campo">
+        <label for="smtp_password">Senha SMTP</label>
+        <input type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="{{ 'Cadastrada — deixe em branco para manter' if smtp_senha_ok else 'Senha ou senha de aplicativo' }}">
+      </div>
+      <p class="texto-suave">
+        {% if smtp_ok %}SMTP configurado.{% else %}SMTP ainda não configurado — os avisos aparecem no painel, mas o e-mail não é enviado.{% endif %}
+        No PythonAnywhere, para o aviso sair todo dia: tarefa agendada
+        <code>cd ~/ferias &amp;&amp; .venv/bin/python run.py --alertas</code>.
+      </p>
+      <button type="submit" class="btn btn-primario">Salvar configurações</button>
+    </div>
+  </form>
+  <div class="card">
+    <div class="card-titulo"><h2>Enviar agora</h2></div>
+    <div class="card-corpo">
+      <p class="texto-suave" style="margin-top:0">Dispara o e-mail se houver alguém a 1 mês do limite ou com prazo vencido.</p>
+      <form method="post" action="{{ url_for('admin.enviar_alertas') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn">Enviar alertas de prazo</button>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

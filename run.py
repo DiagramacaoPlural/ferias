@@ -4,6 +4,7 @@ Uso:
     python run.py            servidor de produção (waitress), só neste computador
     python run.py --rede     libera o acesso para outros computadores da rede
     python run.py --debug    servidor de desenvolvimento com recarga automática
+    python run.py --alertas  envia e-mails de prazo de férias (tarefa diária)
 """
 
 import os
@@ -25,6 +26,17 @@ def _ip_local() -> str:
 
 
 if __name__ == "__main__":
+    if "--alertas" in sys.argv:
+        with app.app_context():
+            from app.alertas import enviar_alertas_pendentes
+
+            resultado = enviar_alertas_pendentes()
+            if resultado["erro"]:
+                print(f"Falha ao enviar alertas: {resultado['erro']}", flush=True)
+                sys.exit(1)
+            print(f"Alertas enviados: {resultado['enviados']}.", flush=True)
+        sys.exit(0)
+
     porta = int(os.environ.get("PORT", 5000))
     na_rede = "--rede" in sys.argv
     host = "0.0.0.0" if na_rede else os.environ.get("HOST", "127.0.0.1")

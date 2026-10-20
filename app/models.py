@@ -96,6 +96,12 @@ class Configuracao(db.Model):
         "mes_inicio_ciclo": "5",
         "min_disponiveis": "3",
         "dias_cronograma": "56",
+        "emails_alerta_limite": "marcelo.marcolino@plural.com.br, ricardo.rosas@plural.com.br",
+        "smtp_host": "",
+        "smtp_port": "587",
+        "smtp_user": "",
+        "smtp_password": "",
+        "smtp_remetente": "",
     }
 
     @classmethod
@@ -138,6 +144,19 @@ class TentativaLogin(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     chave = db.Column(db.String(120), nullable=False, index=True)
     data = db.Column(db.DateTime, default=datetime.now, nullable=False, index=True)
+
+
+class AlertaLimiteEnviado(db.Model):
+    """Evita reenviar o mesmo aviso de prazo (funcionário + data limite)."""
+
+    __tablename__ = "alertas_limite_enviados"
+
+    id = db.Column(db.Integer, primary_key=True)
+    funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=False, index=True)
+    data_limite = db.Column(db.Date, nullable=False)
+    enviado_em = db.Column(db.DateTime, default=datetime.now, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint("funcionario_id", "data_limite", name="uk_alerta_limite"),)
 
 
 class Historico(db.Model):

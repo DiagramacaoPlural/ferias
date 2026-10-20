@@ -5,8 +5,9 @@ from pathlib import Path
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
+from ..alertas import enviar_alertas_pendentes, prazos_dos_funcionarios, smtp_configurado
 from ..models import Configuracao, Funcionario, Historico, Usuario, db
-from ..regras import MESES
+from ..regras import EMAILS_ALERTA_LIMITE, MESES
 from ..seed import importar_planilha, nomes_abas
 from . import registrar, requer
 from .auth import SENHA_MIN
@@ -20,7 +21,11 @@ bp = Blueprint("admin", __name__, url_prefix="/admin")
 @requer("admin")
 def funcionarios():
     lista = db.session.scalars(db.select(Funcionario).order_by(Funcionario.ativo.desc(), Funcionario.nome)).all()
-    return render_template("admin/funcionarios.html", funcionarios=lista)
+    return render_template(
+        "admin/funcionarios.html",
+        funcionarios=lista,
+        prazos=prazos_dos_funcionarios(lista),
+    )
 
 
 @bp.route("/funcionarios/novo", methods=["GET", "POST"])
@@ -151,16 +156,28 @@ def configuracoes():
         mes = request.form.get("mes_inicio_ciclo", type=int)
         minimo = request.form.get("min_disponiveis", type=int)
         dias_crono = request.form.get("dias_cronograma", type=int)
+        alerta = "emails_alerta_limite" in request.form
+        smtp_port = request.form.get("smtp_port", type=int) if alerta else 587
         if not mes or not 1 <= mes <= 12:
             flash("Mês de início do ciclo inválido.", "erro")
         elif minimo is None or minimo < 1:
             flash("O mínimo de pessoas disponíveis no setor deve ser pelo menos 1.", "erro")
         elif not dias_crono or not 7 <= dias_crono <= 364:
             flash("A janela do cronograma deve ter entre 7 e 364 dias.", "erro")
+        elif alerta and (smtp_port is None or not 1 <= smtp_port <= 65535):
+            flash("A porta SMTP deve estar entre 1 e 65535.", "erro")
         else:
             Configuracao.definir("mes_inicio_ciclo", mes)
             Configuracao.definir("min_disponiveis", minimo)
             Configuracao.definir("dias_cronograma", dias_crono)
+            if alerta:
+                Configuracao.definir("emails_alerta_limite", request.form.get("emails_alerta_limite", "").strip() or EMAILS_ALERTA_LIMITE)
+                Configuracao.definir("smtp_host", request.form.get("smtp_host", "").strip())
+                Configuracao.definir("smtp_port", smtp_port)
+                Configuracao.definir("smtp_user", request.form.get("smtp_user", "").strip())
+                Configuracao.definir("smtp_remetente", request.form.get("smtp_remetente", "").strip())
+                if request.form.get("smtp_password"):
+                    Configuracao.definir("smtp_password", request.form.get("smtp_password"))
             registrar(
                 "Configurações alteradas",
                 f"ciclo inicia em {MESES[mes - 1]}, mín. {minimo} disponíveis no setor, cronograma {dias_crono} dias",
@@ -175,6 +192,13 @@ def configuracoes():
         mes_inicio_ciclo=Configuracao.obter_int("mes_inicio_ciclo"),
         min_disponiveis=Configuracao.obter_int("min_disponiveis"),
         dias_cronograma=Configuracao.obter_int("dias_cronograma"),
+        emails_alerta_limite=Configuracao.obter("emails_alerta_limite"),
+        smtp_host=Configuracao.obter("smtp_host"),
+        smtp_port=Configuracao.obter("smtp_port"),
+        smtp_user=Configuracao.obter("smtp_user"),
+        smtp_remetente=Configuracao.obter("smtp_remetente"),
+        smtp_senha_ok=bool(Configuracao.obter("smtp_password")),
+        smtp_ok=smtp_configurado(),
     )
 
 
@@ -208,6 +232,19 @@ def importar():
     else:
         flash("Importação concluída: " + "; ".join(partes) + ".", "sucesso")
     return redirect(url_for("admin.configuracoes"))
+
+
+@bp.route("/alertas/enviar", methods=["POST"])
+@requer("admin")
+def enviar_alertas():
+    resultado = enviar_alertas_pendentes(forcar=True)
+    if resultado["erro"]:
+        flash(f"Não foi possível enviar o e-mail: {resultado['erro']}", "erro")
+    elif resultado["enviados"]:
+        flash(f"Alerta enviado para {resultado['enviados']} funcionário(s) com prazo próximo ou vencido.", "sucesso")
+    else:
+        flash("Nenhum funcionário está a 1 mês (ou menos) do limite de férias.", "info")
+    return redirect(request.referrer or url_for("admin.configuracoes"))
 
 
 @bp.route("/historico")

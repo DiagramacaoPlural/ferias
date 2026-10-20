@@ -14,13 +14,26 @@
   {% if funcionarios %}
   <div class="tabela-wrap">
     <table class="tabela">
-      <thead><tr><th>Nome</th><th>Cargo</th><th>Admissão</th><th class="num">Períodos</th><th>Situação</th><th class="acoes-col">Ações</th></tr></thead>
+      <thead><tr><th>Nome</th><th>Cargo</th><th>Admissão</th><th>Limite para férias</th><th class="num">Períodos</th><th>Situação</th><th class="acoes-col">Ações</th></tr></thead>
       <tbody>
         {% for f in funcionarios %}
+          {% set prazo = prazos.get(f.id) %}
           <tr>
             <td><strong>{{ f.nome }}</strong></td>
             <td class="texto-suave">{{ f.cargo or '' }}</td>
             <td>{{ f.data_admissao|data }}</td>
+            <td>
+              {% if prazo and prazo.limite %}
+                <span class="{{ 'prazo-vencido' if prazo.situacao == 'vencido' else ('prazo-alerta' if prazo.situacao == 'alerta' else '') }}">{{ prazo.limite|data }}</span>
+                {% if prazo.situacao == 'vencido' %}
+                  <span class="badge badge-perigo badge-sem">Vencido</span>
+                {% elif prazo.situacao == 'alerta' %}
+                  <span class="badge badge-programada badge-sem">1 mês</span>
+                {% endif %}
+              {% else %}
+                <span class="texto-suave">—</span>
+              {% endif %}
+            </td>
             <td class="num">{{ f.ferias|length }}</td>
             <td>{% if f.ativo %}<span class="badge badge-aprovada">Ativo</span>{% else %}<span class="badge badge-inativo">Inativo</span>{% endif %}</td>
             <td class="acoes-col">

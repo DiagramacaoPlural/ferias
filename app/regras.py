@@ -4,6 +4,7 @@ As funções deste módulo não acessam o banco de dados diretamente (exceto as
 marcadas com sufixo ``_db``), o que facilita os testes.
 """
 
+import calendar
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -21,6 +22,9 @@ DIAS_MAX_CICLO = 30
 MAX_PERIODOS = 3
 AVISO_13_FEVEREIRO = (
     "A 1ª parcela do 13º só pode ser antecipada em férias com início a partir de fevereiro."
+)
+EMAILS_ALERTA_LIMITE = (
+    "marcelo.marcolino@plural.com.br, ricardo.rosas@plural.com.br"
 )
 
 
@@ -58,6 +62,74 @@ def calcular_fim(inicio: date, dias: int) -> date:
 def pode_adiantar_13(inicio: date) -> bool:
     """A 1ª parcela do 13º só vale para férias que começam em fevereiro ou depois."""
     return inicio.month >= 2
+
+
+def somar_anos(dia: date, anos: int) -> date:
+    try:
+        return dia.replace(year=dia.year + anos)
+    except ValueError:
+        return date(dia.year + anos, 2, 28)
+
+
+def somar_meses(dia: date, meses: int) -> date:
+    mes0 = dia.month - 1 + meses
+    ano = dia.year + mes0 // 12
+    mes = mes0 % 12 + 1
+    return date(ano, mes, min(dia.day, calendar.monthrange(ano, mes)[1]))
+
+
+@dataclass
+class PrazoGozo:
+    limite: date | None
+    alerta_em: date | None
+    dias_restantes: int | None
+    situacao: str
+    dias_programados: int = 0
+    nome: str = ""
+    funcionario_id: int | None = None
+    admissao: date | None = None
+
+
+def calcular_prazo_gozo(
+    admissao: date | None,
+    ferias: list,
+    hoje: date,
+    nome: str = "",
+    funcionario_id: int | None = None,
+) -> PrazoGozo:
+    """Limite para gozo: fim do período concessivo (admissão + 24 meses − 1 dia).
+
+    Se aquele período já teve 30 dias programados, avança para o ciclo seguinte.
+    O alerta dispara 1 mês antes do limite.
+    """
+    vazio = PrazoGozo(None, None, None, "sem_admissao", nome=nome, funcionario_id=funcionario_id, admissao=admissao)
+    if not admissao:
+        return vazio
+    ciclo = 0
+    while ciclo < 80:
+        concessivo_ini = somar_anos(admissao, ciclo + 1)
+        limite = somar_anos(admissao, ciclo + 2) - timedelta(days=1)
+        dias = sum(p.dias for p in ferias if concessivo_ini <= p.inicio <= limite)
+        if dias < DIAS_MAX_CICLO:
+            alerta_em = somar_meses(limite, -1)
+            if hoje > limite:
+                situacao = "vencido"
+            elif hoje >= alerta_em:
+                situacao = "alerta"
+            else:
+                situacao = "ok"
+            return PrazoGozo(
+                limite=limite,
+                alerta_em=alerta_em,
+                dias_restantes=(limite - hoje).days,
+                situacao=situacao,
+                dias_programados=dias,
+                nome=nome,
+                funcionario_id=funcionario_id,
+                admissao=admissao,
+            )
+        ciclo += 1
+    return PrazoGozo(None, None, None, "ok", nome=nome, funcionario_id=funcionario_id, admissao=admissao)
 
 
 def ciclo_de(dia: date, mes_inicio: int) -> tuple[date, date]:
