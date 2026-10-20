@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, data_limite_folha, meses_do_ciclo, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, data_limite_folha, meses_do_ciclo, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -50,9 +50,17 @@ def test_somar_anos_e_meses():
 
 
 def test_fim_conta_o_dia_de_inicio():
-    assert calcular_fim(date(2026, 12, 1), 20) == date(2026, 12, 20)
     assert calcular_fim(date(2026, 12, 1), 1) == date(2026, 12, 1)
-    assert calcular_fim(date(2026, 12, 20), 30) == date(2027, 1, 18)
+    assert calcular_fim(date(2026, 12, 7), 5) == date(2026, 12, 11)
+
+
+def test_fim_avanca_sabado_domingo_e_feriado():
+    assert pascoa(2026) == date(2026, 4, 5)
+    assert pascoa(2027) == date(2027, 3, 28)
+    assert calcular_fim(date(2026, 12, 1), 20) == date(2026, 12, 21)
+    assert calcular_fim(date(2026, 12, 14), 20) == date(2027, 1, 4)
+    assert calcular_fim(date(2026, 12, 3), 30) == date(2027, 1, 4)
+    assert calcular_fim(date(2027, 1, 31), 10) == date(2027, 2, 10)
 
 
 def test_ciclo_maio_a_abril():
@@ -165,7 +173,7 @@ def test_sugestao_respeita_minimo_no_setor():
         date(2026, 12, 7), 10, ocupacao, 4, 3, [], date(2026, 11, 1), date(2027, 1, 31),
     )
     assert alts
-    assert alts[0].fim - alts[0].inicio == timedelta(days=9)
+    assert alts[0].fim == calcular_fim(alts[0].inicio, 10)
 
 
 def test_conflito_com_equipe_respeita_limite():

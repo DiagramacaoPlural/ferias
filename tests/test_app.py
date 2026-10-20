@@ -72,7 +72,7 @@ def test_criar_aprovar_e_exportar(app):
 
     with app.app_context():
         ferias = db.session.scalar(db.select(Ferias))
-        assert ferias.fim == date(2026, 12, 20)
+        assert ferias.fim == date(2026, 12, 21)
         assert not ferias.aprovada
         ferias_id = ferias.id
 
@@ -245,7 +245,7 @@ def test_analise_ao_vivo(app):
     with app.app_context():
         carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
     resp = client.post("/ferias/analisar", json={"funcionario_id": carlos.id, "inicio": "2026-12-01", "dias": 20})
-    assert resp.get_json()["fim"] == "20/12/2026"
+    assert resp.get_json()["fim"] == "21/12/2026"
 
 
 def test_usuario_comum_nao_aprova_nem_ve_cronograma(app):
@@ -283,7 +283,7 @@ def test_importacao_da_planilha_original(app):
         resumo = importar_planilha(planilhas[0])
         assert resumo["funcionarios"] >= 10
         carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
-        assert carlos.ferias and carlos.ferias[0].fim == date(2026, 12, 20)
+        assert carlos.ferias and carlos.ferias[0].fim == date(2026, 12, 21)
         assert resumo["usuarios"] == 3
         assert importar_planilha(planilhas[0])["ferias"] == 0
 

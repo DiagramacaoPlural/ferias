@@ -73,9 +73,11 @@ class Ferias(db.Model):
     funcionario = db.relationship("Funcionario", back_populates="ferias")
 
     def definir_periodo(self, inicio, dias: int) -> None:
+        from .regras import calcular_fim
+
         self.inicio = inicio
         self.dias = dias
-        self.fim = inicio + timedelta(days=dias - 1)
+        self.fim = calcular_fim(inicio, dias)
 
     @property
     def aprovada(self) -> bool:
@@ -134,6 +136,21 @@ def garantir_esquema() -> None:
     if "adianta_13" not in colunas:
         with db.engine.begin() as conn:
             conn.execute(db.text("ALTER TABLE ferias ADD COLUMN adianta_13 BOOLEAN NOT NULL DEFAULT 0"))
+    _alinhar_fins_para_dia_util()
+
+
+def _alinhar_fins_para_dia_util() -> None:
+    """Recalcula o fim já gravado quando cai em sábado, domingo ou feriado."""
+    from .regras import calcular_fim
+
+    mudou = False
+    for ferias in db.session.scalars(db.select(Ferias)).all():
+        novo = calcular_fim(ferias.inicio, ferias.dias)
+        if ferias.fim != novo:
+            ferias.fim = novo
+            mudou = True
+    if mudou:
+        db.session.commit()
 
 
 class TentativaLogin(db.Model):

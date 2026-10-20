@@ -54,9 +54,56 @@ class Analise:
         return not self.erros
 
 
+def pascoa(ano: int) -> date:
+    """Algoritmo de Meeus/Jones/Butcher (calendário gregoriano)."""
+    a = ano % 19
+    b, c = divmod(ano, 100)
+    d, e = divmod(b, 4)
+    f = (b + 8) // 25
+    g = (b - f + 1) // 3
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = divmod(c, 4)
+    l = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 22 * l) // 451
+    mes, dia = divmod(h + l - 7 * m + 114, 31)
+    return date(ano, mes, dia + 1)
+
+
+def feriados_brasil(ano: int) -> set[date]:
+    """Feriados nacionais e pontes usuais da folha (carnaval, sexta-santa, Corpus Christi)."""
+    pascoa_dt = pascoa(ano)
+    return {
+        date(ano, 1, 1),
+        pascoa_dt - timedelta(days=48),
+        pascoa_dt - timedelta(days=47),
+        pascoa_dt - timedelta(days=2),
+        date(ano, 4, 21),
+        date(ano, 5, 1),
+        pascoa_dt + timedelta(days=60),
+        date(ano, 9, 7),
+        date(ano, 10, 12),
+        date(ano, 11, 2),
+        date(ano, 11, 15),
+        date(ano, 11, 20),
+        date(ano, 12, 25),
+    }
+
+
+def eh_dia_nao_util(dia: date) -> bool:
+    return dia.weekday() >= 5 or dia in feriados_brasil(dia.year)
+
+
+def proximo_dia_util(dia: date) -> date:
+    while eh_dia_nao_util(dia):
+        dia += timedelta(days=1)
+    return dia
+
+
 def calcular_fim(inicio: date, dias: int) -> date:
-    """O dia de início conta como 1º dia de férias."""
-    return inicio + timedelta(days=dias - 1)
+    """O dia de início conta como 1º dia. Sábado, domingo ou feriado vai ao próximo dia útil."""
+    if dias < 1:
+        return inicio
+    return proximo_dia_util(inicio + timedelta(days=dias - 1))
 
 
 def pode_adiantar_13(inicio: date) -> bool:
