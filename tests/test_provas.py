@@ -31,6 +31,9 @@ def test_criar_projeto_etapa_e_lancamento(app):
 
     resp = client.post("/provas/projetos/novo", data={"nome": "ENEM P1", "ativo": "1"}, follow_redirects=True)
     assert "Projeto salvo" in resp.get_data(as_text=True)
+    lista = client.get("/provas/projetos").get_data(as_text=True)
+    assert "Editar" in lista
+    assert "Etapa" in lista
 
     with app.app_context():
         projeto = db.session.scalar(db.select(ProjetoProva).filter_by(nome="ENEM P1"))

@@ -23,7 +23,7 @@
           <th>Período</th>
           <th class="num">Dias</th>
           <th>Etapas</th>
-          <th class="acoes-col"></th>
+          <th class="acoes-col">Ações</th>
         </tr>
       </thead>
       <tbody>
@@ -45,6 +45,7 @@
               {% endfor %}
             </td>
             <td class="acoes-col">
+              <a href="{{ url_for('provas.projeto_form', projeto_id=p.id) }}" class="btn btn-pequeno">{{ icone('editar') }} Editar</a>
               <a href="{{ url_for('provas.etapa_form') }}?projeto={{ p.id }}" class="btn btn-pequeno">{{ icone('mais') }} Etapa</a>
             </td>
           </tr>
