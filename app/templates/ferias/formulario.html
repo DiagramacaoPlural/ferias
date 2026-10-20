@@ -210,37 +210,28 @@
 
   function pintarResumo(dados) {
     if (!resumo) return;
-    if (!dados) { resumo.hidden = true; resumo.innerHTML = ''; return; }
-    let html = '<p><strong>' + escapar(dados.nome) + '</strong> · ' + dados.usados + ' de 30 dias neste ciclo';
-    if (dados.restante) {
-      html += ' · ' + dados.restante + (dados.restante === 1 ? ' dia restante' : ' dias restantes');
-    }
-    if (dados.admissao) html += '<br>Admissão ' + escapar(dados.admissao);
-    if (dados.limite) html += ' · limite ' + escapar(dados.limite);
-    html += '</p>';
-    if ((dados.periodos || []).length) {
-      html += '<div class="sugestoes">';
-      dados.periodos.forEach(function (p) {
-        html += '<button type="button" class="btn btn-pequeno" data-periodo-id="' + p.id + '">' +
-                escapar(p.inicio.split('-').reverse().join('/')) + ' · ' + p.dias + ' dias · ' + escapar(p.status) + '</button>';
-      });
-      if (dados.restante > 0) {
-        html += '<button type="button" class="btn btn-pequeno" data-novo="1">Novo período</button>';
-      }
-      html += '</div>';
-    } else {
-      html += '<p class="texto-suave">Nenhum período neste ciclo. Preencha para programar.</p>';
-    }
+    const periodos = (dados && dados.periodos) || [];
+    if (!periodos.length) { resumo.hidden = true; resumo.innerHTML = ''; return; }
+    let html = '<div class="sugestoes">';
+    periodos.forEach(function (p) {
+      const inicio = p.inicio.split('-').reverse().join('/');
+      html += '<button type="button" class="btn btn-pequeno" data-periodo-id="' + p.id + '">' +
+              escapar(inicio) + ' a ' + escapar(p.fim) + '</button>';
+    });
+    html += '<button type="button" class="btn btn-pequeno" data-novo="1">Novo período</button>';
+    html += '</div>';
     resumo.innerHTML = html;
     resumo.hidden = false;
     resumo.querySelectorAll('[data-periodo-id]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        const p = dados.periodos.find(x => String(x.id) === btn.dataset.periodoId);
+        const p = periodos.find(x => String(x.id) === btn.dataset.periodoId);
         if (p) { aplicarPeriodo(p); agendar(); }
       });
     });
-    const novo = resumo.querySelector('[data-novo]');
-    if (novo) novo.addEventListener('click', function () { aplicarPeriodo(null); agendar(); });
+    resumo.querySelector('[data-novo]').addEventListener('click', function () {
+      aplicarPeriodo(null);
+      agendar();
+    });
   }
 
   function urlDoFuncionario(id) {

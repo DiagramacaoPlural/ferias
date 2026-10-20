@@ -271,8 +271,7 @@ textarea { resize: vertical; min-height: 70px; }
   margin-top: 8px; padding: 10px 12px; background: #f8fafc;
   border: 1px solid var(--borda); border-radius: 8px; font-size: 13px;
 }
-.resumo-funcionario p { margin: 0 0 6px; }
-.resumo-funcionario .sugestoes { margin-top: 4px; }
+.resumo-funcionario .sugestoes { margin: 0; }
 
 /* ------------------------------------------------------------ alertas */
 
