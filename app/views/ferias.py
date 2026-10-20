@@ -239,6 +239,66 @@ def alternar_aprovacao(ferias_id: int):
     return redirect(request.referrer or url_for("ferias.lista"))
 
 
+@bp.route("/lote", methods=["POST"])
+@requer("calendario")
+def acao_lote():
+    ids = request.form.getlist("ids", type=int)
+    acao = request.form.get("acao", "")
+    destino = request.referrer or url_for("ferias.lista")
+    if not ids:
+        flash("Selecione pelo menos um período.", "aviso")
+        return redirect(destino)
+
+    registros = db.session.scalars(db.select(Ferias).where(Ferias.id.in_(ids))).all()
+    if acao == "aprovar":
+        if not current_user.admin:
+            abort(403)
+        feitos = []
+        for ferias in registros:
+            if ferias.aprovada:
+                continue
+            ferias.status = STATUS_APROVADA
+            ferias.aprovado_por = current_user.login
+            ferias.aprovado_em = datetime.now()
+            feitos.append(ferias.funcionario.nome)
+        registrar("Férias aprovadas em lote", ", ".join(feitos)[:500] if feitos else "nenhum")
+        db.session.commit()
+        flash(f"{len(feitos)} período(s) aprovado(s)." if feitos else "Os períodos selecionados já estavam aprovados.", "sucesso" if feitos else "info")
+        return redirect(destino)
+
+    if acao in ("13_sim", "13_nao"):
+        sim = acao == "13_sim"
+        feitos, recusados = [], []
+        for ferias in registros:
+            if not _pode_editar(ferias):
+                recusados.append(ferias.funcionario.nome)
+                continue
+            if sim and _erro_adianta_13(ferias.inicio, True):
+                recusados.append(ferias.funcionario.nome)
+                continue
+            ferias.adianta_13 = sim
+            feitos.append(ferias.funcionario.nome)
+        registrar(
+            "13º atualizado em lote",
+            ("Sim" if sim else "Não") + (": " + ", ".join(feitos) if feitos else ""),
+        )
+        db.session.commit()
+        if feitos:
+            flash(f"1ª parcela do 13º marcada como {'Sim' if sim else 'Não'} em {len(feitos)} período(s).", "sucesso")
+        if recusados:
+            flash(
+                "Não foi possível alterar o 13º de: " + ", ".join(recusados) +
+                (". A 1ª parcela só vale para férias a partir de fevereiro." if sim else "."),
+                "aviso",
+            )
+        if not feitos and not recusados:
+            flash("Nenhum período foi alterado.", "aviso")
+        return redirect(destino)
+
+    flash("Ação inválida.", "erro")
+    return redirect(destino)
+
+
 @bp.route("/<int:ferias_id>/mover", methods=["POST"])
 @requer("calendario")
 def mover(ferias_id: int):

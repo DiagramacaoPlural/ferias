@@ -92,6 +92,8 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
     pagina = client.get("/ferias/nova").get_data(as_text=True)
     assert "Antecipar a 1ª parcela do 13º" in pagina
     assert "Somente para férias com início a partir de fevereiro" in pagina
+    assert 'id="adianta_13_sim"' in pagina
+    assert 'id="adianta_13_nao"' in pagina
 
     with app.app_context():
         carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
@@ -117,13 +119,47 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
         assert ferias.inicio == date(2027, 2, 1)
 
     lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
-    assert "1ª parcela" in lista
+    assert ">Sim</span>" in lista
 
     ao_vivo = client.post(
         "/ferias/analisar",
         json={"funcionario_id": carlos.id, "inicio": "2027-01-11", "dias": 10, "adianta_13": True},
     )
     assert any("fevereiro" in e for e in ao_vivo.get_json()["erros"])
+
+
+def test_acoes_em_lote_aprova_e_define_13(app):
+    client = app.test_client()
+    entrar(client)
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
+        ids_func = (carlos.id, edson.id)
+
+    for fid, inicio in zip(ids_func, ("2027-02-01", "2027-02-15")):
+        client.post("/ferias/nova", data={"funcionario_id": fid, "inicio": inicio, "dias": "10", "confirmar": "1"})
+
+    with app.app_context():
+        ids = [f.id for f in db.session.scalars(db.select(Ferias)).all()]
+        assert len(ids) == 2
+
+    lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
+    assert "13º Sim" in lista and "Aprovar" in lista
+
+    resp = client.post("/ferias/lote", data={"acao": "aprovar", "ids": ids}, follow_redirects=True)
+    assert "2 período(s) aprovado(s)" in resp.get_data(as_text=True)
+    with app.app_context():
+        assert all(f.aprovada for f in db.session.scalars(db.select(Ferias)))
+
+    client.post("/ferias/lote", data={"acao": "13_sim", "ids": ids}, follow_redirects=True)
+    with app.app_context():
+        assert all(f.adianta_13 for f in db.session.scalars(db.select(Ferias)))
+
+    client.post("/ferias/lote", data={"acao": "13_nao", "ids": [ids[0]]}, follow_redirects=True)
+    with app.app_context():
+        ferias = {f.id: f for f in db.session.scalars(db.select(Ferias))}
+        assert ferias[ids[0]].adianta_13 is False
+        assert ferias[ids[1]].adianta_13 is True
 
 
 def test_aviso_exige_confirmacao(app):

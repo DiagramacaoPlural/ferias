@@ -56,12 +56,19 @@
       {% endfor %}
     </div>
 
-    <div class="campo-opcao">
-      <label class="checkbox">
-        <input type="checkbox" id="adianta_13" name="adianta_13" value="1" {{ 'checked' if v_13 }}>
-        Antecipar a 1ª parcela do 13º
-      </label>
-      <p class="ajuda-campo">Somente para férias com início a partir de fevereiro.</p>
+    <div class="campo">
+      <span class="rotulo-campo">Antecipar a 1ª parcela do 13º</span>
+      <div class="opcoes-sim-nao">
+        <label class="checkbox">
+          <input type="checkbox" id="adianta_13_sim" name="adianta_13" value="1" {{ 'checked' if v_13 }}>
+          Sim
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="adianta_13_nao" {{ 'checked' if not v_13 }}>
+          Não
+        </label>
+      </div>
+      <small>Somente para férias com início a partir de fevereiro.</small>
     </div>
 
     <div class="campo">
@@ -112,7 +119,8 @@
     inicio: document.getElementById('inicio'),
     dias: document.getElementById('dias'),
     fim: document.getElementById('fim'),
-    adianta13: document.getElementById('adianta_13'),
+    adianta13Sim: document.getElementById('adianta_13_sim'),
+    adianta13Nao: document.getElementById('adianta_13_nao'),
   };
   const painel = document.getElementById('analise-ao-vivo');
   const token = document.querySelector('meta[name="csrf-token"]').content;
@@ -140,7 +148,7 @@
           funcionario_id: campos.funcionario.value,
           inicio: campos.inicio.value,
           dias: campos.dias.value,
-          adianta_13: campos.adianta13.checked,
+          adianta_13: campos.adianta13Sim.checked,
           ferias_id: form.dataset.feriasId || null,
         }),
       });
@@ -176,8 +184,14 @@
     campos.funcionario.addEventListener(ev, agendar);
     campos.inicio.addEventListener(ev, agendar);
     campos.dias.addEventListener(ev, agendar);
-    campos.adianta13.addEventListener(ev, agendar);
   });
+  function marcar13(sim) {
+    campos.adianta13Sim.checked = sim;
+    campos.adianta13Nao.checked = !sim;
+    agendar();
+  }
+  campos.adianta13Sim.addEventListener('change', function () { marcar13(this.checked); });
+  campos.adianta13Nao.addEventListener('change', function () { marcar13(!this.checked); });
   document.querySelectorAll('[data-dias]').forEach(btn => btn.addEventListener('click', () => {
     campos.dias.value = btn.dataset.dias;
     agendar();

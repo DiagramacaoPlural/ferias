@@ -224,8 +224,15 @@ table.tabela { width: 100%; border-collapse: collapse; }
 .tabela tbody tr:hover { background: #f8fafc; }
 .tabela .num { text-align: right; font-variant-numeric: tabular-nums; }
 .tabela .acoes-col { text-align: right; white-space: nowrap; }
-.linha-aprovada td:first-child { box-shadow: inset 3px 0 0 var(--verde); }
-.linha-programada td:first-child { box-shadow: inset 3px 0 0 var(--ambar); }
+.tabela .col-check { width: 36px; padding-right: 4px; }
+.tabela .col-check input { width: 16px; height: 16px; accent-color: var(--azul); }
+.linha-aprovada td.col-nome { box-shadow: inset 3px 0 0 var(--verde); }
+.linha-programada td.col-nome { box-shadow: inset 3px 0 0 var(--ambar); }
+.barra-lote {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  padding: 10px 20px; border-bottom: 1px solid var(--borda); background: #f8fafc;
+}
+.barra-lote .checkbox { margin-bottom: 0; }
 
 .vazio { padding: 36px 20px; text-align: center; color: var(--texto-suave); }
 
@@ -252,6 +259,9 @@ textarea { resize: vertical; min-height: 70px; }
 .campo-opcao { margin-bottom: 16px; }
 .campo-opcao .checkbox { margin-bottom: 4px; }
 .ajuda-campo { margin: 0 0 0 24px; color: var(--texto-suave); font-size: 12.5px; }
+.rotulo-campo { font-weight: 600; font-size: 13px; }
+.opcoes-sim-nao { display: flex; gap: 22px; align-items: center; }
+.opcoes-sim-nao .checkbox { margin-bottom: 0; }
 
 .filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .filtros select { width: auto; min-width: 150px; }

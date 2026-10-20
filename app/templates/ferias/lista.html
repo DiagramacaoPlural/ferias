@@ -35,10 +35,25 @@
   </div>
 
   {% if ferias %}
+  <form method="post" action="{{ url_for('ferias.acao_lote') }}" id="form-lote" class="barra-lote">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div id="lote-ids"></div>
+    <label class="checkbox">
+      <input type="checkbox" id="sel-todos" aria-label="Selecionar todos">
+      Selecionar
+    </label>
+    <span class="texto-suave" id="lote-qtd">Nenhum selecionado</span>
+    {% if current_user.admin %}
+      <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
+    {% endif %}
+    <button type="submit" name="acao" value="13_sim" class="btn btn-pequeno">13º Sim</button>
+    <button type="submit" name="acao" value="13_nao" class="btn btn-pequeno">13º Não</button>
+  </form>
   <div class="tabela-wrap">
     <table class="tabela">
       <thead>
         <tr>
+          <th class="col-check"></th>
           <th>Funcionário</th>
           <th>Início</th>
           <th>Fim</th>
@@ -52,7 +67,10 @@
       <tbody>
         {% for f in ferias %}
           <tr class="linha-{{ f.status|lower }}">
-            <td>
+            <td class="col-check">
+              <input type="checkbox" value="{{ f.id }}" class="sel-ferias" aria-label="Selecionar {{ f.funcionario.nome }}">
+            </td>
+            <td class="col-nome">
               <strong>{{ f.funcionario.nome }}</strong>
               {% if avisos[f.id] %}
                 <span class="aviso-icone" title="{{ avisos[f.id]|join('\n') }}">⚠</span>
@@ -77,7 +95,7 @@
               {{ status(f) }}
               {% if f.aprovada and f.aprovado_por %}<br><small class="texto-suave">por {{ f.aprovado_por }}</small>{% endif %}
             </td>
-            <td>{% if f.adianta_13 %}<span class="badge badge-admin badge-sem">1ª parcela</span>{% else %}<span class="texto-suave">—</span>{% endif %}</td>
+            <td>{% if f.adianta_13 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
             <td class="texto-suave">{{ f.observacao or '' }}</td>
             <td class="acoes-col">
               {% if current_user.admin %}
@@ -234,4 +252,43 @@
   </div>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('form-lote');
+  if (!form) return;
+  const todos = document.getElementById('sel-todos');
+  const qtd = document.getElementById('lote-qtd');
+  const caixa = document.getElementById('lote-ids');
+  function caixas() { return Array.from(document.querySelectorAll('.sel-ferias')); }
+  function atualizar() {
+    const marcadas = caixas().filter(c => c.checked);
+    const n = marcadas.length;
+    qtd.textContent = n ? n + ' selecionado' + (n > 1 ? 's' : '') : 'Nenhum selecionado';
+    if (todos) todos.checked = n > 0 && n === caixas().length;
+  }
+  caixas().forEach(c => c.addEventListener('change', atualizar));
+  if (todos) todos.addEventListener('change', function () {
+    caixas().forEach(c => { c.checked = todos.checked; });
+    atualizar();
+  });
+  form.addEventListener('submit', function (ev) {
+    caixa.innerHTML = '';
+    const marcadas = caixas().filter(c => c.checked);
+    if (!marcadas.length) {
+      ev.preventDefault();
+      return;
+    }
+    marcadas.forEach(function (c) {
+      const h = document.createElement('input');
+      h.type = 'hidden';
+      h.name = 'ids';
+      h.value = c.value;
+      caixa.appendChild(h);
+    });
+  });
+})();
+</script>
 {% endblock %}
