@@ -10,6 +10,8 @@
   --ambar-claro: #fef3c7;
   --amarelo: #eab308;
   --amarelo-claro: #fef9c3;
+  --programada: #7c3aed;
+  --programada-claro: #ede9fe;
   --vermelho: #dc2626;
   --vermelho-claro: #fee2e2;
   --texto: #0f172a;
@@ -187,7 +189,7 @@ form.inline { display: inline; }
 }
 .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .badge-aprovada { background: var(--verde-claro); color: #166534; }
-.badge-programada { background: var(--ambar-claro); color: #92400e; }
+.badge-programada { background: var(--programada-claro); color: #5b21b6; }
 .badge-inativo { background: #e2e8f0; color: #475569; }
 .badge-perigo { background: var(--vermelho-claro); color: #991b1b; }
 .prazo-alerta { color: #92400e; font-weight: 600; }
@@ -231,7 +233,7 @@ table.tabela { width: 100%; border-collapse: collapse; }
 .tabela .col-check { width: 36px; padding-right: 4px; }
 .tabela .col-check input { width: 16px; height: 16px; accent-color: var(--azul); }
 .linha-aprovada td.col-nome { box-shadow: inset 3px 0 0 var(--verde); }
-.linha-programada td.col-nome { box-shadow: inset 3px 0 0 var(--ambar); }
+.linha-programada td.col-nome { box-shadow: inset 3px 0 0 var(--programada); }
 .barra-lote {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
   padding: 10px 20px; border-bottom: 1px solid var(--borda); background: #f8fafc;
@@ -306,7 +308,7 @@ textarea { resize: vertical; min-height: 70px; }
 .barra { height: 10px; border-radius: 999px; background: #e2e8f0; overflow: hidden; display: flex; }
 .barra span { display: block; height: 100%; }
 .barra .aprovado { background: var(--verde); }
-.barra .programado { background: #fbbf24; }
+.barra .programado { background: var(--programada); }
 .legenda { display: flex; gap: 14px; font-size: 12px; color: var(--texto-suave); align-items: center; flex-wrap: wrap; }
 .legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 
@@ -324,7 +326,7 @@ textarea { resize: vertical; min-height: 70px; }
 .mes-corpo { padding: 10px 16px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
 .mes-coluna h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
 .mes-coluna.aprovadas h3 { color: var(--teal); }
-.mes-coluna.programadas h3 { color: var(--ambar); }
+.mes-coluna.programadas h3 { color: var(--programada); }
 .mes-item { font-size: 13px; padding: 4px 0; border-bottom: 1px dashed var(--borda); }
 .mes-item:last-child { border-bottom: none; }
 .mes-item small { display: block; color: var(--texto-suave); font-size: 11.5px; }
@@ -355,7 +357,7 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 .gantt tbody td { height: 32px; }
 .gantt .barra-ferias { display: block; height: 18px; margin: 0 -1px; }
 .gantt .barra-ferias.aprovada { background: var(--teal); }
-.gantt .barra-ferias.programada { background: #fbbf24; background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(255,255,255,.35) 4px 8px); }
+.gantt .barra-ferias.programada { background: var(--programada); background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(255,255,255,.35) 4px 8px); }
 .gantt .barra-ferias.ini { border-radius: 5px 0 0 5px; margin-left: 2px; }
 .gantt .barra-ferias.fim { border-radius: 0 5px 5px 0; margin-right: 2px; }
 .gantt .barra-ferias.ini.fim { border-radius: 5px; }

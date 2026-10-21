@@ -408,11 +408,12 @@ def calendario():
         do_mes = [f for f in ferias if sobrepoe(f.inicio, f.fim, primeiro, ultimo)]
         if not do_mes and primeiro.month != 11:
             continue
+        sai_no_mes = [f for f in do_mes if primeiro <= f.inicio <= ultimo]
         meses.append(
             {
                 "data": primeiro,
-                "aprovadas": [f for f in do_mes if f.aprovada],
-                "programadas": [f for f in do_mes if not f.aprovada],
+                "aprovadas": [f for f in sai_no_mes if f.aprovada],
+                "programadas": [f for f in sai_no_mes if not f.aprovada],
                 "atual": primeiro.year == date.today().year and primeiro.month == date.today().month,
             }
         )

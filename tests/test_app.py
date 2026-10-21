@@ -172,10 +172,12 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
         carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
         edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
         ana = db.session.scalar(db.select(Funcionario).filter_by(nome="Ana"))
-        cid, eid, aid = carlos.id, edson.id, ana.id
+        bruno = db.session.scalar(db.select(Funcionario).filter_by(nome="Bruno"))
+        cid, eid, aid, bid = carlos.id, edson.id, ana.id, bruno.id
     client.post("/ferias/nova", data={"funcionario_id": cid, "inicio": "2026-12-01", "dias": "20"})
     client.post("/ferias/nova", data={"funcionario_id": eid, "inicio": "2026-12-01", "dias": "20", "confirmar": "1"})
     client.post("/ferias/nova", data={"funcionario_id": aid, "inicio": "2026-12-21", "dias": "5"})
+    client.post("/ferias/nova", data={"funcionario_id": bid, "inicio": "2026-12-28", "dias": "10"})
     pagina = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
     assert "Dezembro/2026" in pagina
     assert "Novembro/2026" in pagina
@@ -184,8 +186,14 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert 'class="gantt"' in pagina
     assert "20 dias" in pagina
     assert "no setor" in pagina
-    assert "3 de férias" in pagina
+    assert "4 de férias" in pagina
     assert "2 disponíveis" in pagina
+    cards = pagina.split("Cronograma")[0]
+    assert "Janeiro/2027" in cards
+    dezembro = cards.split("Dezembro/2026")[1].split("Janeiro/2027")[0]
+    janeiro = cards.split("Janeiro/2027")[1]
+    assert "Bruno" in dezembro
+    assert "Bruno" not in janeiro
     assert "disponíveis" in pagina
     assert "De férias" in pagina
     assert "Disponíveis no setor" in pagina
