@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, meses_do_ciclo, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -158,6 +158,18 @@ def test_painel_cobertura_destaca_pico():
     assert "4" in painel["svg"]["linha"]
     assert painel["concentracoes"][0]["disponiveis"] == 8
     assert [m["rotulo"] for m in painel["meses"]] == ["dez/26", "jan/27"]
+
+
+def test_nivel_cobertura_por_volume_de_ferias():
+    # 12 no setor, mínimo 3: até 3 de férias é pouco, 4–6 médio, 7+ muito
+    assert nivel_cobertura(1, 12, 3) == "pouco"
+    assert nivel_cobertura(3, 12, 3) == "pouco"
+    assert nivel_cobertura(4, 12, 3) == "medio"
+    assert nivel_cobertura(6, 12, 3) == "medio"
+    assert nivel_cobertura(7, 12, 3) == "muito"
+    assert nivel_cobertura(10, 12, 3) == "muito"
+    # 4 no setor, mínimo 3: qualquer ausência já é muito
+    assert nivel_cobertura(1, 4, 3) == "muito"
 
 
 def test_setor_desfalcado_gera_aviso_e_alternativas():

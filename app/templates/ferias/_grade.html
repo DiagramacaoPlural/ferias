@@ -4,7 +4,9 @@
     <div class="legenda">
       <span><i style="background:var(--verde)"></i>Aprovada</span>
       <span><i style="background:#fbbf24"></i>Programada</span>
-      <span><i style="background:var(--vermelho-claro);border:1px solid var(--vermelho)"></i>Menos de {{ min_disponiveis }} disponíveis</span>
+      <span><i style="background:var(--verde)"></i>Pouco de férias</span>
+      <span><i style="background:var(--ambar)"></i>Médio</span>
+      <span><i style="background:var(--vermelho)"></i>Muito de férias</span>
       <span><i style="background:transparent;box-shadow:inset 2px 0 0 var(--vermelho)"></i>Hoje</span>
     </div>
   </div>
@@ -44,9 +46,10 @@
           {% for d in dias %}
             {% set n = ausentes[d]|length %}
             {% set disp = total_ativos - n %}
-            <td class="{{ 'excesso' if disp < min_disponiveis else ('ocupado' if n else '') }} {{ 'hoje-col' if d == hoje }}"
+            {% set nivel = n|nivel_cobertura(total_ativos, min_disponiveis) if n else '' %}
+            <td class="{{ ('ocupado ' + nivel) if n else '' }} {{ 'hoje-col' if d == hoje }}"
                 {% if n %}title="{{ d|data }}: {{ disp }} disponíveis de {{ total_ativos }} · {{ n }} de férias · {{ ausentes[d]|join(', ') }}"{% endif %}>
-              {% if n %}<span class="qtd-disp">{{ disp }}/{{ total_ativos }}</span>{% endif %}
+              {% if n %}<span class="qtd-disp {{ nivel }}">{{ disp }}</span>{% endif %}
             </td>
           {% endfor %}
         </tr>

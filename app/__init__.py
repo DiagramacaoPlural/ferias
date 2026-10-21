@@ -9,7 +9,7 @@ from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .models import Usuario, db, garantir_esquema
-from .regras import MESES, MESES_ABREV
+from .regras import MESES, MESES_ABREV, nivel_cobertura
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -136,6 +136,10 @@ def _registrar_filtros(app: Flask) -> None:
     @app.template_filter("mes_abrev")
     def formatar_mes_abrev(valor: date):
         return f"{MESES_ABREV[valor.month - 1]}/{str(valor.year)[2:]}"
+
+    @app.template_filter("nivel_cobertura")
+    def filtrar_nivel_cobertura(ausentes, total_ativos, min_disponiveis):
+        return nivel_cobertura(ausentes, total_ativos, min_disponiveis)
 
     @app.context_processor
     def injetar_globais():

@@ -256,6 +256,18 @@ def limite_ausentes(total_ativos: int, min_disponiveis: int) -> int:
     return max(total_ativos - min_disponiveis, 0)
 
 
+def nivel_cobertura(ausentes: int, total_ativos: int, min_disponiveis: int) -> str:
+    """Volume de férias no dia: pouco (verde), medio (laranja) ou muito (vermelho)."""
+    if ausentes <= 0:
+        return "pouco"
+    limite = limite_ausentes(total_ativos, min_disponiveis)
+    if limite <= 0 or ausentes * 3 > limite * 2:
+        return "muito"
+    if ausentes * 3 > limite:
+        return "medio"
+    return "pouco"
+
+
 def _inicio_recomendado(dia: date) -> bool:
     return dia.weekday() not in (4, 5)
 

@@ -362,11 +362,13 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
   color: #fff;
 }
 .gantt .qtd-ferias { background: var(--azul); }
-.gantt .qtd-disp { background: var(--verde); min-width: 28px; padding: 0 6px; }
+.gantt .qtd-disp { background: var(--verde); }
+.gantt .qtd-disp.medio { background: var(--ambar); }
+.gantt .qtd-disp.muito { background: var(--vermelho); }
 .gantt .ocupado { background: var(--azul-claro) !important; }
-.gantt .linha-disponiveis .ocupado { background: var(--verde-claro) !important; }
-.gantt .excesso { background: var(--vermelho-claro) !important; }
-.gantt .excesso .qtd-disp { background: var(--vermelho); }
+.gantt .linha-disponiveis .ocupado.pouco { background: var(--verde-claro) !important; }
+.gantt .linha-disponiveis .ocupado.medio { background: var(--ambar-claro) !important; }
+.gantt .linha-disponiveis .ocupado.muito { background: var(--vermelho-claro) !important; }
 .mes-qtds { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .mes-qtd {
   font-weight: 700; font-size: 12px; color: var(--azul-escuro);
