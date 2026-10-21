@@ -132,8 +132,19 @@ def importar_planilha(caminho: Path) -> dict:
                 continue
             nome = str(linha[0]).strip()
             inicio = _para_data(linha[1] if len(linha) > 1 else None)
-            dias = linha[3] if len(linha) > 3 else None
-            aprovado = bool(linha[4]) if len(linha) > 4 else False
+            fim = _para_data(linha[2] if len(linha) > 2 else None)
+            dias_bruto = linha[3] if len(linha) > 3 else None
+            status_bruto = linha[4] if len(linha) > 4 else None
+            if isinstance(status_bruto, str):
+                aprovado = _sim(status_bruto) or "aprov" in status_bruto.casefold()
+            else:
+                aprovado = bool(status_bruto)
+            if isinstance(dias_bruto, (int, float)) and 5 <= int(dias_bruto) <= 30:
+                dias = int(dias_bruto)
+            elif inicio and fim:
+                dias = (fim - inicio).days + 1
+            else:
+                dias = None
 
             funcionario = db.session.scalar(db.select(Funcionario).filter_by(nome=nome))
             if not funcionario:
@@ -142,7 +153,7 @@ def importar_planilha(caminho: Path) -> dict:
                 db.session.flush()
                 resumo["funcionarios"] += 1
 
-            if inicio and isinstance(dias, (int, float)) and dias > 0:
+            if inicio and isinstance(dias, int) and dias > 0:
                 ja_existe = db.session.scalar(
                     db.select(Ferias).filter_by(funcionario_id=funcionario.id, inicio=inicio)
                 )
@@ -154,7 +165,7 @@ def importar_planilha(caminho: Path) -> dict:
                         aprovado_por="importação" if aprovado else None,
                         aprovado_em=datetime.now() if aprovado else None,
                     )
-                    ferias.definir_periodo(inicio, int(dias))
+                    ferias.definir_periodo(inicio, dias)
                     db.session.add(ferias)
                     resumo["ferias"] += 1
 
