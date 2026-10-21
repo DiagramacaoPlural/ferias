@@ -636,8 +636,12 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Validação do líder" in fila
     assert "Carlos" in fila
     assert "01/12/2026" in fila
+    assert "12/01/2027" in fila
+    assert "Opção 1" in fila
+    assert "Opção 2" in fila
+    assert "Validar opção 1" in fila
+    assert "Validar opção 2" in fila
     assert "Fila para validar" in fila
-    assert "Validar e enviar ao gerente" in fila
 
     client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-01"}, follow_redirects=True)
     with app.app_context():
@@ -687,6 +691,44 @@ def test_lider_nao_e_gerente_e_a_fila_do_gerente_recebe_a_validacao(app):
     html = client.get("/ferias/validacao/gerente").get_data(as_text=True)
     assert "Carlos" in html
     assert "01/12/2026" in html
+
+
+def test_lider_ve_e_valida_a_segunda_opcao(app, monkeypatch):
+    monkeypatch.setattr("app.workflow.enviar_email", lambda *a, **k: (True, ""))
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
+        joao.funcionario_id = carlos.id
+        lider = Usuario(login="Lider", papel=PAPEL_LIDER, acessa_calendario=True, acessa_cronograma=True, trocar_senha=False)
+        lider.definir_senha("senha123")
+        db.session.add(lider)
+        db.session.commit()
+        cid = carlos.id
+
+    entrar(client, "joao", "senha123")
+    client.post(
+        "/ferias/opcoes",
+        data={"ciclo": "2026", "inicio_1": "2026-12-01", "dias_1": "10", "inicio_2": "2027-01-12", "dias_2": "15"},
+        follow_redirects=True,
+    )
+    with app.app_context():
+        ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
+        fid = ferias.id
+        assert ferias.inicio == date(2026, 12, 1)
+
+    client.get("/logout")
+    entrar(client, "Lider", "senha123")
+    html = client.get("/ferias/validacao/lider?ciclo=2026").get_data(as_text=True)
+    assert "01/12/2026" in html
+    assert "12/01/2027" in html
+    assert "Validar opção 2" in html
+    client.post(f"/ferias/{fid}/lider", data={"inicio": "2027-01-12", "acao": "validar"}, follow_redirects=True)
+    with app.app_context():
+        ferias = db.session.get(Ferias, fid)
+        assert ferias.status == STATUS_AGUARDANDO_GERENTE
+        assert ferias.inicio == date(2027, 1, 12)
+        assert ferias.dias == 15
 
 
 def test_envio_das_opcoes_cai_na_fila_do_lider_mesmo_com_setor_ocupado(app, monkeypatch):

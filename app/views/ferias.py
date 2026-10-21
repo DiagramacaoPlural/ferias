@@ -37,7 +37,6 @@ from ..workflow import (
     garantir_fila_do_lider,
     gerente_aprovar,
     gerente_sugerir,
-    lider_definir,
     lider_sugerir,
     lider_validar,
     montar_calendario,
@@ -519,6 +518,7 @@ def calendario():
             )
             if f.funcionario and f.funcionario.ativo
         ]
+    opcoes_por_func = _opcoes_por_funcionario({f.funcionario_id for f in fila_lider})
     fila_gerente = []
     if current_user.pode_gerente():
         fila_gerente = [
@@ -539,6 +539,7 @@ def calendario():
         andamento=_andamento_do_funcionario(current_user.funcionario_id, ciclo_ini, ciclo_fim),
         fila_lider=fila_lider,
         fila_gerente=fila_gerente,
+        opcoes_por_func=opcoes_por_func,
         **grade,
     )
 
@@ -552,6 +553,26 @@ def _sugestoes_do_ciclo(ano: int) -> dict[int, list[SugestaoFerias]]:
     ):
         por_func.setdefault(s.funcionario_id, []).append(s)
     return por_func
+
+
+def _opcoes_por_funcionario(ids) -> dict[int, list[SugestaoFerias]]:
+    """Todas as opções de cada funcionário, para o líder ver as duas datas."""
+    por: dict[int, list[SugestaoFerias]] = {}
+    ids = {int(i) for i in ids if i}
+    if not ids:
+        return por
+    vistos: set[tuple] = set()
+    for s in db.session.scalars(
+        db.select(SugestaoFerias)
+        .where(SugestaoFerias.funcionario_id.in_(ids))
+        .order_by(SugestaoFerias.funcionario_id, SugestaoFerias.ordem, SugestaoFerias.inicio)
+    ):
+        chave = (s.funcionario_id, s.inicio, s.dias)
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        por.setdefault(s.funcionario_id, []).append(s)
+    return por
 
 
 @bp.route("/opcoes", methods=["GET", "POST"])
@@ -605,7 +626,7 @@ def opcoes():
                     "ordem": ordem,
                     "inicio": inicio,
                     "dias": dias,
-                    "ciclo_ano": ciclo_atual(inicio)[0].year,
+                    "ciclo_ano": ciclo_ini.year,
                     "adianta_13": adianta_13,
                     "vende_10": _quer_vende_10({"vende_10": request.form.get(f"vende_10_{ordem}")}),
                 }
@@ -613,12 +634,8 @@ def opcoes():
         if not lidas and not erros:
             erros.append("Informe pelo menos uma opção de datas.")
         if not erros:
-            anos = {item["ciclo_ano"] for item in lidas} | {ciclo_ini.year}
             antigas = db.session.scalars(
-                db.select(SugestaoFerias).where(
-                    SugestaoFerias.funcionario_id == funcionario.id,
-                    SugestaoFerias.ciclo_ano.in_(anos),
-                )
+                db.select(SugestaoFerias).where(SugestaoFerias.funcionario_id == funcionario.id)
             ).all()
             for antigo in antigas:
                 db.session.delete(antigo)
@@ -728,6 +745,15 @@ def acao_lider(ferias_id: int):
         except ValueError:
             flash("Data inválida.", "erro")
             return redirect(destino_lider)
+    opcao = db.session.scalar(
+        db.select(SugestaoFerias).where(
+            SugestaoFerias.funcionario_id == ferias.funcionario_id,
+            SugestaoFerias.inicio == inicio,
+        )
+    )
+    dias = request.form.get("dias", type=int) or (opcao.dias if opcao else ferias.dias)
+    if dias < 1:
+        dias = ferias.dias
     definir_final = bool(ferias.recusou_ajuste) or acao == "definir"
     sugerir = (not definir_final) and (acao == "sugerir" or (acao != "validar" and inicio != ferias.inicio))
     if sugerir:
@@ -738,12 +764,20 @@ def acao_lider(ferias_id: int):
         registrar("Líder sugeriu outra data", f"{ferias.funcionario.nome}: {inicio:%d/%m/%Y}")
         flash(f"Nova data enviada a {ferias.funcionario.nome} por e-mail. Ele precisa aceitar ou recusar.", "sucesso")
         return redirect(destino_lider)
-    if inicio != ferias.inicio:
-        lider_definir(ferias, inicio, current_user.login)
+    if inicio != ferias.inicio or dias != ferias.dias:
+        ferias.definir_periodo(inicio, dias)
         registrar("Líder definiu a data", f"{ferias.funcionario.nome}: {inicio:%d/%m/%Y}")
     else:
-        lider_validar(ferias, current_user.login)
         registrar("Líder validou", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
+    if request.form.get("vende_10") is not None:
+        ferias.vende_10 = request.form.get("vende_10") == "1"
+    elif opcao is not None:
+        ferias.vende_10 = bool(opcao.vende_10)
+    if request.form.get("adianta_13") is not None:
+        ferias.adianta_13 = request.form.get("adianta_13") == "1"
+    elif opcao is not None:
+        ferias.adianta_13 = bool(opcao.adianta_13)
+    lider_validar(ferias, current_user.login)
     if definir_final:
         flash("Data definida e encaminhada ao gerente (Aceite gerente).", "sucesso")
     else:
@@ -791,9 +825,6 @@ def validacao_lider():
     ciclo_ini, ciclo_fim = _ciclo_da_requisicao()
     garantir_fila_do_lider(ciclo_ini.year)
     por_func = _sugestoes_do_ciclo(ciclo_ini.year)
-    ativos = funcionarios_ativos()
-    enviadas = [{"funcionario": f, "opcoes": por_func[f.id]} for f in ativos if f.id in por_func]
-    faltando = [f for f in ativos if f.id not in por_func]
     fila = [
         f
         for f in db.session.scalars(
@@ -808,6 +839,14 @@ def validacao_lider():
         )
         if f.funcionario and f.funcionario.ativo
     ]
+    opcoes_por_func = _opcoes_por_funcionario(
+        set(por_func) | {f.funcionario_id for f in fila} | {f.funcionario_id for f in aguardando_funcionario}
+    )
+    for fid, ops in opcoes_por_func.items():
+        por_func[fid] = ops
+    ativos = funcionarios_ativos()
+    enviadas = [{"funcionario": f, "opcoes": por_func[f.id]} for f in ativos if f.id in por_func]
+    faltando = [f for f in ativos if f.id not in por_func]
     return render_template(
         "ferias/validacao_lider.html",
         ciclo_ini=ciclo_ini,
@@ -817,6 +856,7 @@ def validacao_lider():
         faltando=faltando,
         fila=fila,
         aguardando_funcionario=aguardando_funcionario,
+        opcoes_por_func=opcoes_por_func,
     )
 
 

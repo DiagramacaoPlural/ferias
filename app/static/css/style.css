@@ -192,8 +192,10 @@ form.inline { display: inline; }
 .badge-programada { background: var(--programada-claro); color: #0369a1; }
 .badge-aguardando_funcionario, .badge-ajuste_gerente, .badge-ajuste_lider { background: var(--ambar-claro); color: #92400e; }
 .badge-aguardando_lider, .badge-aguardando_gerente { background: var(--azul-claro); color: var(--azul-escuro); }
-.pendencia-item { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.pendencia-item { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--borda); }
 .pendencia-item:last-child { border-bottom: none; }
+.opcoes-lider { display: grid; gap: 8px; }
+.opcao-lider { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .caixa-pendencia { margin-bottom: 16px; }
 .andamento-item { padding: 10px 0; border-bottom: 1px solid var(--borda); }
 .andamento-item:last-child { border-bottom: none; }

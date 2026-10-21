@@ -81,12 +81,14 @@
         <div class="pendencia-item">
           <div>
             <strong>{{ f.funcionario.nome }}</strong>
-            <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
-            {% if f.vende_10 %}<span class="texto-suave"> · vende 10 dias</span>{% endif %}
+            {% if not opcoes_por_func.get(f.funcionario_id) %}
+              <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
+              {% if f.vende_10 %}<span class="texto-suave"> · vende 10 dias</span>{% endif %}
+            {% endif %}
             {% if f.recusou_ajuste %}<p class="texto-suave" style="margin:4px 0 0">Funcionário recusou. Defina a data e envie ao gerente.</p>{% endif %}
             {% if f.observacao %}<p class="texto-suave" style="margin:4px 0 0">{{ f.observacao }}</p>{% endif %}
           </div>
-          {{ acoes_lider(f) }}
+          {{ acoes_lider(f, opcoes_por_func.get(f.funcionario_id, [])) }}
         </div>
       {% endfor %}
     </div>

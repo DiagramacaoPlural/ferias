@@ -95,12 +95,16 @@ def enviar_ao_lider(funcionario: Funcionario, opcoes: list[SugestaoFerias]) -> F
     if not ferias:
         return None
     db.session.commit()
+    linhas = [
+        f"- opção {i}: {op.inicio:%d/%m/%Y} a {op.fim:%d/%m/%Y} ({op.dias} dias)"
+        for i, op in enumerate(opcoes, start=1)
+    ]
     _notificar_papel(
         PAPEL_LIDER,
         "Novas datas de férias para validar",
-        f"{funcionario.nome} enviou opções de férias. "
-        f"A primeira data é {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}. "
-        "Valide ou sugira outra data no Controle de Férias.",
+        f"{funcionario.nome} enviou {len(opcoes)} opção(ões) de férias:\n"
+        + "\n".join(linhas)
+        + "\nValide uma das opções ou sugira outra data no Controle de Férias.",
     )
     return ferias
 
