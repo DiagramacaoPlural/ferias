@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo, acoes_lider with context %}
+{% from "_macros.html" import icone, seletor_ciclo, acoes_lider, status with context %}
 {% block titulo %}Calendário{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -19,6 +19,8 @@
     <button type="button" class="btn" onclick="window.print()">{{ icone('imprimir') }} Imprimir</button>
   </div>
 </div>
+
+{% include "ferias/_andamento.html" %}
 
 {% if minhas_pendencias %}
 <div class="card caixa-pendencia">
@@ -103,7 +105,7 @@
         <div class="mes-coluna programadas">
           <h3>Programadas</h3>
           {% for f in mes.programadas %}
-            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · vende 10 dias{% endif %}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · vende 10 dias{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}
@@ -111,7 +113,7 @@
         <div class="mes-coluna aprovadas">
           <h3>Aprovadas</h3>
           {% for f in mes.aprovadas %}
-            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · vende 10 dias{% endif %}{% if f.gozada() %} · já gozou{% endif %}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · vende 10 dias{% endif %}{% if f.gozada() %} · já gozou{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}

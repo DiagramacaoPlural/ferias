@@ -17,6 +17,8 @@
   <div class="alerta alerta-aviso"><div>Seu usuário ainda não está ligado a um funcionário. Peça ao administrador para sincronizar a planilha Usuarios.xlsx.</div></div>
 {% else %}
 
+{% include "ferias/_andamento.html" %}
+
 {% if pendencias %}
 <div class="card caixa-pendencia">
   <div class="card-titulo"><h2>Sua data precisa de resposta</h2></div>

@@ -225,8 +225,9 @@ def gerente_aprovar(ferias: Ferias, login: str) -> None:
         ferias.funcionario,
         "Férias aprovadas",
         f"Olá, {ferias.funcionario.nome}.\n\n"
-        f"Seu período de férias foi aprovado: {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} "
-        f"({ferias.dias} dias).\n\nPara consultar o status, acesse o Calendário no Controle de Férias.",
+        f"O gerente aprovou as suas férias: {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} "
+        f"({ferias.dias} dias).\n\n"
+        f"Acompanhe o status no Calendário do Controle de Férias."
     )
 
 

@@ -195,6 +195,13 @@ form.inline { display: inline; }
 .pendencia-item { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--borda); }
 .pendencia-item:last-child { border-bottom: none; }
 .caixa-pendencia { margin-bottom: 16px; }
+.andamento-item { padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.andamento-item:last-child { border-bottom: none; }
+.andamento-cabeca { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.etapas { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 8px 0 0; margin: 0; }
+.etapas li { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: #e2e8f0; color: #64748b; }
+.etapas li.feito { background: var(--verde-claro); color: #166534; }
+.etapas li.atual { background: var(--azul-claro); color: var(--azul-escuro); font-weight: 600; }
 .badge-inativo { background: #e2e8f0; color: #475569; }
 .badge-perigo { background: var(--vermelho-claro); color: #991b1b; }
 .prazo-alerta { color: #92400e; font-weight: 600; }

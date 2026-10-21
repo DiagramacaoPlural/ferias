@@ -76,6 +76,18 @@ def _pendencias_do_funcionario(funcionario_id: int) -> list[Ferias]:
     )
 
 
+def _andamento_do_funcionario(funcionario_id: int | None, ciclo_ini: date, ciclo_fim: date) -> list[Ferias]:
+    if not funcionario_id:
+        return []
+    return [
+        f
+        for f in db.session.scalars(
+            db.select(Ferias).where(Ferias.funcionario_id == funcionario_id).order_by(Ferias.inicio)
+        )
+        if (not f.aprovada) or (ciclo_ini <= f.inicio <= ciclo_fim)
+    ]
+
+
 def _pode_editar(ferias: Ferias) -> bool:
     return current_user.admin or not ferias.aprovada
 
@@ -505,6 +517,7 @@ def calendario():
         ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
         minhas_pendencias=minhas,
+        andamento=_andamento_do_funcionario(current_user.funcionario_id, ciclo_ini, ciclo_fim),
         fila_lider=fila_lider,
         fila_gerente=fila_gerente,
         **grade,
@@ -631,6 +644,7 @@ def opcoes():
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
         existentes=existentes,
         pendencias=pendencias,
+        andamento=_andamento_do_funcionario(funcionario.id if funcionario else None, ciclo_ini, ciclo_fim),
         erros=erros,
         avisos=avisos,
         alternativas=alternativas,

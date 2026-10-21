@@ -624,6 +624,11 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
         assert ferias.vende_10 is True
         fid = ferias.id
 
+    andamento = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "Andamento das suas férias" in andamento
+    assert "Aguardando líder" in andamento
+    assert "O líder está validando" in andamento
+
     client.get("/logout")
     entrar(client)
     fila = client.get("/ferias/validacao/lider?ciclo=2026").get_data(as_text=True)
@@ -646,6 +651,14 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
         ferias = db.session.get(Ferias, fid)
         assert ferias.status == STATUS_APROVADA
     assert any("Férias aprovadas" in a[0] and "carlos@ex.com" in a[2] for a in enviados)
+    assert any("Acompanhe o status no Calendário" in a[1] for a in enviados)
+
+    client.get("/logout")
+    entrar(client, "joao", "senha123")
+    aprovado = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "Andamento das suas férias" in aprovado
+    assert "Aprovada" in aprovado
+    assert "Férias aprovadas pelo gerente" in aprovado
 
 
 def test_lider_nao_e_gerente_e_a_fila_do_gerente_recebe_a_validacao(app):

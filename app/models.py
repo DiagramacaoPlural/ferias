@@ -22,6 +22,16 @@ STATUS_ROTULOS = {
     STATUS_AJUSTE_GERENTE: "Ajuste do gerente",
     STATUS_AJUSTE_LIDER: "Ajuste do líder",
 }
+STATUS_EXPLICACAO = {
+    STATUS_PROGRAMADA: "Período programado. Acompanhe a etapa no Calendário.",
+    STATUS_APROVADA: "Férias aprovadas pelo gerente.",
+    STATUS_AGUARDANDO_FUNCIONARIO: "Há uma data sugerida para você aceitar ou recusar.",
+    STATUS_AGUARDANDO_LIDER: "O líder está validando as suas datas.",
+    STATUS_AGUARDANDO_GERENTE: "O líder validou. Aguarde o aceite do gerente.",
+    STATUS_AJUSTE_GERENTE: "O gerente sugeriu outra data. Aceite ou recuse no Calendário.",
+    STATUS_AJUSTE_LIDER: "O líder sugeriu outra data. Aceite ou recuse no Calendário.",
+}
+ETAPAS_FLUXO = ("Datas enviadas", "Validação do líder", "Aceite do gerente", "Aprovado")
 
 PAPEL_SIMPLES = "simples"
 PAPEL_LIDER = "lider"
@@ -125,6 +135,32 @@ class Ferias(db.Model):
     @property
     def status_rotulo(self) -> str:
         return STATUS_ROTULOS.get(self.status, self.status)
+
+    @property
+    def status_explicacao(self) -> str:
+        return STATUS_EXPLICACAO.get(self.status, self.status_rotulo)
+
+    @property
+    def etapas(self) -> list[dict]:
+        if self.status == STATUS_APROVADA:
+            atual = 3
+        elif self.status in (STATUS_AGUARDANDO_GERENTE, STATUS_AJUSTE_GERENTE):
+            atual = 2
+        elif self.status in (
+            STATUS_AGUARDANDO_LIDER,
+            STATUS_AJUSTE_LIDER,
+            STATUS_AGUARDANDO_FUNCIONARIO,
+        ):
+            atual = 1
+        else:
+            atual = 0
+        return [
+            {
+                "rotulo": nome,
+                "estado": "feito" if i < atual else ("atual" if i == atual else "pendente"),
+            }
+            for i, nome in enumerate(ETAPAS_FLUXO)
+        ]
 
 
 class Configuracao(db.Model):
