@@ -65,10 +65,10 @@ class Usuario(UserMixin, db.Model):
         return self.admin or self.papel in PAPEIS_GESTAO
 
     def pode_lider(self) -> bool:
-        return self.admin or self.papel in {PAPEL_LIDER, PAPEL_ADMIN}
+        return self.papel in {PAPEL_LIDER, PAPEL_ADMIN}
 
     def pode_gerente(self) -> bool:
-        return self.admin or self.papel in {PAPEL_GERENTE, PAPEL_ADMIN}
+        return self.papel in {PAPEL_GERENTE, PAPEL_ADMIN}
 
 
 class Funcionario(db.Model):
@@ -94,7 +94,7 @@ class Ferias(db.Model):
     inicio = db.Column(db.Date, nullable=False, index=True)
     dias = db.Column(db.Integer, nullable=False)
     fim = db.Column(db.Date, nullable=False, index=True)
-    status = db.Column(db.String(20), default=STATUS_PROGRAMADA, nullable=False)
+    status = db.Column(db.String(32), default=STATUS_PROGRAMADA, nullable=False)
     observacao = db.Column(db.String(500))
     adianta_13 = db.Column(db.Boolean, default=False, nullable=False)
     vende_10 = db.Column(db.Boolean, default=False, nullable=False)

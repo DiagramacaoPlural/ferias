@@ -639,12 +639,43 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-01"}, follow_redirects=True)
     with app.app_context():
         assert db.session.get(Ferias, fid).status == STATUS_AGUARDANDO_GERENTE
+    gerente = client.get("/ferias/validacao/gerente").get_data(as_text=True)
+    assert "Aceite do gerente" in gerente
+    assert "Carlos" in gerente
+    assert "01/12/2026" in gerente
 
     client.post(f"/ferias/{fid}/gerente", data={"acao": "aprovar"}, follow_redirects=True)
     with app.app_context():
         ferias = db.session.get(Ferias, fid)
         assert ferias.status == STATUS_APROVADA
     assert any("Férias aprovadas" in a[0] and "carlos@ex.com" in a[2] for a in enviados)
+
+
+def test_lider_nao_e_gerente_e_a_fila_do_gerente_recebe_a_validacao(app):
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        lider = Usuario(login="Lider", papel=PAPEL_LIDER, acessa_calendario=True, acessa_cronograma=True, trocar_senha=False)
+        lider.definir_senha("senha123")
+        gerente = Usuario(login="Gerente", papel=PAPEL_GERENTE, acessa_calendario=True, acessa_cronograma=True, trocar_senha=False)
+        gerente.definir_senha("senha123")
+        ferias = Ferias(funcionario=carlos, status=STATUS_AGUARDANDO_LIDER, criado_por="montagem")
+        ferias.definir_periodo(date(2026, 12, 1), 10)
+        db.session.add_all([lider, gerente, ferias])
+        db.session.commit()
+        fid = ferias.id
+
+    entrar(client, "Lider", "senha123")
+    assert client.get("/ferias/validacao/gerente").status_code == 403
+    resp = client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-01"}, follow_redirects=True)
+    assert "encaminhado ao gerente" in resp.get_data(as_text=True).casefold()
+    with app.app_context():
+        assert db.session.get(Ferias, fid).status == STATUS_AGUARDANDO_GERENTE
+    client.get("/logout")
+    entrar(client, "Gerente", "senha123")
+    html = client.get("/ferias/validacao/gerente").get_data(as_text=True)
+    assert "Carlos" in html
+    assert "01/12/2026" in html
 
 
 def test_montar_propoe_data_proxima_e_funcionario_responde(app, monkeypatch):

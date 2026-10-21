@@ -5,7 +5,7 @@
 <div class="cabecalho">
   <div>
     <h1>Aceite do gerente</h1>
-    <p>Ciclo {{ rotulo_ciclo }}. Aprove o período ou sugira outra data ao funcionário.</p>
+    <p>Aprove o período validado pelo líder ou sugira outra data ao funcionário.</p>
   </div>
   <div class="acoes">
     {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.validacao_gerente') }}
@@ -37,7 +37,7 @@
       {% endfor %}
     </div>
   {% else %}
-    <div class="vazio">Nenhum período aguardando o gerente neste ciclo. O líder valida primeiro em Validar (líder).</div>
+    <div class="vazio">Nenhum período aguardando o gerente. O líder valida primeiro em Validar (líder).</div>
   {% endif %}
 </div>
 {% endblock %}
