@@ -13,6 +13,7 @@ from .models import (
     STATUS_AGUARDANDO_GERENTE,
     STATUS_AGUARDANDO_LIDER,
     STATUS_AJUSTE_GERENTE,
+    STATUS_AJUSTE_LIDER,
     STATUS_APROVADA,
     Ferias,
     Funcionario,
@@ -174,6 +175,16 @@ def montar_calendario(ano: int | None = None) -> dict:
 
 
 def aceitar_proposta(ferias: Ferias) -> None:
+    if ferias.status == STATUS_AJUSTE_LIDER:
+        ferias.status = STATUS_AGUARDANDO_GERENTE
+        db.session.commit()
+        _notificar_papel(
+            PAPEL_GERENTE,
+            "Funcionário aceitou a data do líder",
+            f"{ferias.funcionario.nome} aceitou {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}. "
+            "Dê o aceite no Controle de Férias.",
+        )
+        return
     ferias.status = STATUS_AGUARDANDO_LIDER
     db.session.commit()
     _notificar_papel(
@@ -210,6 +221,20 @@ def lider_validar(ferias: Ferias, login: str) -> None:
 def lider_definir(ferias: Ferias, inicio: date, login: str) -> None:
     ferias.definir_periodo(inicio, ferias.dias)
     lider_validar(ferias, login)
+
+
+def lider_sugerir(ferias: Ferias, inicio: date, login: str) -> None:
+    ferias.definir_periodo(inicio, ferias.dias)
+    ferias.status = STATUS_AJUSTE_LIDER
+    ferias.observacao = ((ferias.observacao or "") + f" · Data sugerida pelo líder {login}.").strip(" ·")
+    db.session.commit()
+    _notificar(
+        ferias.funcionario,
+        "O líder sugeriu outra data para as suas férias",
+        f"Olá, {ferias.funcionario.nome}.\n\n"
+        f"O líder sugeriu o período {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} ({ferias.dias} dias).\n"
+        f"Entre no Controle de Férias, abra Minhas datas ou o Calendário e aceite ou recuse.",
+    )
 
 
 def gerente_aprovar(ferias: Ferias, login: str) -> None:

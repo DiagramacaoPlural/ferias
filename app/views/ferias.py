@@ -21,6 +21,7 @@ from ..models import (
     STATUS_AGUARDANDO_GERENTE,
     STATUS_AGUARDANDO_LIDER,
     STATUS_AJUSTE_GERENTE,
+    STATUS_AJUSTE_LIDER,
     STATUS_APROVADA,
     STATUS_PROGRAMADA,
     Ferias,
@@ -33,6 +34,7 @@ from ..workflow import (
     gerente_aprovar,
     gerente_sugerir,
     lider_definir,
+    lider_sugerir,
     lider_validar,
     montar_calendario,
     recusar_proposta,
@@ -56,6 +58,21 @@ bp = Blueprint("ferias", __name__, url_prefix="/ferias")
 
 def _ciclo_da_requisicao() -> tuple[date, date]:
     return ciclo_por_ano(request.args.get("ciclo", type=int))
+
+
+def _pendencias_do_funcionario(funcionario_id: int) -> list[Ferias]:
+    return list(
+        db.session.scalars(
+            db.select(Ferias)
+            .where(
+                Ferias.funcionario_id == funcionario_id,
+                Ferias.status.in_(
+                    (STATUS_AGUARDANDO_FUNCIONARIO, STATUS_AJUSTE_GERENTE, STATUS_AJUSTE_LIDER)
+                ),
+            )
+            .order_by(Ferias.inicio)
+        )
+    )
 
 
 def _pode_editar(ferias: Ferias) -> bool:
@@ -460,14 +477,7 @@ def calendario():
                 mes["disp"] = total
                 mes["nivel_disp"] = "pouco"
 
-    minhas = []
-    if current_user.funcionario_id:
-        minhas = [
-            f
-            for f in ferias
-            if f.funcionario_id == current_user.funcionario_id
-            and f.status in (STATUS_AGUARDANDO_FUNCIONARIO, STATUS_AJUSTE_GERENTE)
-        ]
+    minhas = _pendencias_do_funcionario(current_user.funcionario_id) if current_user.funcionario_id else []
     fila_lider = [f for f in ferias if f.status == STATUS_AGUARDANDO_LIDER] if current_user.pode_lider() else []
     fila_gerente = [f for f in ferias if f.status == STATUS_AGUARDANDO_GERENTE] if current_user.pode_gerente() else []
 
@@ -503,12 +513,14 @@ def opcoes():
     if request.method == "POST" and request.form.get("ciclo", type=int):
         ciclo_ini, ciclo_fim = ciclo_por_ano(request.form.get("ciclo", type=int))
     existentes = []
+    pendencias = []
     if funcionario:
         existentes = db.session.scalars(
             db.select(SugestaoFerias)
             .where(SugestaoFerias.funcionario_id == funcionario.id, SugestaoFerias.ciclo_ano == ciclo_ini.year)
             .order_by(SugestaoFerias.ordem)
         ).all()
+        pendencias = _pendencias_do_funcionario(funcionario.id)
 
     avisos, erros, alternativas = [], [], []
     if request.method == "POST":
@@ -587,6 +599,7 @@ def opcoes():
         ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
         existentes=existentes,
+        pendencias=pendencias,
         erros=erros,
         avisos=avisos,
         alternativas=alternativas,
@@ -619,13 +632,17 @@ def responder(ferias_id: int):
     ferias = db.get_or_404(Ferias, ferias_id)
     if ferias.funcionario_id != current_user.funcionario_id and not current_user.admin:
         abort(403)
-    if ferias.status not in (STATUS_AGUARDANDO_FUNCIONARIO, STATUS_AJUSTE_GERENTE):
+    if ferias.status not in (STATUS_AGUARDANDO_FUNCIONARIO, STATUS_AJUSTE_GERENTE, STATUS_AJUSTE_LIDER):
         flash("Este período não está aguardando a sua resposta.", "aviso")
         return redirect(_destino_calendario())
     if request.form.get("acao") == "aceitar":
+        vinha_do_lider = ferias.status == STATUS_AJUSTE_LIDER
         aceitar_proposta(ferias)
         registrar("Funcionário aceitou a data", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
-        flash("Data aceita. O líder vai validar.", "sucesso")
+        if vinha_do_lider:
+            flash("Data aceita. Encaminhado ao gerente.", "sucesso")
+        else:
+            flash("Data aceita. O líder vai validar.", "sucesso")
     else:
         recusar_proposta(ferias)
         registrar("Funcionário recusou a data", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
@@ -646,20 +663,31 @@ def acao_lider(ferias_id: int):
         flash("Este período não está aguardando o líder.", "aviso")
         return redirect(_destino_calendario())
     bruto = request.form.get("inicio", "").strip()
+    acao = request.form.get("acao", "")
     destino_lider = url_for("ferias.validacao_lider", ciclo=ciclo_atual(ferias.inicio)[0].year)
+    inicio = ferias.inicio
     if bruto:
         try:
             inicio = datetime.strptime(bruto, "%Y-%m-%d").date()
         except ValueError:
             flash("Data inválida.", "erro")
             return redirect(destino_lider)
+    sugerir = acao == "sugerir" or (acao != "validar" and inicio != ferias.inicio)
+    if sugerir:
+        if inicio == ferias.inicio:
+            flash("Informe uma data diferente para sugerir ao funcionário.", "aviso")
+            return redirect(destino_lider)
+        lider_sugerir(ferias, inicio, current_user.login)
+        registrar("Líder sugeriu outra data", f"{ferias.funcionario.nome}: {inicio:%d/%m/%Y}")
+        flash(f"Nova data enviada a {ferias.funcionario.nome} por e-mail. Ele precisa aceitar ou recusar.", "sucesso")
+        return redirect(destino_lider)
+    if inicio != ferias.inicio:
         lider_definir(ferias, inicio, current_user.login)
         registrar("Líder definiu a data", f"{ferias.funcionario.nome}: {inicio:%d/%m/%Y}")
-        flash("Validado e encaminhado ao gerente (Aceite gerente).", "sucesso")
     else:
         lider_validar(ferias, current_user.login)
         registrar("Líder validou", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
-        flash("Validado e encaminhado ao gerente (Aceite gerente).", "sucesso")
+    flash("Validado e encaminhado ao gerente (Aceite gerente).", "sucesso")
     ano = ciclo_atual(ferias.inicio)[0].year
     if current_user.pode_gerente():
         return redirect(url_for("ferias.validacao_gerente", ciclo=ano))
@@ -712,6 +740,13 @@ def validacao_lider():
         )
         if f.funcionario and f.funcionario.ativo
     ]
+    aguardando_funcionario = [
+        f
+        for f in db.session.scalars(
+            db.select(Ferias).where(Ferias.status == STATUS_AJUSTE_LIDER).order_by(Ferias.inicio)
+        )
+        if f.funcionario and f.funcionario.ativo
+    ]
     return render_template(
         "ferias/validacao_lider.html",
         ciclo_ini=ciclo_ini,
@@ -720,6 +755,7 @@ def validacao_lider():
         enviadas=enviadas,
         faltando=faltando,
         fila=fila,
+        aguardando_funcionario=aguardando_funcionario,
     )
 
 

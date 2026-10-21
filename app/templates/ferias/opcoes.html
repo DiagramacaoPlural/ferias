@@ -17,6 +17,32 @@
   <div class="alerta alerta-aviso"><div>Seu usuário ainda não está ligado a um funcionário. Peça ao administrador para sincronizar a planilha Usuarios.xlsx.</div></div>
 {% else %}
 
+{% if pendencias %}
+<div class="card caixa-pendencia">
+  <div class="card-titulo"><h2>Sua data precisa de resposta</h2></div>
+  <div class="card-corpo">
+    {% for f in pendencias %}
+      <div class="pendencia-item">
+        <div>
+          <strong>{{ f.inicio|data }} a {{ f.fim|data }}</strong>
+          <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · vende 10 dias{% endif %}</span>
+          <p class="texto-suave" style="margin:4px 0 0">
+            {% if f.status == 'AJUSTE_LIDER' %}O líder sugeriu esta data.{% elif f.status == 'AJUSTE_GERENTE' %}O gerente sugeriu esta data.{% else %}Não foi possível usar a data que você enviou. Esta é a sugestão mais próxima.{% endif %}
+          </p>
+        </div>
+        <div class="acoes">
+          <form method="post" action="{{ url_for('ferias.responder', ferias_id=f.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" name="acao" value="aceitar" class="btn btn-pequeno btn-sucesso">Aceitar</button>
+            <button type="submit" name="acao" value="recusar" class="btn btn-pequeno">Recusar</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {% if erros %}
   <div class="alertas"><div class="alerta alerta-erro"><div><strong>Não foi possível enviar:</strong><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div></div></div>
 {% endif %}

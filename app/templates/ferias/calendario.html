@@ -30,7 +30,7 @@
           <strong>{{ f.inicio|data }} a {{ f.fim|data }}</strong>
           <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · vende 10 dias{% endif %}</span>
           <p class="texto-suave" style="margin:4px 0 0">
-            {% if f.status == 'AJUSTE_GERENTE' %}O gerente sugeriu esta data.{% else %}Não foi possível usar a data que você enviou. Esta é a sugestão mais próxima.{% endif %}
+            {% if f.status == 'AJUSTE_LIDER' %}O líder sugeriu esta data.{% elif f.status == 'AJUSTE_GERENTE' %}O gerente sugeriu esta data.{% else %}Não foi possível usar a data que você enviou. Esta é a sugestão mais próxima.{% endif %}
           </p>
         </div>
         <div class="acoes">
@@ -57,10 +57,11 @@
           <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
           {% if f.observacao %}<p class="texto-suave" style="margin:4px 0 0">{{ f.observacao }}</p>{% endif %}
         </div>
-        <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes">
+        <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes" style="flex-wrap:wrap">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" aria-label="Data escolhida pelo líder">
-          <button type="submit" class="btn btn-pequeno btn-sucesso">Validar / definir</button>
+          <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" aria-label="Nova data sugerida pelo líder">
+          <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar e enviar ao gerente</button>
+          <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir nova data ao funcionário</button>
         </form>
       </div>
     {% endfor %}
