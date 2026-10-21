@@ -10,8 +10,8 @@
   --ambar-claro: #fef3c7;
   --amarelo: #eab308;
   --amarelo-claro: #fef9c3;
-  --programada: #7c3aed;
-  --programada-claro: #ede9fe;
+  --programada: #38bdf8;
+  --programada-claro: #e0f2fe;
   --vermelho: #dc2626;
   --vermelho-claro: #fee2e2;
   --texto: #0f172a;
@@ -189,7 +189,7 @@ form.inline { display: inline; }
 }
 .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .badge-aprovada { background: var(--verde-claro); color: #166534; }
-.badge-programada { background: var(--programada-claro); color: #5b21b6; }
+.badge-programada { background: var(--programada-claro); color: #0369a1; }
 .badge-inativo { background: #e2e8f0; color: #475569; }
 .badge-perigo { background: var(--vermelho-claro); color: #991b1b; }
 .prazo-alerta { color: #92400e; font-weight: 600; }
