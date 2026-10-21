@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone with context %}
+{% block titulo %}Minhas datas de férias{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Minhas datas de férias</h1>
+    <p>Envie até duas opções para o ciclo {{ rotulo_ciclo }}. O sistema respeita o mínimo de pessoas no setor.</p>
+  </div>
+  <div class="acoes"><a href="{{ url_for('ferias.calendario') }}" class="btn">Voltar ao calendário</a></div>
+</div>
+
+{% if not funcionario %}
+  <div class="alerta alerta-aviso"><div>Seu usuário ainda não está ligado a um funcionário. Peça ao administrador para sincronizar a planilha Usuarios.xlsx.</div></div>
+{% else %}
+
+{% if erros %}
+  <div class="alertas"><div class="alerta alerta-erro"><div><strong>Não foi possível enviar:</strong><ul>{% for e in erros %}<li>{{ e }}</li>{% endfor %}</ul></div></div></div>
+{% endif %}
+
+<form method="post" class="card" id="form-opcoes">
+  <div class="card-corpo">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <p class="texto-suave" style="margin-top:0">Funcionário: <strong>{{ funcionario.nome }}</strong></p>
+    <div class="grade grade-2">
+      {% for ordem in [1, 2] %}
+        {% set atual = existentes[ordem - 1] if existentes|length >= ordem else none %}
+        {% set v_inicio = dados.get('inicio_' ~ ordem) if dados else (atual.inicio.isoformat() if atual else '') %}
+        {% set v_dias = dados.get('dias_' ~ ordem) if dados else (atual.dias if atual else 20) %}
+        {% set v_13 = dados.get('adianta_13_' ~ ordem) == '1' if dados else (atual.adianta_13 if atual else false) %}
+        {% set v_vende = dados.get('vende_10_' ~ ordem) == '1' if dados else (atual.vende_10 if atual else false) %}
+        <div class="card" style="box-shadow:none">
+          <div class="card-titulo"><h2>Opção {{ ordem }}{% if ordem == 2 %} <span class="texto-suave">(opcional)</span>{% endif %}</h2></div>
+          <div class="card-corpo">
+            <div class="campos-linha">
+              <div class="campo">
+                <label for="inicio_{{ ordem }}">Início</label>
+                <input type="date" id="inicio_{{ ordem }}" name="inicio_{{ ordem }}" value="{{ v_inicio }}" {{ 'required' if ordem == 1 }}>
+              </div>
+              <div class="campo">
+                <label for="dias_{{ ordem }}">Dias</label>
+                <input type="number" id="dias_{{ ordem }}" name="dias_{{ ordem }}" min="1" max="{{ dias_max }}" value="{{ v_dias }}">
+              </div>
+              <div class="campo">
+                <label for="fim_{{ ordem }}">Fim</label>
+                <input type="text" id="fim_{{ ordem }}" value="{{ atual.fim|data if atual and not dados else '' }}" readonly tabindex="-1">
+              </div>
+            </div>
+            <div class="campo">
+              <span class="rotulo-campo">Antecipar 1ª parcela do 13º</span>
+              <div class="opcoes-sim-nao">
+                <label class="checkbox"><input type="checkbox" name="adianta_13_{{ ordem }}" value="1" {{ 'checked' if v_13 }}> Sim</label>
+              </div>
+            </div>
+            <div class="campo">
+              <span class="rotulo-campo">Vender 10 dias</span>
+              <div class="opcoes-sim-nao">
+                <label class="checkbox"><input type="checkbox" name="vende_10_{{ ordem }}" value="1" {{ 'checked' if v_vende }}> Sim</label>
+              </div>
+            </div>
+            <div id="analise_{{ ordem }}" class="alertas"></div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if avisos %}
+      <div class="alerta alerta-aviso" style="margin-top:12px">
+        <div>
+          <strong>Atenção antes de enviar:</strong>
+          <ul>{% for a in avisos %}<li>{{ a }}</li>{% endfor %}</ul>
+          {% if alternativas %}
+            <p style="margin:10px 0 6px"><strong>Datas que mantêm o mínimo no setor:</strong></p>
+            <div class="sugestoes">
+              {% for alt in alternativas %}
+                <button type="button" class="btn btn-pequeno" data-inicio="{{ alt.inicio.isoformat() }}">{{ alt.inicio|data }} a {{ alt.fim|data }}</button>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+  <div class="card-titulo" style="border-top:1px solid var(--borda);border-bottom:none;justify-content:flex-end;gap:8px">
+    <a href="{{ url_for('ferias.calendario') }}" class="btn">Cancelar</a>
+    <button type="submit" class="btn btn-primario">Enviar opções</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const token = document.querySelector('meta[name="csrf-token"]').content;
+  const funcId = {{ funcionario.id if funcionario else 0 }};
+  if (!funcId) return;
+
+  function escapar(texto) {
+    const div = document.createElement('div');
+    div.textContent = texto;
+    return div.innerHTML;
+  }
+
+  async function analisar(ordem) {
+    const inicio = document.getElementById('inicio_' + ordem);
+    const dias = document.getElementById('dias_' + ordem);
+    const fim = document.getElementById('fim_' + ordem);
+    const painel = document.getElementById('analise_' + ordem);
+    if (!inicio.value || !dias.value) { fim.value = ''; painel.innerHTML = ''; return; }
+    try {
+      const resp = await fetch('{{ url_for("ferias.analisar") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
+        body: JSON.stringify({ funcionario_id: funcId, inicio: inicio.value, dias: dias.value }),
+      });
+      if (!resp.ok) return;
+      const r = await resp.json();
+      fim.value = r.fim || '';
+      let html = '';
+      if ((r.erros || []).length) html += '<div class="alerta alerta-erro"><div><ul>' + r.erros.map(e => '<li>' + escapar(e) + '</li>').join('') + '</ul></div></div>';
+      else if ((r.avisos || []).length) html += '<div class="alerta alerta-aviso"><div><ul>' + r.avisos.map(e => '<li>' + escapar(e) + '</li>').join('') + '</ul></div></div>';
+      else html = '<div class="alerta alerta-sucesso">Período sem conflitos com o mínimo do setor.</div>';
+      painel.innerHTML = html;
+    } catch (e) { /* validação ao vivo é auxiliar */ }
+  }
+
+  [1, 2].forEach(function (ordem) {
+    ['inicio_' + ordem, 'dias_' + ordem].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', function () { analisar(ordem); });
+      if (el) el.addEventListener('input', function () { analisar(ordem); });
+    });
+    analisar(ordem);
+  });
+
+  document.querySelectorAll('[data-inicio]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.getElementById('inicio_1').value = btn.dataset.inicio;
+      analisar(1);
+    });
+  });
+})();
+</script>
+{% endblock %}

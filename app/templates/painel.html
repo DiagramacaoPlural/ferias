@@ -69,7 +69,19 @@
 </div>
 {% endif %}
 
-<div class="grade grade-3 mt">
+<div class="grade grade-4 mt">
+  <div class="card">
+    <div class="card-titulo"><h2>Já gozaram</h2><span class="texto-suave">{{ gozadas|length }}</span></div>
+    {% if gozadas %}
+      <ul class="lista-simples">
+        {% for f in gozadas %}
+          <li><span>{{ f.funcionario.nome }}</span><span class="secundario">{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias</span></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="vazio">Ninguém concluiu o gozo neste ciclo.</div>
+    {% endif %}
+  </div>
   <div class="card">
     <div class="card-titulo"><h2>De férias hoje</h2><span class="texto-suave">{{ em_ferias_hoje|length }}</span></div>
     {% if em_ferias_hoje %}

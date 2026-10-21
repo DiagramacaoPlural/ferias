@@ -18,10 +18,13 @@
     </div>
     <nav class="menu">
       {% set ep = request.endpoint or '' %}
-      {% if current_user.pode_calendario() %}
+      {% if current_user.pode_gestao() %}
         <a href="{{ url_for('main.painel') }}" class="{{ 'ativo' if ep == 'main.painel' }}">{{ icone('painel') }} Painel</a>
         <a href="{{ url_for('ferias.lista') }}" class="{{ 'ativo' if ep in ('ferias.lista', 'ferias.formulario') }}">{{ icone('ferias') }} Programação</a>
+      {% endif %}
+      {% if current_user.pode_calendario() %}
         <a href="{{ url_for('ferias.calendario') }}" class="{{ 'ativo' if ep in ('ferias.calendario', 'cronograma.visualizar') }}">{{ icone('calendario') }} Calendário</a>
+        <a href="{{ url_for('ferias.opcoes') }}" class="{{ 'ativo' if ep == 'ferias.opcoes' }}">{{ icone('ferias') }} Minhas datas</a>
       {% endif %}
       {% if current_user.admin %}
         <div class="menu-titulo">Administração</div>
@@ -33,7 +36,7 @@
     </nav>
     <div class="usuario-box">
       <strong>{{ current_user.login }}</strong>
-      <span class="texto-suave">{{ 'Administrador' if current_user.admin else 'Usuário' }}</span>
+      <span class="texto-suave">{{ 'Administrador' if current_user.admin else ('Líder' if current_user.papel == 'lider' else ('Gerente' if current_user.papel == 'gerente' else 'Usuário')) }}</span>
       <div class="mt" style="margin-top:8px">
         <a href="{{ url_for('auth.trocar_senha') }}">Trocar senha</a>
         <a href="{{ url_for('auth.logout') }}">Sair</a>

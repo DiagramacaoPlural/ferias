@@ -12,7 +12,7 @@ def registrar(acao: str, detalhe: str = "") -> None:
 
 
 def requer(permissao: str):
-    """Exige login e uma permissão: 'admin', 'calendario' ou 'cronograma'."""
+    """Exige login e uma permissão: 'admin', 'gestao', 'calendario' ou 'cronograma'."""
 
     def decorador(view):
         @wraps(view)
@@ -20,6 +20,7 @@ def requer(permissao: str):
         def envolvida(*args, **kwargs):
             checagens = {
                 "admin": lambda: current_user.admin,
+                "gestao": current_user.pode_gestao,
                 "calendario": current_user.pode_calendario,
                 "cronograma": current_user.pode_cronograma,
             }

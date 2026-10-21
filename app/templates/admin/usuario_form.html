@@ -27,8 +27,18 @@
     </div>
 
     <h3 style="margin:6px 0 10px">Permissões</h3>
+    {% set papel_atual = (f.get('papel') if f else (usuario.papel if usuario else 'simples')) %}
+    <div class="campo">
+      <label for="papel">Papel no fluxo de férias</label>
+      <select id="papel" name="papel">
+        <option value="simples" {{ 'selected' if papel_atual == 'simples' }}>Simples (só calendário e minhas datas)</option>
+        <option value="lider" {{ 'selected' if papel_atual == 'lider' }}>Líder (valida o calendário)</option>
+        <option value="gerente" {{ 'selected' if papel_atual == 'gerente' }}>Gerente (aceite final)</option>
+        <option value="admin" {{ 'selected' if papel_atual == 'admin' }}>Administrador</option>
+      </select>
+    </div>
     <label class="checkbox"><input type="checkbox" name="admin" value="1" {{ marcado('admin', false) }}> Administrador (aprova férias e gerencia cadastros)</label>
-    <label class="checkbox"><input type="checkbox" name="acessa_calendario" value="1" {{ marcado('acessa_calendario', true) }}> Acessa programação, painel e calendário</label>
+    <label class="checkbox"><input type="checkbox" name="acessa_calendario" value="1" {{ marcado('acessa_calendario', true) }}> Acessa calendário e minhas datas</label>
     <label class="checkbox"><input type="checkbox" name="acessa_cronograma" value="1" {{ marcado('acessa_cronograma', true) }}> Acessa o cronograma</label>
     <label class="checkbox"><input type="checkbox" name="ativo" value="1" {{ marcado('ativo', true) }}> Usuário ativo</label>
   </div>

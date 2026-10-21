@@ -5,6 +5,11 @@ from datetime import date, datetime
 from pathlib import Path
 
 from .models import (
+    PAPEL_ADMIN,
+    PAPEL_GERENTE,
+    PAPEL_LIDER,
+    PAPEL_SIMPLES,
+    PAPEIS_FULL,
     STATUS_APROVADA,
     STATUS_PROGRAMADA,
     Ferias,
@@ -13,6 +18,87 @@ from .models import (
     Usuario,
     db,
 )
+
+
+def _primeiro_nome(nome: str) -> str:
+    return (nome or "").strip().split()[0]
+
+
+def _papel_do_nome(nome: str) -> str:
+    chave = _primeiro_nome(nome).casefold()
+    if chave == "gercilio":
+        return PAPEL_LIDER
+    if chave in ("marcelo", "ricardo"):
+        return PAPEL_GERENTE
+    if chave in PAPEIS_FULL:
+        return PAPEL_LIDER
+    return PAPEL_SIMPLES
+
+
+def _casar_funcionario_por_nome(nome: str, funcionarios: list[Funcionario]) -> Funcionario | None:
+    chave = _primeiro_nome(nome).casefold()
+    candidatos = [f for f in funcionarios if _primeiro_nome(f.nome).casefold() == chave]
+    if len(candidatos) == 1:
+        return candidatos[0]
+    nome_cf = nome.casefold()
+    for f in funcionarios:
+        if f.nome.casefold() == nome_cf:
+            return f
+    return candidatos[0] if candidatos else None
+
+
+def importar_usuarios_xlsx(caminho: Path) -> dict:
+    """Cria usuários com o primeiro nome de cada funcionário da planilha Usuarios.xlsx."""
+    from openpyxl import load_workbook
+
+    wb = load_workbook(caminho, data_only=True, read_only=True)
+    aba = wb[wb.sheetnames[0]]
+    funcionarios = db.session.scalars(db.select(Funcionario)).all()
+    resumo = {"usuarios": 0, "atualizados": 0, "sem_cadastro": []}
+    senha_padrao = os.environ.get("USUARIO_SENHA_INICIAL") or "123"
+
+    for i, linha in enumerate(aba.iter_rows(values_only=True), 1):
+        if i == 1 or not linha or not linha[0]:
+            continue
+        nome = str(linha[0]).strip()
+        email = str(linha[1]).strip() if len(linha) > 1 and linha[1] else ""
+        login = _primeiro_nome(nome)
+        if not login:
+            continue
+        func = _casar_funcionario_por_nome(nome, funcionarios)
+        if not func:
+            resumo["sem_cadastro"].append(nome)
+            continue
+        if email and "@" in email:
+            func.email = email
+        papel = _papel_do_nome(nome)
+        full = papel != PAPEL_SIMPLES
+        usuario = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == login.lower()))
+        if not usuario:
+            usuario = Usuario(login=login, trocar_senha=True)
+            usuario.definir_senha(senha_padrao)
+            db.session.add(usuario)
+            resumo["usuarios"] += 1
+        else:
+            resumo["atualizados"] += 1
+        usuario.papel = papel
+        if papel == PAPEL_SIMPLES:
+            usuario.admin = False
+        usuario.acessa_calendario = True
+        usuario.acessa_cronograma = full
+        usuario.funcionario_id = func.id
+        usuario.ativo = True
+
+    wb.close()
+    db.session.add(
+        Historico(
+            usuario="sistema",
+            acao="Usuários sincronizados",
+            detalhe=f"{caminho.name}: {resumo['usuarios']} novos, {resumo['atualizados']} atualizados",
+        )
+    )
+    db.session.commit()
+    return resumo
 
 
 def _sim(valor) -> bool:
@@ -203,7 +289,12 @@ def inicializar_banco(pasta_planilha: Path | None) -> None:
                 importar_planilha(ferias)
 
         if not db.session.scalar(db.select(db.func.count(Usuario.id))):
-            admin = Usuario(login="admin", admin=True, trocar_senha=True)
+            admin = Usuario(login="admin", admin=True, papel=PAPEL_ADMIN, trocar_senha=True)
             admin.definir_senha(os.environ.get("ADMIN_SENHA_INICIAL") or "admin")
             db.session.add(admin)
             db.session.commit()
+
+    if pasta_planilha:
+        usuarios_xlsx = _escolher_planilha(_planilhas_na_pasta(pasta_planilha), "usuario")
+        if usuarios_xlsx:
+            importar_usuarios_xlsx(usuarios_xlsx)

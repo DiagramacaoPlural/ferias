@@ -8,7 +8,7 @@ from flask_login import current_user
 from ..alertas import email_configurado, enviar_alertas_pendentes, prazos_dos_funcionarios, smtp_configurado
 from ..models import Configuracao, Funcionario, Historico, Usuario, db
 from ..regras import EMAILS_ALERTA_LIMITE, MESES
-from ..seed import importar_planilha, importar_programacao_pdf, nomes_abas
+from ..seed import importar_planilha, importar_programacao_pdf, importar_usuarios_xlsx, nomes_abas
 from . import registrar, requer
 from .auth import SENHA_MIN
 
@@ -53,6 +53,7 @@ def funcionario_form(funcionario_id: int | None = None):
                 db.session.add(funcionario)
             funcionario.nome = nome
             funcionario.cargo = request.form.get("cargo", "").strip() or None
+            funcionario.email = request.form.get("email", "").strip() or None
             funcionario.data_admissao = (
                 datetime.strptime(admissao_txt, "%Y-%m-%d").date() if admissao_txt else None
             )
@@ -134,6 +135,7 @@ def usuario_form(usuario_id: int | None = None):
             usuario.login = login
             usuario.admin = admin
             usuario.ativo = ativo
+            usuario.papel = request.form.get("papel") or ("admin" if admin else "simples")
             usuario.acessa_calendario = request.form.get("acessa_calendario") == "1"
             usuario.acessa_cronograma = request.form.get("acessa_cronograma") == "1"
             if senha:
@@ -235,6 +237,13 @@ def importar():
                         f"{resumo['funcionarios']} funcionário(s), {resumo['ferias']} férias "
                         f"e {resumo['usuarios']} usuário(s) novos"
                     )
+                else:
+                    resumo = importar_usuarios_xlsx(caminho)
+                    partes.append(
+                        f"{resumo['usuarios']} usuário(s) novos, {resumo['atualizados']} atualizado(s)"
+                    )
+                    if resumo["sem_cadastro"]:
+                        partes.append("sem cadastro: " + ", ".join(resumo["sem_cadastro"]))
         except Exception as erro:  # arquivo corrompido ou fora do formato esperado
             db.session.rollback()
             flash(f"Não foi possível importar: {erro}", "erro")

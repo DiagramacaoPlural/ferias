@@ -9,9 +9,86 @@
   </div>
   <div class="acoes">
     {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.calendario') }}
+    {% if current_user.pode_lider() %}
+      <form method="post" action="{{ url_for('ferias.montar') }}" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="ciclo" value="{{ ciclo_ini.year }}">
+        <button type="submit" class="btn btn-primario">Montar calendário</button>
+      </form>
+    {% endif %}
     <button type="button" class="btn" onclick="window.print()">{{ icone('imprimir') }} Imprimir</button>
   </div>
 </div>
+
+{% if minhas_pendencias %}
+<div class="card caixa-pendencia">
+  <div class="card-titulo"><h2>Sua data precisa de resposta</h2></div>
+  <div class="card-corpo">
+    {% for f in minhas_pendencias %}
+      <div class="pendencia-item">
+        <div>
+          <strong>{{ f.inicio|data }} a {{ f.fim|data }}</strong>
+          <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · vende 10 dias{% endif %}</span>
+          <p class="texto-suave" style="margin:4px 0 0">
+            {% if f.status == 'AJUSTE_GERENTE' %}O gerente sugeriu esta data.{% else %}Não foi possível usar a data que você enviou. Esta é a sugestão mais próxima.{% endif %}
+          </p>
+        </div>
+        <div class="acoes">
+          <form method="post" action="{{ url_for('ferias.responder', ferias_id=f.id) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" name="acao" value="aceitar" class="btn btn-pequeno btn-sucesso">Aceitar</button>
+            <button type="submit" name="acao" value="recusar" class="btn btn-pequeno">Recusar</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if fila_lider %}
+<div class="card caixa-pendencia">
+  <div class="card-titulo"><h2>Validar (líder)</h2><span class="texto-suave">{{ fila_lider|length }}</span></div>
+  <div class="card-corpo">
+    {% for f in fila_lider %}
+      <div class="pendencia-item">
+        <div>
+          <strong>{{ f.funcionario.nome }}</strong>
+          <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
+          {% if f.observacao %}<p class="texto-suave" style="margin:4px 0 0">{{ f.observacao }}</p>{% endif %}
+        </div>
+        <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" aria-label="Data escolhida pelo líder">
+          <button type="submit" class="btn btn-pequeno btn-sucesso">Validar / definir</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if fila_gerente %}
+<div class="card caixa-pendencia">
+  <div class="card-titulo"><h2>Aceite do gerente</h2><span class="texto-suave">{{ fila_gerente|length }}</span></div>
+  <div class="card-corpo">
+    {% for f in fila_gerente %}
+      <div class="pendencia-item">
+        <div>
+          <strong>{{ f.funcionario.nome }}</strong>
+          <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
+        </div>
+        <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="acoes">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
+          <input type="date" name="inicio" aria-label="Nova data sugerida">
+          <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir mudança</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 {% if meses %}
 <div class="meses">
@@ -29,7 +106,7 @@
         <div class="mes-coluna programadas">
           <h3>Programadas</h3>
           {% for f in mes.programadas %}
-            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · vende 10 dias{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}
@@ -37,7 +114,7 @@
         <div class="mes-coluna aprovadas">
           <h3>Aprovadas</h3>
           {% for f in mes.aprovadas %}
-            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · vende 10 dias{% endif %}{% if f.gozada() %} · já gozou{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}

@@ -190,6 +190,11 @@ form.inline { display: inline; }
 .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .badge-aprovada { background: var(--verde-claro); color: #166534; }
 .badge-programada { background: var(--programada-claro); color: #0369a1; }
+.badge-aguardando_funcionario, .badge-ajuste_gerente { background: var(--ambar-claro); color: #92400e; }
+.badge-aguardando_lider, .badge-aguardando_gerente { background: var(--azul-claro); color: var(--azul-escuro); }
+.pendencia-item { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--borda); }
+.pendencia-item:last-child { border-bottom: none; }
+.caixa-pendencia { margin-bottom: 16px; }
 .badge-inativo { background: #e2e8f0; color: #475569; }
 .badge-perigo { background: var(--vermelho-claro); color: #991b1b; }
 .prazo-alerta { color: #92400e; font-weight: 600; }

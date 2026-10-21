@@ -22,6 +22,11 @@
                value="{{ f.get('cargo') if f else (funcionario.cargo or '' if funcionario else '') }}">
       </div>
       <div class="campo">
+        <label for="email">E-mail</label>
+        <input type="email" id="email" name="email" maxlength="180"
+               value="{{ f.get('email') if f else (funcionario.email or '' if funcionario else '') }}">
+      </div>
+      <div class="campo">
         <label for="data_admissao">Data de admissão</label>
         <input type="date" id="data_admissao" name="data_admissao"
                value="{{ f.get('data_admissao') if f else (funcionario.data_admissao.isoformat() if funcionario and funcionario.data_admissao else '') }}">

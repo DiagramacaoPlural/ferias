@@ -2,7 +2,21 @@ from datetime import date
 
 import pytest
 
-from app.models import Configuracao, Ferias, Funcionario, Usuario, db
+from app.models import (
+    PAPEL_GERENTE,
+    PAPEL_LIDER,
+    PAPEL_SIMPLES,
+    STATUS_AGUARDANDO_FUNCIONARIO,
+    STATUS_AGUARDANDO_GERENTE,
+    STATUS_AGUARDANDO_LIDER,
+    STATUS_APROVADA,
+    Configuracao,
+    Ferias,
+    Funcionario,
+    SugestaoFerias,
+    Usuario,
+    db,
+)
 
 
 def entrar(client, login="admin", senha="admin"):
@@ -52,7 +66,7 @@ def test_redirecionamento_externo_bloqueado(app):
 def test_paginas_principais_carregam(app):
     client = app.test_client()
     entrar(client)
-    for url in ["/", "/ferias/", "/ferias/nova", "/ferias/calendario",
+    for url in ["/", "/ferias/", "/ferias/nova", "/ferias/calendario", "/ferias/opcoes",
                 "/admin/funcionarios", "/admin/usuarios", "/admin/configuracoes", "/admin/historico"]:
         assert client.get(url).status_code == 200, url
     cronograma = client.get("/cronograma/")
@@ -114,9 +128,11 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
     entrar(client)
     pagina = client.get("/ferias/nova").get_data(as_text=True)
     assert "Antecipar a 1ª parcela do 13º" in pagina
+    assert "Vender 10 dias" in pagina
     assert "Somente para férias com início a partir de fevereiro" in pagina
     assert 'id="adianta_13_sim"' in pagina
     assert 'id="adianta_13_nao"' in pagina
+    assert 'id="vende_10_sim"' in pagina
 
     with app.app_context():
         carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
@@ -132,13 +148,14 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
 
     resp = client.post(
         "/ferias/nova",
-        data={"funcionario_id": carlos.id, "inicio": "2027-02-01", "dias": "10", "adianta_13": "1", "confirmar": "1"},
+        data={"funcionario_id": carlos.id, "inicio": "2027-02-01", "dias": "10", "adianta_13": "1", "vende_10": "1", "confirmar": "1"},
         follow_redirects=True,
     )
     assert "Férias salvas" in resp.get_data(as_text=True)
     with app.app_context():
         ferias = db.session.scalar(db.select(Ferias))
         assert ferias.adianta_13 is True
+        assert ferias.vende_10 is True
         assert ferias.inicio == date(2027, 2, 1)
 
     lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
@@ -183,6 +200,10 @@ def test_acoes_em_lote_aprova_e_define_13(app):
         ferias = {f.id: f for f in db.session.scalars(db.select(Ferias))}
         assert ferias[ids[0]].adianta_13 is False
         assert ferias[ids[1]].adianta_13 is True
+
+    client.post("/ferias/lote", data={"acao": "vende_sim", "ids": ids}, follow_redirects=True)
+    with app.app_context():
+        assert all(f.vende_10 for f in db.session.scalars(db.select(Ferias)))
 
 
 def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
@@ -317,8 +338,11 @@ def test_usuario_comum_nao_aprova_nem_acessa_admin(app):
     entrar(client, "joao", "senha123")
     assert client.get("/admin/usuarios").status_code == 403
     assert client.post("/ferias/1/aprovar").status_code == 403
-    assert client.get("/ferias/").status_code == 200
+    assert client.get("/ferias/").status_code == 403
+    assert client.get("/ferias/nova").status_code == 403
     assert client.get("/ferias/calendario").status_code == 200
+    assert client.get("/ferias/opcoes").status_code == 200
+    assert client.get("/").status_code == 302
 
 
 def test_troca_de_senha_obrigatoria(app):
@@ -474,3 +498,151 @@ def test_alerta_por_api_https_brevo(app, monkeypatch):
     assert chamadas
     assert chamadas[0]["subject"].startswith("Alerta")
     assert chamadas[0]["sender"]["email"] == "ferias@plural.com.br"
+
+
+def test_painel_mostra_quem_ja_gozou(app):
+    client = app.test_client()
+    entrar(client)
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        ferias = Ferias(funcionario=carlos, status=STATUS_APROVADA, criado_por="admin")
+        ferias.definir_periodo(date(2026, 6, 1), 10)
+        db.session.add(ferias)
+        db.session.commit()
+    html = client.get("/?ciclo=2026").get_data(as_text=True)
+    assert "Já gozaram" in html
+    assert "Carlos" in html
+
+
+def test_importar_usuarios_xlsx_define_papeis(app, tmp_path):
+    from openpyxl import Workbook
+
+    from app.seed import importar_usuarios_xlsx
+
+    with app.app_context():
+        db.session.add_all(
+            [
+                Funcionario(nome="Gercilio Ferreira"),
+                Funcionario(nome="Marcelo Marcolino"),
+                Funcionario(nome="Ricardo Rosas"),
+            ]
+        )
+        db.session.commit()
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["Nome", "E-mail"])
+        ws.append(["Carlos Augusto", "carlos@ex.com"])
+        ws.append(["Gercilio Ferreira", "gercilio@ex.com"])
+        ws.append(["Marcelo Marcolino", "marcelo@ex.com"])
+        ws.append(["Ricardo Rosas", "ricardo@ex.com"])
+        caminho = tmp_path / "Usuarios.xlsx"
+        wb.save(caminho)
+        resumo = importar_usuarios_xlsx(caminho)
+        assert resumo["usuarios"] >= 3
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        assert carlos.email == "carlos@ex.com"
+        gercilio = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "gercilio"))
+        marcelo = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "marcelo"))
+        ricardo = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "ricardo"))
+        comum = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "carlos"))
+        assert gercilio.papel == PAPEL_LIDER and gercilio.pode_gestao()
+        assert marcelo.papel == PAPEL_GERENTE and marcelo.pode_gerente()
+        assert ricardo.papel == PAPEL_GERENTE
+        assert comum.papel == PAPEL_SIMPLES and not comum.pode_gestao()
+
+
+def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
+    enviados = []
+
+    def fake_email(assunto, corpo, destinatarios):
+        enviados.append((assunto, corpo, list(destinatarios)))
+        return True, ""
+
+    monkeypatch.setattr("app.workflow.enviar_email", fake_email)
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        carlos.email = "carlos@ex.com"
+        joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
+        joao.funcionario_id = carlos.id
+        db.session.commit()
+        cid = carlos.id
+
+    entrar(client, "joao", "senha123")
+    nav = client.get("/ferias/calendario").get_data(as_text=True)
+    assert "Minhas datas" in nav
+    assert "Painel</a>" not in nav
+    assert "Programação</a>" not in nav
+    envio = client.post(
+        "/ferias/opcoes",
+        data={"inicio_1": "2026-12-01", "dias_1": "10", "vende_10_1": "1", "inicio_2": "2027-01-12", "dias_2": "10"},
+        follow_redirects=True,
+    )
+    assert "opções de datas foram enviadas" in envio.get_data(as_text=True)
+    with app.app_context():
+        opcoes = db.session.scalars(db.select(SugestaoFerias).filter_by(funcionario_id=cid)).all()
+        assert len(opcoes) == 2
+        assert opcoes[0].vende_10 is True
+
+    client.get("/logout")
+    entrar(client)
+    montado = client.post("/ferias/montar", data={"ciclo": "2026"}, follow_redirects=True)
+    assert "Calendário montado" in montado.get_data(as_text=True)
+    with app.app_context():
+        ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
+        assert ferias.status == STATUS_AGUARDANDO_LIDER
+        assert ferias.inicio == date(2026, 12, 1)
+        assert ferias.vende_10 is True
+        fid = ferias.id
+
+    client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-01"}, follow_redirects=True)
+    with app.app_context():
+        assert db.session.get(Ferias, fid).status == STATUS_AGUARDANDO_GERENTE
+
+    client.post(f"/ferias/{fid}/gerente", data={"acao": "aprovar"}, follow_redirects=True)
+    with app.app_context():
+        ferias = db.session.get(Ferias, fid)
+        assert ferias.status == STATUS_APROVADA
+    assert any("Férias aprovadas" in a[0] and "carlos@ex.com" in a[2] for a in enviados)
+
+
+def test_montar_propoe_data_proxima_e_funcionario_responde(app, monkeypatch):
+    enviados = []
+    monkeypatch.setattr(
+        "app.workflow.enviar_email",
+        lambda assunto, corpo, dest: enviados.append((assunto, dest)) or (True, ""),
+    )
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        ana = db.session.scalar(db.select(Funcionario).filter_by(nome="Ana"))
+        carlos.email = "carlos@ex.com"
+        joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
+        joao.funcionario_id = carlos.id
+        ocupada = Ferias(funcionario=ana, status=STATUS_APROVADA, criado_por="admin")
+        ocupada.definir_periodo(date(2026, 12, 1), 10)
+        db.session.add(ocupada)
+        db.session.commit()
+        cid = carlos.id
+
+    entrar(client, "joao", "senha123")
+    client.post("/ferias/opcoes", data={"inicio_1": "2026-12-01", "dias_1": "10"}, follow_redirects=True)
+    client.get("/logout")
+    entrar(client)
+    client.post("/ferias/montar", data={"ciclo": "2026"}, follow_redirects=True)
+    with app.app_context():
+        ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
+        assert ferias.status == STATUS_AGUARDANDO_FUNCIONARIO
+        assert ferias.inicio != date(2026, 12, 1)
+        fid = ferias.id
+    assert any("Sugestão de férias" in a[0] for a in enviados)
+
+    client.get("/logout")
+    entrar(client, "joao", "senha123")
+    cal = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "Sua data precisa de resposta" in cal
+    client.post(f"/ferias/{fid}/responder", data={"acao": "recusar"}, follow_redirects=True)
+    with app.app_context():
+        recusada = db.session.get(Ferias, fid)
+        assert recusada.status == STATUS_AGUARDANDO_LIDER
+        assert "Recusou" in (recusada.observacao or "")

@@ -21,7 +21,12 @@
               <strong>{{ u.login }}</strong>
               {% if u.trocar_senha %}<br><small class="texto-suave">deve trocar a senha</small>{% endif %}
             </td>
-            <td>{% if u.admin %}<span class="badge badge-admin">Administrador</span>{% else %}Usuário{% endif %}</td>
+            <td>
+              {% if u.admin %}<span class="badge badge-admin">Administrador</span>
+              {% elif u.papel == 'lider' %}<span class="badge badge-aguardando_lider">Líder</span>
+              {% elif u.papel == 'gerente' %}<span class="badge badge-aguardando_gerente">Gerente</span>
+              {% else %}Usuário simples{% endif %}
+            </td>
             <td>{{ '✔' if u.pode_calendario() else '—' }}</td>
             <td>{{ '✔' if u.pode_cronograma() else '—' }}</td>
             <td>{% if u.ativo %}<span class="badge badge-aprovada">Ativo</span>{% else %}<span class="badge badge-inativo">Inativo</span>{% endif %}</td>

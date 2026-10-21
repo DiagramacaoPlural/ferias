@@ -13,8 +13,8 @@ bp = Blueprint("main", __name__)
 @bp.route("/")
 @login_required
 def painel():
-    if not current_user.pode_calendario():
-        if current_user.pode_cronograma():
+    if not current_user.pode_gestao():
+        if current_user.pode_calendario():
             return redirect(url_for("ferias.calendario"))
         return render_template("sem_acesso.html")
 
@@ -54,8 +54,9 @@ def painel():
         "total_aprovadas": sum(1 for f in ferias_ciclo if f.aprovada),
         "total_pendentes": sum(1 for f in ferias_ciclo if not f.aprovada),
         "sem_ferias": [s["funcionario"] for s in saldos if s["aprovados"] + s["programados"] == 0],
-        "em_ferias_hoje": [f for f in ferias_ciclo if f.inicio <= hoje <= f.fim],
-        "proximas": [f for f in ferias_ciclo if hoje < f.inicio <= hoje + timedelta(days=60)],
+        "em_ferias_hoje": [f for f in ferias_ciclo if f.aprovada and f.inicio <= hoje <= f.fim],
+        "gozadas": [f for f in ferias_ciclo if f.gozada(hoje)],
+        "proximas": [f for f in ferias_ciclo if f.aprovada and hoje < f.inicio <= hoje + timedelta(days=60)],
         "pendentes": [f for f in ferias_ciclo if not f.aprovada and f.fim >= hoje],
         "conflitos": conflitos(ferias_ciclo, ciclo_ini, ciclo_fim, limite),
         "min_disponiveis": min_disp,

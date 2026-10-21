@@ -48,6 +48,8 @@
     {% endif %}
     <button type="submit" name="acao" value="13_sim" class="btn btn-pequeno">13º Sim</button>
     <button type="submit" name="acao" value="13_nao" class="btn btn-pequeno">13º Não</button>
+    <button type="submit" name="acao" value="vende_sim" class="btn btn-pequeno">Vende 10 Sim</button>
+    <button type="submit" name="acao" value="vende_nao" class="btn btn-pequeno">Vende 10 Não</button>
   </form>
   <div class="tabela-wrap">
     <table class="tabela">
@@ -60,6 +62,7 @@
           <th class="num">Dias</th>
           <th>Status</th>
           <th>13º</th>
+          <th>Vende 10</th>
           <th>Observação</th>
           <th class="acoes-col">Ações</th>
         </tr>
@@ -96,7 +99,8 @@
               {% if f.aprovada and f.aprovado_por %}<br><small class="texto-suave">por {{ f.aprovado_por }}</small>{% endif %}
             </td>
             <td>{% if f.adianta_13 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
-            <td class="texto-suave">{{ f.observacao or '' }}</td>
+            <td>{% if f.vende_10 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
+            <td class="texto-suave">{{ f.observacao or '' }}{% if f.gozada() %}<br><small class="texto-suave">Já gozou</small>{% endif %}</td>
             <td class="acoes-col">
               {% if current_user.admin %}
                 {% if f.aprovada %}

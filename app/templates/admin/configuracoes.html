@@ -37,7 +37,8 @@
     <div class="card-corpo">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <p class="texto-suave" style="margin-top:0">
-        Importe <strong>Férias_Final.xlsm</strong> (abas CALENDARIO e USUARIOS)
+        Importe <strong>Férias_Final.xlsm</strong> (abas CALENDARIO e USUARIOS),
+        a planilha <strong>Usuarios.xlsx</strong> (cria login com o primeiro nome de cada funcionário)
         ou o PDF de <strong>Programação de Férias</strong> da folha (atualiza a data de admissão e o limite).
         Registros já existentes não são duplicados.
       </p>
@@ -75,8 +76,13 @@
           <option value="resend" {{ 'selected' if email_api_provedor == 'resend' }}>Resend</option>
         </select>
         <small>
-          Crie uma conta em <a href="https://www.brevo.com" target="_blank" rel="noopener">brevo.com</a>
-          → SMTP &amp; API → API keys. Verifique o e-mail remetente. Plano gratuito: 300 e-mails/dia.
+          Passo a passo: 1) crie conta em
+          <a href="https://www.brevo.com" target="_blank" rel="noopener">brevo.com</a>
+          (plano gratuito, 300 e-mails/dia). 2) Confirme o remetente em Settings → Senders.
+          3) SMTP &amp; API → API keys → crie uma chave. 4) Cole a chave aqui e preencha o
+          campo Remetente com o mesmo e-mail verificado. 5) No PythonAnywhere, tarefa diária
+          <code>cd ~/ferias &amp;&amp; .venv/bin/python run.py --alertas</code>.
+          A conta gratuita do PythonAnywhere bloqueia SMTP; a Brevo sai por HTTPS (porta 443).
         </small>
       </div>
       <div class="campo">

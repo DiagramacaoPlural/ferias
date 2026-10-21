@@ -140,6 +140,15 @@ def _enviar_mensagem(assunto: str, corpo: str, destinatarios: list[str]) -> tupl
     return _enviar_smtp(assunto, corpo, destinatarios)
 
 
+def enviar_email(assunto: str, corpo: str, destinatarios: list[str]) -> tuple[bool, str]:
+    destinos = [e.strip() for e in destinatarios if e and "@" in e]
+    if not destinos:
+        return False, "Nenhum e-mail de destinatário."
+    if not email_configurado():
+        return False, "Configure a API HTTPS (Brevo) ou o SMTP em Configurações."
+    return _enviar_mensagem(assunto, corpo, destinos)
+
+
 def _enviar_smtp(assunto: str, corpo: str, destinatarios: list[str]) -> tuple[bool, str]:
     cfg = _smtp()
     if not cfg["host"] or not cfg["from"]:

@@ -7,6 +7,7 @@
 {% set v_dias = (dados.get('dias') if dados else (ferias.dias if ferias else 30)) %}
 {% set v_obs = (dados.get('observacao') if dados else (ferias.observacao if ferias and ferias.observacao else '')) %}
 {% set v_13 = (dados.get('adianta_13') == '1' if dados else (ferias.adianta_13 if ferias else false)) %}
+{% set v_vende = (dados.get('vende_10') == '1' if dados else (ferias.vende_10 if ferias else false)) %}
 {% set v_aprovada = (dados.get('aprovada') == '1' if dados else (ferias.aprovada if ferias else false)) %}
 
 <div class="cabecalho">
@@ -74,8 +75,23 @@
     </div>
 
     <div class="campo">
+      <span class="rotulo-campo">Vender 10 dias (abono pecuniário)</span>
+      <div class="opcoes-sim-nao">
+        <label class="checkbox">
+          <input type="checkbox" id="vende_10_sim" name="vende_10" value="1" {{ 'checked' if v_vende }}>
+          Sim
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="vende_10_nao" {{ 'checked' if not v_vende }}>
+          Não
+        </label>
+      </div>
+      <small>O gozo costuma ser de 20 dias quando há venda de 10.</small>
+    </div>
+
+    <div class="campo">
       <label for="observacao">Observação</label>
-      <textarea id="observacao" name="observacao" maxlength="500" placeholder="Opcional (ex.: venda de 10 dias, acordo com a gestão…)">{{ v_obs }}</textarea>
+      <textarea id="observacao" name="observacao" maxlength="500" placeholder="Opcional (ex.: acordo com a gestão…)">{{ v_obs }}</textarea>
     </div>
 
     {% if current_user.admin %}
@@ -123,6 +139,8 @@
     fim: document.getElementById('fim'),
     adianta13Sim: document.getElementById('adianta_13_sim'),
     adianta13Nao: document.getElementById('adianta_13_nao'),
+    vende10Sim: document.getElementById('vende_10_sim'),
+    vende10Nao: document.getElementById('vende_10_nao'),
   };
   const painel = document.getElementById('analise-ao-vivo');
   const resumo = document.getElementById('resumo-funcionario');
@@ -198,6 +216,7 @@
       campos.fim.value = '';
       if (observacao) observacao.value = '';
       marcar13(false);
+      marcarVende(false);
       if (aprovada) aprovada.checked = false;
       return;
     }
@@ -205,6 +224,7 @@
     campos.dias.value = p.dias;
     if (observacao) observacao.value = p.observacao || '';
     marcar13(!!p.adianta_13);
+    marcarVende(!!p.vende_10);
     if (aprovada) aprovada.checked = !!p.aprovada;
   }
 
@@ -268,6 +288,13 @@
   }
   campos.adianta13Sim.addEventListener('change', function () { marcar13(this.checked); });
   campos.adianta13Nao.addEventListener('change', function () { marcar13(!this.checked); });
+  function marcarVende(sim) {
+    if (!campos.vende10Sim) return;
+    campos.vende10Sim.checked = sim;
+    campos.vende10Nao.checked = !sim;
+  }
+  campos.vende10Sim.addEventListener('change', function () { marcarVende(this.checked); });
+  campos.vende10Nao.addEventListener('change', function () { marcarVende(!this.checked); });
   document.querySelectorAll('[data-dias]').forEach(btn => btn.addEventListener('click', () => {
     campos.dias.value = btn.dataset.dias;
     agendar();

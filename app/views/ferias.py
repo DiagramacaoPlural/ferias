@@ -16,7 +16,27 @@ from ..consultas import (
     painel_cobertura,
     serie_cobertura,
 )
-from ..models import STATUS_APROVADA, STATUS_PROGRAMADA, Configuracao, Ferias, Funcionario, db
+from ..models import (
+    STATUS_AGUARDANDO_FUNCIONARIO,
+    STATUS_AGUARDANDO_GERENTE,
+    STATUS_AGUARDANDO_LIDER,
+    STATUS_AJUSTE_GERENTE,
+    STATUS_APROVADA,
+    STATUS_PROGRAMADA,
+    Ferias,
+    Funcionario,
+    SugestaoFerias,
+    db,
+)
+from ..workflow import (
+    aceitar_proposta,
+    gerente_aprovar,
+    gerente_sugerir,
+    lider_definir,
+    lider_validar,
+    montar_calendario,
+    recusar_proposta,
+)
 from ..regras import (
     AVISO_13_FEVEREIRO,
     DIAS_MAX_CICLO,
@@ -62,6 +82,14 @@ def _quer_adiantar_13(fonte) -> bool:
     return str(fonte.get("adianta_13") or "").strip().lower() in ("1", "true", "on")
 
 
+def _quer_vende_10(fonte) -> bool:
+    return str(fonte.get("vende_10") or "").strip().lower() in ("1", "true", "on")
+
+
+def _destino_calendario():
+    return request.referrer or url_for("ferias.calendario")
+
+
 def _erro_adianta_13(inicio: date | None, adianta: bool) -> str | None:
     if adianta and inicio and not pode_adiantar_13(inicio):
         return AVISO_13_FEVEREIRO
@@ -69,7 +97,7 @@ def _erro_adianta_13(inicio: date | None, adianta: bool) -> str | None:
 
 
 @bp.route("/")
-@requer("calendario")
+@requer("gestao")
 def lista():
     ciclo_ini, ciclo_fim = _ciclo_da_requisicao()
     funcionario_id = request.args.get("funcionario", type=int)
@@ -114,7 +142,7 @@ def lista():
 
 @bp.route("/nova", methods=["GET", "POST"])
 @bp.route("/<int:ferias_id>/editar", methods=["GET", "POST"])
-@requer("calendario")
+@requer("gestao")
 def formulario(ferias_id: int | None = None):
     ferias = db.session.get(Ferias, ferias_id) if ferias_id else None
     if ferias_id and not ferias:
@@ -127,6 +155,7 @@ def formulario(ferias_id: int | None = None):
     if request.method == "POST":
         funcionario, inicio, dias, erros = _ler_formulario()
         adianta_13 = _quer_adiantar_13(request.form)
+        vende_10 = _quer_vende_10(request.form)
         if erro_13 := _erro_adianta_13(inicio, adianta_13):
             erros.append(erro_13)
         if not erros:
@@ -143,6 +172,7 @@ def formulario(ferias_id: int | None = None):
             ferias.definir_periodo(inicio, dias)
             ferias.observacao = request.form.get("observacao", "").strip() or None
             ferias.adianta_13 = adianta_13
+            ferias.vende_10 = vende_10
 
             if current_user.admin:
                 aprovar = request.form.get("aprovada") == "1"
@@ -155,6 +185,8 @@ def formulario(ferias_id: int | None = None):
             descricao = f"{funcionario.nome}: {inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} ({dias} dias)"
             if adianta_13:
                 descricao += " · 1ª parcela do 13º"
+            if vende_10:
+                descricao += " · vende 10 dias"
             if avisos:
                 descricao += f" | salvo com {len(avisos)} aviso(s)"
             registrar("Férias criadas" if novo else "Férias alteradas", descricao)
@@ -217,6 +249,7 @@ def dados_funcionario(funcionario_id: int):
                 "dias": f.dias,
                 "observacao": f.observacao or "",
                 "adianta_13": bool(f.adianta_13),
+                "vende_10": bool(f.vende_10),
                 "aprovada": f.aprovada,
                 "status": f.status_rotulo,
                 "no_ciclo": ciclo_ini <= f.inicio <= ciclo_fim,
@@ -275,7 +308,7 @@ def alternar_aprovacao(ferias_id: int):
 
 
 @bp.route("/lote", methods=["POST"])
-@requer("calendario")
+@requer("gestao")
 def acao_lote():
     ids = request.form.getlist("ids", type=int)
     acao = request.form.get("acao", "")
@@ -301,31 +334,33 @@ def acao_lote():
         flash(f"{len(feitos)} período(s) aprovado(s)." if feitos else "Os períodos selecionados já estavam aprovados.", "sucesso" if feitos else "info")
         return redirect(destino)
 
-    if acao in ("13_sim", "13_nao"):
-        sim = acao == "13_sim"
+    if acao in ("13_sim", "13_nao", "vende_sim", "vende_nao"):
+        sim = acao in ("13_sim", "vende_sim")
+        vende = acao.startswith("vende_")
         feitos, recusados = [], []
         for ferias in registros:
             if not _pode_editar(ferias):
                 recusados.append(ferias.funcionario.nome)
                 continue
-            if sim and _erro_adianta_13(ferias.inicio, True):
+            if not vende and sim and _erro_adianta_13(ferias.inicio, True):
                 recusados.append(ferias.funcionario.nome)
                 continue
-            ferias.adianta_13 = sim
+            if vende:
+                ferias.vende_10 = sim
+            else:
+                ferias.adianta_13 = sim
             feitos.append(ferias.funcionario.nome)
+        rotulo = "Venda de 10 dias" if vende else "13º"
         registrar(
-            "13º atualizado em lote",
+            f"{rotulo} atualizado em lote",
             ("Sim" if sim else "Não") + (": " + ", ".join(feitos) if feitos else ""),
         )
         db.session.commit()
         if feitos:
-            flash(f"1ª parcela do 13º marcada como {'Sim' if sim else 'Não'} em {len(feitos)} período(s).", "sucesso")
+            flash(f"{rotulo} marcado como {'Sim' if sim else 'Não'} em {len(feitos)} período(s).", "sucesso")
         if recusados:
-            flash(
-                "Não foi possível alterar o 13º de: " + ", ".join(recusados) +
-                (". A 1ª parcela só vale para férias a partir de fevereiro." if sim else "."),
-                "aviso",
-            )
+            extra = ". A 1ª parcela só vale para férias a partir de fevereiro." if sim and not vende else "."
+            flash("Não foi possível alterar: " + ", ".join(recusados) + extra, "aviso")
         if not feitos and not recusados:
             flash("Nenhum período foi alterado.", "aviso")
         return redirect(destino)
@@ -335,7 +370,7 @@ def acao_lote():
 
 
 @bp.route("/<int:ferias_id>/mover", methods=["POST"])
-@requer("calendario")
+@requer("gestao")
 def mover(ferias_id: int):
     ferias = db.get_or_404(Ferias, ferias_id)
     if not _pode_editar(ferias):
@@ -364,7 +399,7 @@ def mover(ferias_id: int):
 
 
 @bp.route("/<int:ferias_id>/excluir", methods=["POST"])
-@requer("calendario")
+@requer("gestao")
 def excluir(ferias_id: int):
     ferias = db.get_or_404(Ferias, ferias_id)
     if not _pode_editar(ferias):
@@ -425,18 +460,215 @@ def calendario():
                 mes["disp"] = total
                 mes["nivel_disp"] = "pouco"
 
+    minhas = []
+    if current_user.funcionario_id:
+        minhas = [
+            f
+            for f in ferias
+            if f.funcionario_id == current_user.funcionario_id
+            and f.status in (STATUS_AGUARDANDO_FUNCIONARIO, STATUS_AJUSTE_GERENTE)
+        ]
+    fila_lider = [f for f in ferias if f.status == STATUS_AGUARDANDO_LIDER] if current_user.pode_lider() else []
+    fila_gerente = [f for f in ferias if f.status == STATUS_AGUARDANDO_GERENTE] if current_user.pode_gerente() else []
+
     return render_template(
         "ferias/calendario.html",
         meses=meses,
         ciclo_ini=ciclo_ini,
         ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        minhas_pendencias=minhas,
+        fila_lider=fila_lider,
+        fila_gerente=fila_gerente,
         **grade,
     )
 
 
-@bp.route("/exportar")
+@bp.route("/opcoes", methods=["GET", "POST"])
 @requer("calendario")
+def opcoes():
+    funcionario = current_user.funcionario
+    ciclo_ini, ciclo_fim = ciclo_atual()
+    existentes = []
+    if funcionario:
+        existentes = db.session.scalars(
+            db.select(SugestaoFerias)
+            .where(SugestaoFerias.funcionario_id == funcionario.id, SugestaoFerias.ciclo_ano == ciclo_ini.year)
+            .order_by(SugestaoFerias.ordem)
+        ).all()
+
+    avisos, erros, alternativas = [], [], []
+    if request.method == "POST":
+        if not funcionario:
+            flash("Seu usuário não está ligado a um funcionário cadastrado.", "erro")
+            return redirect(url_for("ferias.opcoes"))
+        lidas = []
+        for ordem in (1, 2):
+            bruto = request.form.get(f"inicio_{ordem}", "").strip()
+            if not bruto:
+                continue
+            try:
+                inicio = datetime.strptime(bruto, "%Y-%m-%d").date()
+            except ValueError:
+                erros.append(f"Opção {ordem}: data de início inválida.")
+                continue
+            dias = request.form.get(f"dias_{ordem}", type=int)
+            if not dias:
+                erros.append(f"Opção {ordem}: informe a quantidade de dias.")
+                continue
+            adianta_13 = _quer_adiantar_13({"adianta_13": request.form.get(f"adianta_13_{ordem}")})
+            if erro_13 := _erro_adianta_13(inicio, adianta_13):
+                erros.append(f"Opção {ordem}: {erro_13}")
+                continue
+            analise = analisar_periodo_db(funcionario, inicio, dias)
+            if analise.erros:
+                erros.extend(f"Opção {ordem}: {e}" for e in analise.erros)
+            avisos.extend(f"Opção {ordem}: {a}" for a in analise.avisos)
+            if analise.alternativas and ordem == 1:
+                alternativas = analise.alternativas
+            lidas.append(
+                {
+                    "ordem": ordem,
+                    "inicio": inicio,
+                    "dias": dias,
+                    "adianta_13": adianta_13,
+                    "vende_10": _quer_vende_10({"vende_10": request.form.get(f"vende_10_{ordem}")}),
+                }
+            )
+        if not lidas and not erros:
+            erros.append("Informe pelo menos uma opção de datas.")
+        if not erros:
+            for antigo in existentes:
+                db.session.delete(antigo)
+            db.session.flush()
+            for item in lidas:
+                s = SugestaoFerias(
+                    funcionario=funcionario,
+                    ciclo_ano=ciclo_ini.year,
+                    ordem=item["ordem"],
+                    adianta_13=item["adianta_13"],
+                    vende_10=item["vende_10"],
+                )
+                s.definir_periodo(item["inicio"], item["dias"])
+                db.session.add(s)
+            registrar("Opções de férias enviadas", f"{funcionario.nome}: {len(lidas)} opção(ões)")
+            db.session.commit()
+            flash("Suas opções de datas foram enviadas.", "sucesso")
+            return redirect(url_for("ferias.calendario", ciclo=ciclo_ini.year))
+
+    return render_template(
+        "ferias/opcoes.html",
+        funcionario=funcionario,
+        ciclo_ini=ciclo_ini,
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        existentes=existentes,
+        erros=erros,
+        avisos=avisos,
+        alternativas=alternativas,
+        dados=request.form if request.method == "POST" else None,
+        dias_max=DIAS_MAX_CICLO,
+    )
+
+
+@bp.route("/montar", methods=["POST"])
+@requer("gestao")
+def montar():
+    if not (current_user.pode_lider() or current_user.admin):
+        abort(403)
+    ano = request.form.get("ciclo", type=int)
+    resumo = montar_calendario(ano)
+    partes = []
+    if resumo["montados"]:
+        partes.append(f"{len(resumo['montados'])} na data enviada")
+    if resumo["propostos"]:
+        partes.append(f"{len(resumo['propostos'])} com data próxima (e-mail enviado)")
+    if resumo["sem_encaixe"]:
+        partes.append("sem encaixe: " + ", ".join(resumo["sem_encaixe"]))
+    flash("Calendário montado: " + ("; ".join(partes) if partes else "ninguém havia enviado opções."), "sucesso")
+    return redirect(url_for("ferias.calendario", ciclo=ano or ciclo_atual()[0].year))
+
+
+@bp.route("/<int:ferias_id>/responder", methods=["POST"])
+@requer("calendario")
+def responder(ferias_id: int):
+    ferias = db.get_or_404(Ferias, ferias_id)
+    if ferias.funcionario_id != current_user.funcionario_id and not current_user.admin:
+        abort(403)
+    if ferias.status not in (STATUS_AGUARDANDO_FUNCIONARIO, STATUS_AJUSTE_GERENTE):
+        flash("Este período não está aguardando a sua resposta.", "aviso")
+        return redirect(_destino_calendario())
+    if request.form.get("acao") == "aceitar":
+        aceitar_proposta(ferias)
+        registrar("Funcionário aceitou a data", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
+        flash("Data aceita. O líder vai validar.", "sucesso")
+    else:
+        recusar_proposta(ferias)
+        registrar("Funcionário recusou a data", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
+        flash("Você recusou. O líder escolherá a melhor data.", "aviso")
+    return redirect(_destino_calendario())
+
+
+@bp.route("/<int:ferias_id>/lider", methods=["POST"])
+@requer("gestao")
+def acao_lider(ferias_id: int):
+    if not current_user.pode_lider():
+        abort(403)
+    ferias = db.get_or_404(Ferias, ferias_id)
+    if ferias.status != STATUS_AGUARDANDO_LIDER:
+        flash("Este período não está aguardando o líder.", "aviso")
+        return redirect(_destino_calendario())
+    bruto = request.form.get("inicio", "").strip()
+    if bruto:
+        try:
+            inicio = datetime.strptime(bruto, "%Y-%m-%d").date()
+        except ValueError:
+            flash("Data inválida.", "erro")
+            return redirect(_destino_calendario())
+        analise = analisar_periodo_db(ferias.funcionario, inicio, ferias.dias, ferias.id)
+        if analise.erros:
+            flash(analise.erros[0], "erro")
+            return redirect(_destino_calendario())
+        lider_definir(ferias, inicio, current_user.login)
+        registrar("Líder definiu a data", f"{ferias.funcionario.nome}: {inicio:%d/%m/%Y}")
+        flash("Data definida. Encaminhado ao gerente.", "sucesso")
+    else:
+        lider_validar(ferias, current_user.login)
+        registrar("Líder validou", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
+        flash("Validado. Encaminhado ao gerente.", "sucesso")
+    return redirect(_destino_calendario())
+
+
+@bp.route("/<int:ferias_id>/gerente", methods=["POST"])
+@requer("gestao")
+def acao_gerente(ferias_id: int):
+    if not current_user.pode_gerente():
+        abort(403)
+    ferias = db.get_or_404(Ferias, ferias_id)
+    if ferias.status != STATUS_AGUARDANDO_GERENTE:
+        flash("Este período não está aguardando o gerente.", "aviso")
+        return redirect(_destino_calendario())
+    if request.form.get("acao") == "sugerir":
+        try:
+            inicio = datetime.strptime(request.form.get("inicio", ""), "%Y-%m-%d").date()
+        except ValueError:
+            flash("Informe a nova data sugerida.", "erro")
+            return redirect(_destino_calendario())
+        analise = analisar_periodo_db(ferias.funcionario, inicio, ferias.dias, ferias.id)
+        if analise.erros:
+            flash(analise.erros[0], "erro")
+            return redirect(_destino_calendario())
+        gerente_sugerir(ferias, inicio, current_user.login)
+        registrar("Gerente sugeriu mudança", f"{ferias.funcionario.nome}: {inicio:%d/%m/%Y}")
+        flash("Sugestão enviada ao funcionário por e-mail.", "sucesso")
+    else:
+        gerente_aprovar(ferias, current_user.login)
+        registrar("Gerente aprovou", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}")
+        flash(f"Férias de {ferias.funcionario.nome} aprovadas. E-mail enviado.", "sucesso")
+    return redirect(_destino_calendario())
+
+
+@bp.route("/exportar")
+@requer("gestao")
 def exportar():
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
@@ -461,20 +693,21 @@ def exportar():
 
     ws = wb.active
     ws.title = "Férias"
-    ws.append(["Funcionário", "Início", "Fim", "Dias", "Status", "1ª parcela 13º", "Observação", "Aprovado por", "Aprovado em"])
+    ws.append(["Funcionário", "Início", "Fim", "Dias", "Status", "1ª parcela 13º", "Vende 10 dias", "Observação", "Aprovado por", "Aprovado em"])
     for f in ferias:
         ws.append([
             f.funcionario.nome, f.inicio, f.fim, f.dias, f.status_rotulo,
-            "Sim" if f.adianta_13 else "Não", f.observacao or "", f.aprovado_por or "", f.aprovado_em,
+            "Sim" if f.adianta_13 else "Não", "Sim" if f.vende_10 else "Não",
+            f.observacao or "", f.aprovado_por or "", f.aprovado_em,
         ])
         linha = ws.max_row
         ws.cell(row=linha, column=2).number_format = "DD/MM/YYYY"
         ws.cell(row=linha, column=3).number_format = "DD/MM/YYYY"
-        ws.cell(row=linha, column=9).number_format = "DD/MM/YYYY HH:MM"
+        ws.cell(row=linha, column=10).number_format = "DD/MM/YYYY HH:MM"
         if f.aprovada:
-            for col in range(1, 10):
+            for col in range(1, 11):
                 ws.cell(row=linha, column=col).fill = verde
-    formatar_cabecalho(ws, [24, 13, 13, 8, 13, 16, 40, 16, 18])
+    formatar_cabecalho(ws, [24, 13, 13, 8, 13, 16, 14, 40, 16, 18])
 
     resumo = wb.create_sheet("Resumo por funcionário")
     resumo.append(["Funcionário", "Períodos", "Dias aprovados", "Dias programados", "Saldo (de 30)"])
