@@ -31,6 +31,7 @@ from ..models import (
 )
 from ..workflow import (
     aceitar_proposta,
+    enviar_ao_lider,
     gerente_aprovar,
     gerente_sugerir,
     lider_definir,
@@ -478,8 +479,24 @@ def calendario():
                 mes["nivel_disp"] = "pouco"
 
     minhas = _pendencias_do_funcionario(current_user.funcionario_id) if current_user.funcionario_id else []
-    fila_lider = [f for f in ferias if f.status == STATUS_AGUARDANDO_LIDER] if current_user.pode_lider() else []
-    fila_gerente = [f for f in ferias if f.status == STATUS_AGUARDANDO_GERENTE] if current_user.pode_gerente() else []
+    fila_lider = []
+    if current_user.pode_lider():
+        fila_lider = [
+            f
+            for f in db.session.scalars(
+                db.select(Ferias).where(Ferias.status == STATUS_AGUARDANDO_LIDER).order_by(Ferias.inicio)
+            )
+            if f.funcionario and f.funcionario.ativo
+        ]
+    fila_gerente = []
+    if current_user.pode_gerente():
+        fila_gerente = [
+            f
+            for f in db.session.scalars(
+                db.select(Ferias).where(Ferias.status == STATUS_AGUARDANDO_GERENTE).order_by(Ferias.inicio)
+            )
+            if f.funcionario and f.funcionario.ativo
+        ]
 
     return render_template(
         "ferias/calendario.html",
@@ -586,7 +603,21 @@ def opcoes():
                 db.session.add(s)
             registrar("Opções de férias enviadas", f"{funcionario.nome}: {len(lidas)} opção(ões)")
             db.session.commit()
-            flash("Suas opções de datas foram enviadas. O líder monta o calendário e depois valida.", "sucesso")
+            anos_enviados = {item["ciclo_ano"] for item in lidas}
+            gravadas = db.session.scalars(
+                db.select(SugestaoFerias)
+                .where(
+                    SugestaoFerias.funcionario_id == funcionario.id,
+                    SugestaoFerias.ciclo_ano.in_(anos_enviados),
+                )
+                .order_by(SugestaoFerias.ciclo_ano, SugestaoFerias.ordem)
+            ).all()
+            por_ano: dict[int, list] = {}
+            for sugestao in gravadas:
+                por_ano.setdefault(sugestao.ciclo_ano, []).append(sugestao)
+            for opcoes_ano in por_ano.values():
+                enviar_ao_lider(funcionario, opcoes_ano)
+            flash("Suas opções de datas foram enviadas ao líder para validar ou sugerir outra data.", "sucesso")
             destino_ano = lidas[0]["ciclo_ano"]
             if current_user.pode_lider():
                 return redirect(url_for("ferias.validacao_lider", ciclo=destino_ano))
@@ -615,14 +646,10 @@ def montar():
         abort(403)
     ano = request.form.get("ciclo", type=int)
     resumo = montar_calendario(ano)
-    partes = []
     if resumo["montados"]:
-        partes.append(f"{len(resumo['montados'])} na data enviada")
-    if resumo["propostos"]:
-        partes.append(f"{len(resumo['propostos'])} com data próxima (e-mail enviado)")
-    if resumo["sem_encaixe"]:
-        partes.append("sem encaixe: " + ", ".join(resumo["sem_encaixe"]))
-    flash("Calendário montado: " + ("; ".join(partes) if partes else "ninguém havia enviado opções."), "sucesso")
+        flash(f"Fila do líder atualizada: {len(resumo['montados'])} período(s) para validar.", "sucesso")
+    else:
+        flash("Ninguém novo para a fila do líder. Quem já enviou opções já está no fluxo.", "aviso")
     return redirect(url_for("ferias.validacao_lider", ciclo=ano or ciclo_atual()[0].year))
 
 
@@ -636,17 +663,13 @@ def responder(ferias_id: int):
         flash("Este período não está aguardando a sua resposta.", "aviso")
         return redirect(_destino_calendario())
     if request.form.get("acao") == "aceitar":
-        vinha_do_lider = ferias.status == STATUS_AJUSTE_LIDER
         aceitar_proposta(ferias)
         registrar("Funcionário aceitou a data", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
-        if vinha_do_lider:
-            flash("Data aceita. Encaminhado ao gerente.", "sucesso")
-        else:
-            flash("Data aceita. O líder vai validar.", "sucesso")
+        flash("Data aceita. O líder vai validar e enviar ao gerente.", "sucesso")
     else:
         recusar_proposta(ferias)
         registrar("Funcionário recusou a data", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
-        flash("Você recusou. O líder escolherá a melhor data.", "aviso")
+        flash("Você recusou. O líder define a data e envia ao gerente.", "aviso")
     ano = ciclo_atual(ferias.inicio)[0].year
     if current_user.pode_lider():
         return redirect(url_for("ferias.validacao_lider", ciclo=ano))
@@ -672,7 +695,8 @@ def acao_lider(ferias_id: int):
         except ValueError:
             flash("Data inválida.", "erro")
             return redirect(destino_lider)
-    sugerir = acao == "sugerir" or (acao != "validar" and inicio != ferias.inicio)
+    definir_final = bool(ferias.recusou_ajuste) or acao == "definir"
+    sugerir = (not definir_final) and (acao == "sugerir" or (acao != "validar" and inicio != ferias.inicio))
     if sugerir:
         if inicio == ferias.inicio:
             flash("Informe uma data diferente para sugerir ao funcionário.", "aviso")
@@ -687,7 +711,10 @@ def acao_lider(ferias_id: int):
     else:
         lider_validar(ferias, current_user.login)
         registrar("Líder validou", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
-    flash("Validado e encaminhado ao gerente (Aceite gerente).", "sucesso")
+    if definir_final:
+        flash("Data definida e encaminhada ao gerente (Aceite gerente).", "sucesso")
+    else:
+        flash("Validado e encaminhado ao gerente (Aceite gerente).", "sucesso")
     ano = ciclo_atual(ferias.inicio)[0].year
     if current_user.pode_gerente():
         return redirect(url_for("ferias.validacao_gerente", ciclo=ano))

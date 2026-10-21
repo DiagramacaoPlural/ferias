@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from .alertas import enviar_email
-from .consultas import funcionarios_ativos, minimo_no_setor
+from .consultas import funcionarios_ativos
 from .models import (
     PAPEL_GERENTE,
     PAPEL_LIDER,
@@ -22,7 +22,6 @@ from .models import (
     Usuario,
     db,
 )
-from .regras import Periodo, calcular_fim, cabe_no_setor, ocupacao_por_dia, sugerir_alternativas
 
 
 def _notificar(funcionario: Funcionario, assunto: str, corpo: str) -> None:
@@ -49,14 +48,71 @@ def _notificar_papel(papel: str, assunto: str, corpo: str) -> None:
         enviar_email(assunto, corpo, emails)
 
 
+_STATUS_FILA_LIDER = (
+    STATUS_AGUARDANDO_LIDER,
+    STATUS_AJUSTE_LIDER,
+    STATUS_AGUARDANDO_FUNCIONARIO,
+    STATUS_AJUSTE_GERENTE,
+)
+_STATUS_NAO_SOBRESCREVER = (STATUS_APROVADA, STATUS_AGUARDANDO_GERENTE)
+
+
+def _ferias_do_ciclo(funcionario_id: int, ciclo_ini: date, ciclo_fim: date) -> list[Ferias]:
+    return list(
+        db.session.scalars(
+            db.select(Ferias).where(
+                Ferias.funcionario_id == funcionario_id,
+                Ferias.inicio >= ciclo_ini,
+                Ferias.inicio <= ciclo_fim,
+            )
+        )
+    )
+
+
+def _colocar_na_fila_do_lider(funcionario: Funcionario, opcoes: list[SugestaoFerias]) -> Ferias | None:
+    """Cria ou atualiza o período com a 1ª opção e deixa na fila do líder."""
+    from .consultas import ciclo_por_ano
+
+    if not opcoes:
+        return None
+    primeira = opcoes[0]
+    ciclo_ini, ciclo_fim = ciclo_por_ano(primeira.ciclo_ano)
+    existentes = _ferias_do_ciclo(funcionario.id, ciclo_ini, ciclo_fim)
+    if any(f.status in _STATUS_NAO_SOBRESCREVER for f in existentes):
+        return None
+    ferias = next((f for f in existentes if f.status in _STATUS_FILA_LIDER), None)
+    if ferias is None:
+        ferias = Ferias(funcionario=funcionario, criado_por="funcionario")
+        db.session.add(ferias)
+    ferias.definir_periodo(primeira.inicio, primeira.dias)
+    ferias.adianta_13 = bool(primeira.adianta_13)
+    ferias.vende_10 = bool(primeira.vende_10)
+    ferias.status = STATUS_AGUARDANDO_LIDER
+    ferias.recusou_ajuste = False
+    return ferias
+
+
+def enviar_ao_lider(funcionario: Funcionario, opcoes: list[SugestaoFerias]) -> Ferias | None:
+    ferias = _colocar_na_fila_do_lider(funcionario, opcoes)
+    if not ferias:
+        return None
+    db.session.commit()
+    _notificar_papel(
+        PAPEL_LIDER,
+        "Novas datas de férias para validar",
+        f"{funcionario.nome} enviou opções de férias. "
+        f"A primeira data é {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}. "
+        "Valide ou sugira outra data no Controle de Férias.",
+    )
+    return ferias
+
+
 def montar_calendario(ano: int | None = None) -> dict:
-    """Escolhe uma das opções de cada funcionário; se não couber, propõe data próxima."""
+    """Coloca na fila do líder quem já enviou opções e ainda não está no fluxo."""
     from .consultas import ciclo_por_ano
 
     ciclo_ini, ciclo_fim = ciclo_por_ano(ano)
     ativos = funcionarios_ativos()
-    total = len(ativos)
-    min_disp = minimo_no_setor()
     sugestoes = db.session.scalars(
         db.select(SugestaoFerias).where(SugestaoFerias.ciclo_ano == ciclo_ini.year).order_by(
             SugestaoFerias.funcionario_id, SugestaoFerias.ordem
@@ -66,100 +122,28 @@ def montar_calendario(ano: int | None = None) -> dict:
     for s in sugestoes:
         por_func.setdefault(s.funcionario_id, []).append(s)
 
-    aprovadas = [
-        Periodo(f.funcionario.nome, f.inicio, f.fim, f.dias, f.id)
-        for f in db.session.scalars(
-            db.select(Ferias).where(
-                Ferias.status == STATUS_APROVADA, Ferias.inicio <= ciclo_fim, Ferias.fim >= ciclo_ini
-            )
-        )
-    ]
-    ocupacao = ocupacao_por_dia(aprovadas, ciclo_ini, ciclo_fim)
-
-    montados, propostos, sem_encaixe = [], [], []
+    montados, ja_na_fila, sem_opcao = [], [], []
     for func in ativos:
         opcoes = por_func.get(func.id) or []
-        ja = db.session.scalar(
-            db.select(Ferias).where(
-                Ferias.funcionario_id == func.id,
-                Ferias.status == STATUS_APROVADA,
-                Ferias.inicio >= ciclo_ini,
-                Ferias.inicio <= ciclo_fim,
-            )
-        )
-        if ja:
+        if not opcoes:
+            sem_opcao.append(func.nome)
             continue
-        for antigo in db.session.scalars(
-            db.select(Ferias).where(
-                Ferias.funcionario_id == func.id,
-                Ferias.status != STATUS_APROVADA,
-                Ferias.inicio >= ciclo_ini,
-                Ferias.inicio <= ciclo_fim,
-            )
-        ):
-            db.session.delete(antigo)
-        db.session.flush()
-
-        escolhida = None
-        origem_opcao = False
-        for opcao in opcoes:
-            if cabe_no_setor(opcao.inicio, opcao.dias, ocupacao, total, min_disp, []):
-                escolhida = opcao
-                origem_opcao = True
-                break
-        if not escolhida and opcoes:
-            alts = sugerir_alternativas(
-                opcoes[0].inicio, opcoes[0].dias, ocupacao, total, min_disp, [], ciclo_ini, ciclo_fim, 1
-            )
-            if alts:
-                class _Tmp:
-                    pass
-
-                escolhida = _Tmp()
-                escolhida.inicio = alts[0].inicio
-                escolhida.dias = opcoes[0].dias
-                escolhida.adianta_13 = opcoes[0].adianta_13
-                escolhida.vende_10 = opcoes[0].vende_10
-                origem_opcao = False
-        if not escolhida:
-            if opcoes:
-                sem_encaixe.append(func.nome)
+        existentes = _ferias_do_ciclo(func.id, ciclo_ini, ciclo_fim)
+        if any(f.status in _STATUS_NAO_SOBRESCREVER for f in existentes):
+            ja_na_fila.append(func.nome)
             continue
-
-        ferias = Ferias(
-            funcionario=func,
-            status=STATUS_AGUARDANDO_LIDER if origem_opcao else STATUS_AGUARDANDO_FUNCIONARIO,
-            adianta_13=bool(escolhida.adianta_13),
-            vende_10=bool(escolhida.vende_10),
-            criado_por="montagem",
-        )
-        ferias.definir_periodo(escolhida.inicio, escolhida.dias)
-        db.session.add(ferias)
-        db.session.flush()
-        ocupacao = ocupacao_por_dia(
-            aprovadas + [Periodo(func.nome, ferias.inicio, ferias.fim, ferias.dias, ferias.id)],
-            ciclo_ini,
-            ciclo_fim,
-        )
-        aprovadas.append(Periodo(func.nome, ferias.inicio, ferias.fim, ferias.dias, ferias.id))
-        if origem_opcao:
+        if any(f.status == STATUS_AGUARDANDO_LIDER for f in existentes):
+            ja_na_fila.append(func.nome)
+            continue
+        ferias = _colocar_na_fila_do_lider(func, opcoes)
+        if ferias:
             montados.append(func.nome)
-        else:
-            propostos.append(func.nome)
-            _notificar(
-                func,
-                "Sugestão de férias para o seu período",
-                f"Olá, {func.nome}.\n\n"
-                f"Não foi possível encaixar as datas que você enviou sem reduzir o mínimo do setor. "
-                f"Sugerimos {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} ({ferias.dias} dias).\n\n"
-                f"Entre no Controle de Férias, abra o Calendário e aceite ou recuse esta data.",
-            )
 
     if montados:
         _notificar_papel(
             PAPEL_LIDER,
-            "Calendário de férias montado — validar",
-            "Há períodos montados com as datas enviadas pelos funcionários, aguardando validação do líder.\n\n"
+            "Datas de férias na fila para validar",
+            "Há períodos enviados pelos funcionários, aguardando validação do líder.\n\n"
             + "\n".join(f"- {n}" for n in montados),
         )
 
@@ -167,42 +151,35 @@ def montar_calendario(ano: int | None = None) -> dict:
         Historico(
             usuario="sistema",
             acao="Calendário montado",
-            detalhe=f"{len(montados)} na opção enviada, {len(propostos)} com data próxima, {len(sem_encaixe)} sem encaixe",
+            detalhe=f"{len(montados)} na fila do líder, {len(ja_na_fila)} já estavam no fluxo",
         )
     )
     db.session.commit()
-    return {"montados": montados, "propostos": propostos, "sem_encaixe": sem_encaixe}
+    return {"montados": montados, "propostos": [], "sem_encaixe": []}
 
 
 def aceitar_proposta(ferias: Ferias) -> None:
-    if ferias.status == STATUS_AJUSTE_LIDER:
-        ferias.status = STATUS_AGUARDANDO_GERENTE
-        db.session.commit()
-        _notificar_papel(
-            PAPEL_GERENTE,
-            "Funcionário aceitou a data do líder",
-            f"{ferias.funcionario.nome} aceitou {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}. "
-            "Dê o aceite no Controle de Férias.",
-        )
-        return
     ferias.status = STATUS_AGUARDANDO_LIDER
+    ferias.recusou_ajuste = False
     db.session.commit()
     _notificar_papel(
         PAPEL_LIDER,
         "Funcionário aceitou a data sugerida",
-        f"{ferias.funcionario.nome} aceitou {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}. Validar no Calendário.",
+        f"{ferias.funcionario.nome} aceitou {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}. "
+        "Valide e envie ao gerente no Controle de Férias.",
     )
 
 
 def recusar_proposta(ferias: Ferias) -> None:
     ferias.status = STATUS_AGUARDANDO_LIDER
+    ferias.recusou_ajuste = True
     ferias.observacao = ((ferias.observacao or "") + " · Recusou a data proposta.").strip(" ·")
     db.session.commit()
     _notificar_papel(
         PAPEL_LIDER,
-        "Funcionário recusou a data sugerida",
+        "Funcionário recusou a data — definir e enviar ao gerente",
         f"{ferias.funcionario.nome} recusou {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}. "
-        "Escolha a melhor data no Calendário.",
+        "Defina a data e envie ao gerente; o funcionário não precisa responder de novo.",
     )
 
 

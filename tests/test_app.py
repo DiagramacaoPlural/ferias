@@ -6,7 +6,6 @@ from app.models import (
     PAPEL_GERENTE,
     PAPEL_LIDER,
     PAPEL_SIMPLES,
-    STATUS_AGUARDANDO_FUNCIONARIO,
     STATUS_AGUARDANDO_GERENTE,
     STATUS_AGUARDANDO_LIDER,
     STATUS_AJUSTE_LIDER,
@@ -614,11 +613,16 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
         data={"inicio_1": "2026-12-01", "dias_1": "10", "vende_10_1": "1", "inicio_2": "2027-01-12", "dias_2": "10"},
         follow_redirects=True,
     )
-    assert "opções de datas foram enviadas" in envio.get_data(as_text=True)
+    assert "enviadas ao líder" in envio.get_data(as_text=True)
     with app.app_context():
         opcoes = db.session.scalars(db.select(SugestaoFerias).filter_by(funcionario_id=cid)).all()
         assert len(opcoes) == 2
         assert opcoes[0].vende_10 is True
+        ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
+        assert ferias.status == STATUS_AGUARDANDO_LIDER
+        assert ferias.inicio == date(2026, 12, 1)
+        assert ferias.vende_10 is True
+        fid = ferias.id
 
     client.get("/logout")
     entrar(client)
@@ -626,16 +630,8 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Validação do líder" in fila
     assert "Carlos" in fila
     assert "01/12/2026" in fila
-    montado = client.post("/ferias/montar", data={"ciclo": "2026"}, follow_redirects=True)
-    html_montado = montado.get_data(as_text=True)
-    assert "Calendário montado" in html_montado
-    assert "Fila para validar" in html_montado
-    with app.app_context():
-        ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
-        assert ferias.status == STATUS_AGUARDANDO_LIDER
-        assert ferias.inicio == date(2026, 12, 1)
-        assert ferias.vende_10 is True
-        fid = ferias.id
+    assert "Fila para validar" in fila
+    assert "Validar e enviar ao gerente" in fila
 
     client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-01"}, follow_redirects=True)
     with app.app_context():
@@ -679,17 +675,12 @@ def test_lider_nao_e_gerente_e_a_fila_do_gerente_recebe_a_validacao(app):
     assert "01/12/2026" in html
 
 
-def test_montar_propoe_data_proxima_e_funcionario_responde(app, monkeypatch):
-    enviados = []
-    monkeypatch.setattr(
-        "app.workflow.enviar_email",
-        lambda assunto, corpo, dest: enviados.append((assunto, dest)) or (True, ""),
-    )
+def test_envio_das_opcoes_cai_na_fila_do_lider_mesmo_com_setor_ocupado(app, monkeypatch):
+    monkeypatch.setattr("app.workflow.enviar_email", lambda *a, **k: (True, ""))
     client = app.test_client()
     with app.app_context():
         carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
         ana = db.session.scalar(db.select(Funcionario).filter_by(nome="Ana"))
-        carlos.email = "carlos@ex.com"
         joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
         joao.funcionario_id = carlos.id
         ocupada = Ferias(funcionario=ana, status=STATUS_APROVADA, criado_por="admin")
@@ -700,25 +691,10 @@ def test_montar_propoe_data_proxima_e_funcionario_responde(app, monkeypatch):
 
     entrar(client, "joao", "senha123")
     client.post("/ferias/opcoes", data={"inicio_1": "2026-12-01", "dias_1": "10"}, follow_redirects=True)
-    client.get("/logout")
-    entrar(client)
-    client.post("/ferias/montar", data={"ciclo": "2026"}, follow_redirects=True)
     with app.app_context():
         ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
-        assert ferias.status == STATUS_AGUARDANDO_FUNCIONARIO
-        assert ferias.inicio != date(2026, 12, 1)
-        fid = ferias.id
-    assert any("Sugestão de férias" in a[0] for a in enviados)
-
-    client.get("/logout")
-    entrar(client, "joao", "senha123")
-    cal = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
-    assert "Sua data precisa de resposta" in cal
-    client.post(f"/ferias/{fid}/responder", data={"acao": "recusar"}, follow_redirects=True)
-    with app.app_context():
-        recusada = db.session.get(Ferias, fid)
-        assert recusada.status == STATUS_AGUARDANDO_LIDER
-        assert "Recusou" in (recusada.observacao or "")
+        assert ferias.status == STATUS_AGUARDANDO_LIDER
+        assert ferias.inicio == date(2026, 12, 1)
 
 
 def test_lider_sugerir_nova_data_volta_ao_funcionario(app, monkeypatch):
@@ -765,7 +741,12 @@ def test_lider_sugerir_nova_data_volta_ao_funcionario(app, monkeypatch):
     cal = client.get("/ferias/calendario").get_data(as_text=True)
     assert "O líder sugeriu esta data" in cal
     aceito = client.post(f"/ferias/{fid}/responder", data={"acao": "aceitar"}, follow_redirects=True)
-    assert "Encaminhado ao gerente" in aceito.get_data(as_text=True)
+    assert "O líder vai validar" in aceito.get_data(as_text=True)
+    with app.app_context():
+        assert db.session.get(Ferias, fid).status == STATUS_AGUARDANDO_LIDER
+    client.get("/logout")
+    entrar(client, "Lider", "senha123")
+    client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-15", "acao": "validar"}, follow_redirects=True)
     with app.app_context():
         assert db.session.get(Ferias, fid).status == STATUS_AGUARDANDO_GERENTE
 
@@ -789,3 +770,38 @@ def test_lider_ao_mudar_a_data_envia_sugestao_ao_funcionario(app, monkeypatch):
         ferias = db.session.get(Ferias, fid)
         assert ferias.status == STATUS_AJUSTE_LIDER
         assert ferias.inicio == date(2026, 12, 20)
+
+
+def test_funcionario_recusa_e_lider_define_direto_ao_gerente(app, monkeypatch):
+    monkeypatch.setattr("app.workflow.enviar_email", lambda *a, **k: (True, ""))
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
+        joao.funcionario_id = carlos.id
+        lider = Usuario(login="Lider", papel=PAPEL_LIDER, acessa_calendario=True, acessa_cronograma=True, trocar_senha=False)
+        lider.definir_senha("senha123")
+        ferias = Ferias(funcionario=carlos, status=STATUS_AJUSTE_LIDER, criado_por="lider")
+        ferias.definir_periodo(date(2026, 12, 15), 10)
+        db.session.add_all([lider, ferias])
+        db.session.commit()
+        fid = ferias.id
+
+    entrar(client, "joao", "senha123")
+    recusa = client.post(f"/ferias/{fid}/responder", data={"acao": "recusar"}, follow_redirects=True)
+    assert "O líder define a data" in recusa.get_data(as_text=True)
+    with app.app_context():
+        ferias = db.session.get(Ferias, fid)
+        assert ferias.status == STATUS_AGUARDANDO_LIDER
+        assert ferias.recusou_ajuste is True
+
+    client.get("/logout")
+    entrar(client, "Lider", "senha123")
+    fila = client.get("/ferias/validacao/lider").get_data(as_text=True)
+    assert "Definir e enviar ao gerente" in fila
+    assert "Sugerir nova data ao funcionário" not in fila
+    client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-22", "acao": "definir"}, follow_redirects=True)
+    with app.app_context():
+        ferias = db.session.get(Ferias, fid)
+        assert ferias.status == STATUS_AGUARDANDO_GERENTE
+        assert ferias.inicio == date(2026, 12, 22)

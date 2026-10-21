@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo with context %}
+{% from "_macros.html" import icone, seletor_ciclo, acoes_lider with context %}
 {% block titulo %}Validação do líder{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
   <div>
     <h1>Validação do líder</h1>
-    <p>Ciclo {{ rotulo_ciclo }}. Primeiro monte o calendário com as datas enviadas. Depois valide (envia ao gerente) ou sugira outra data ao funcionário.</p>
+    <p>Ciclo {{ rotulo_ciclo }}. O funcionário envia até duas datas; você valida (vai ao gerente) ou sugere outra data (volta ao funcionário). Se ele recusar, defina a data e envie ao gerente.</p>
   </div>
   <div class="acoes">
     {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.validacao_lider') }}
@@ -75,21 +75,17 @@
             <strong>{{ f.funcionario.nome }}</strong>
             <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
             {% if f.vende_10 %}<span class="texto-suave"> · vende 10 dias</span>{% endif %}
+            {% if f.recusou_ajuste %}<p class="texto-suave" style="margin:4px 0 0">Funcionário recusou. Defina a data e envie ao gerente.</p>{% endif %}
             {% if f.observacao %}<p class="texto-suave" style="margin:4px 0 0">{{ f.observacao }}</p>{% endif %}
           </div>
-          <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes" style="flex-wrap:wrap">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" aria-label="Nova data sugerida pelo líder">
-            <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar e enviar ao gerente</button>
-            <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir nova data ao funcionário</button>
-          </form>
+          {{ acoes_lider(f) }}
         </div>
       {% endfor %}
     </div>
   {% else %}
     <div class="vazio">
       {% if enviadas %}
-        Clique em <strong>Montar calendário</strong> para gerar os períodos a validar.
+        Quando o funcionário enviar as datas em Minhas datas, o período aparece aqui.
       {% else %}
         Nada pendente de validação.
       {% endif %}

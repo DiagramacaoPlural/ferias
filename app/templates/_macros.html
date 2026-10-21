@@ -40,6 +40,19 @@
 </form>
 {%- endmacro %}
 
+{% macro acoes_lider(f) -%}
+<form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes" style="flex-wrap:wrap">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" aria-label="Data do líder">
+  {% if f.recusou_ajuste %}
+    <button type="submit" name="acao" value="definir" class="btn btn-pequeno btn-sucesso">Definir e enviar ao gerente</button>
+  {% else %}
+    <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar e enviar ao gerente</button>
+    <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir nova data ao funcionário</button>
+  {% endif %}
+</form>
+{%- endmacro %}
+
 {% macro botao_post(url, rotulo, classe='btn btn-pequeno', confirmar=None, icone_nome=None, titulo=None) -%}
 <form method="post" action="{{ url }}" class="inline" {% if confirmar %}onsubmit="return confirm('{{ confirmar }}')"{% endif %}>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

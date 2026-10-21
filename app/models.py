@@ -100,6 +100,7 @@ class Ferias(db.Model):
     observacao = db.Column(db.String(500))
     adianta_13 = db.Column(db.Boolean, default=False, nullable=False)
     vende_10 = db.Column(db.Boolean, default=False, nullable=False)
+    recusou_ajuste = db.Column(db.Boolean, default=False, nullable=False)
     criado_por = db.Column(db.String(60))
     criado_em = db.Column(db.DateTime, default=datetime.now)
     aprovado_por = db.Column(db.String(60))
@@ -184,6 +185,7 @@ def garantir_esquema() -> None:
         return
     _adicionar_coluna("ferias", "adianta_13", "adianta_13 BOOLEAN NOT NULL DEFAULT 0")
     _adicionar_coluna("ferias", "vende_10", "vende_10 BOOLEAN NOT NULL DEFAULT 0")
+    _adicionar_coluna("ferias", "recusou_ajuste", "recusou_ajuste BOOLEAN NOT NULL DEFAULT 0")
     _adicionar_coluna("funcionarios", "email", "email VARCHAR(180)")
     _adicionar_coluna("usuarios", "papel", "papel VARCHAR(20) NOT NULL DEFAULT 'simples'")
     _adicionar_coluna("usuarios", "funcionario_id", "funcionario_id INTEGER")
