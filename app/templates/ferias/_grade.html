@@ -7,6 +7,7 @@
       <span><i style="background:var(--verde)"></i>Pouco de férias</span>
       <span><i style="background:var(--ambar)"></i>Médio</span>
       <span><i style="background:var(--vermelho)"></i>Muito de férias</span>
+      <span><i style="background:#fecaca;border:1px solid var(--vermelho)"></i>Período crítico</span>
       <span><i style="background:transparent;box-shadow:inset 2px 0 0 var(--vermelho)"></i>Hoje</span>
     </div>
   </div>
@@ -21,12 +22,12 @@
         </tr>
         <tr>
           {% for d in dias %}
-            <th class="dia-cab {{ 'fds' if d.weekday() >= 5 }} {{ 'hoje-col' if d == hoje }}">{{ dias_semana[d.weekday()] }}</th>
+            <th class="dia-cab {{ 'fds' if d.weekday() >= 5 }} {{ 'hoje-col' if d == hoje }} {{ 'critico' if niveis[d] == 'muito' }}">{{ dias_semana[d.weekday()] }}</th>
           {% endfor %}
         </tr>
         <tr>
           {% for d in dias %}
-            <th class="dia-cab {{ 'fds' if d.weekday() >= 5 }} {{ 'hoje-col' if d == hoje }}">{{ d.day }}</th>
+            <th class="dia-cab {{ 'fds' if d.weekday() >= 5 }} {{ 'hoje-col' if d == hoje }} {{ 'critico' if niveis[d] == 'muito' }}">{{ d.day }}</th>
           {% endfor %}
         </tr>
       </thead>
@@ -35,7 +36,7 @@
           <td class="col-nome">De férias</td>
           {% for d in dias %}
             {% set n = ausentes[d]|length %}
-            <td class="{{ 'ocupado' if n else '' }} {{ 'hoje-col' if d == hoje }}"
+            <td class="{{ 'ocupado' if n else '' }} {{ 'hoje-col' if d == hoje }} {{ 'critico' if niveis[d] == 'muito' }}"
                 {% if n %}title="{{ d|data }}: {{ n }} de férias · {{ ausentes[d]|join(', ') }}"{% endif %}>
               {% if n %}<span class="qtd-ferias">{{ n }}</span>{% endif %}
             </td>
@@ -46,8 +47,8 @@
           {% for d in dias %}
             {% set n = ausentes[d]|length %}
             {% set disp = total_ativos - n %}
-            {% set nivel = n|nivel_cobertura(total_ativos, min_disponiveis) if n else '' %}
-            <td class="{{ ('ocupado ' + nivel) if n else '' }} {{ 'hoje-col' if d == hoje }}"
+            {% set nivel = niveis[d] %}
+            <td class="{{ ('ocupado ' + nivel) if n else '' }} {{ 'hoje-col' if d == hoje }} {{ 'critico' if nivel == 'muito' }}"
                 {% if n %}title="{{ d|data }}: {{ disp }} disponíveis de {{ total_ativos }} · {{ n }} de férias · {{ ausentes[d]|join(', ') }}"{% endif %}>
               {% if n %}<span class="qtd-disp {{ nivel }}">{{ disp }}</span>{% endif %}
             </td>
@@ -58,7 +59,7 @@
             <td class="col-nome">{{ linha.funcionario.nome }}</td>
             {% for c in linha.celulas %}
               {% set f = c.ferias %}
-              <td class="{{ 'fds' if c.dia.weekday() >= 5 }} {{ 'hoje-col' if c.dia == hoje }}">
+              <td class="{{ 'fds' if c.dia.weekday() >= 5 }} {{ 'hoje-col' if c.dia == hoje }} {{ 'critico' if niveis[c.dia] == 'muito' }}">
                 {% if f %}
                   <span class="barra-ferias {{ f.status|lower }} {{ 'ini' if c.dia == f.inicio or loop.first }} {{ 'fim' if c.dia == f.fim or loop.last }}"
                         title="{{ linha.funcionario.nome }}: {{ f.inicio|data }} a {{ f.fim|data }} ({{ f.dias }} dias) · {{ f.status_rotulo }}"></span>

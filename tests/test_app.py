@@ -185,6 +185,8 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert "Disponíveis no setor" in pagina
     assert "Pouco de férias" in pagina
     assert "qtd-disp muito" in pagina
+    assert "Período crítico" in pagina
+    assert "critico" in pagina
 
 
 def test_dados_do_funcionario_no_formulario(app):

@@ -344,6 +344,10 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 .gantt thead .fds { background: #eef2f7; }
 .gantt .hoje-col { box-shadow: inset 2px 0 0 var(--vermelho); }
 .gantt thead .hoje-col { color: var(--vermelho); }
+.gantt thead .dia-cab.critico { background: #fecaca; color: var(--vermelho); }
+.gantt tbody td.critico { background: #fff1f2; }
+.gantt tbody td.critico.fds { background: #ffe4e6; }
+.gantt td.critico .barra-ferias { box-shadow: inset 0 0 0 2px var(--vermelho); }
 .gantt tbody td { height: 32px; }
 .gantt .barra-ferias { display: block; height: 18px; margin: 0 -1px; }
 .gantt .barra-ferias.aprovada { background: var(--verde); }
@@ -366,6 +370,7 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 .gantt .qtd-disp.medio { background: var(--ambar); }
 .gantt .qtd-disp.muito { background: var(--vermelho); }
 .gantt .ocupado { background: var(--azul-claro) !important; }
+.gantt .ocupado.critico { background: #fecaca !important; }
 .gantt .linha-disponiveis .ocupado.pouco { background: var(--verde-claro) !important; }
 .gantt .linha-disponiveis .ocupado.medio { background: var(--ambar-claro) !important; }
 .gantt .linha-disponiveis .ocupado.muito { background: var(--vermelho-claro) !important; }
@@ -457,5 +462,5 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
   .conteudo { padding: 0; }
   .card { box-shadow: none; }
   body { background: #fff; }
-  .gantt .barra-ferias, .gantt .qtd-ferias, .gantt .qtd-disp, .gantt .ocupado, .mes-qtd, .mes-qtd-disp, .mes-qtd-setor { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .gantt .barra-ferias, .gantt .qtd-ferias, .gantt .qtd-disp, .gantt .ocupado, .gantt .critico, .mes-qtd, .mes-qtd-disp, .mes-qtd-setor { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

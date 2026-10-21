@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from .models import Configuracao, Ferias, Funcionario, db
-from .regras import DIAS_SEMANA_ABREV, MESES, MESES_ABREV, Periodo, ciclo_de, limite_ausentes, ocupacao_por_dia
+from .regras import DIAS_SEMANA_ABREV, MESES, MESES_ABREV, Periodo, ciclo_de, limite_ausentes, nivel_cobertura, ocupacao_por_dia
 
 
 @dataclass
@@ -260,14 +260,21 @@ def grade_cronograma(inicio: date, fim: date) -> dict:
             celulas.append({"dia": dia, "ferias": periodo})
         linhas.append({"funcionario": func, "celulas": celulas, "periodos": periodos})
 
+    total = len(ativos)
+    niveis = {
+        dia: nivel_cobertura(len(nomes), total, min_disp) if nomes else ""
+        for dia, nomes in ausentes.items()
+    }
+
     return {
         "dias": dias,
         "meses_cabecalho": meses_cabecalho,
         "linhas": linhas,
         "ausentes": ausentes,
+        "niveis": niveis,
         "limite": limite,
         "min_disponiveis": min_disp,
-        "total_ativos": len(ativos),
+        "total_ativos": total,
         "dias_semana": DIAS_SEMANA_ABREV,
         "inicio_grade": inicio,
         "fim_grade": fim,
