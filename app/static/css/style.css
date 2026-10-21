@@ -356,8 +356,8 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 .gantt .linha-ausentes .col-nome small { display: block; font-weight: 600; margin-top: 2px; }
 .gantt .qtd-ferias {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 28px; height: 22px; padding: 0 5px; border-radius: 999px;
-  font-size: 10px; font-weight: 700; line-height: 1; white-space: nowrap;
+  min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; line-height: 1; white-space: nowrap;
   background: var(--azul); color: #fff;
 }
 .gantt .ocupado { background: var(--azul-claro) !important; }
