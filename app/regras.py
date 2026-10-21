@@ -140,6 +140,17 @@ def data_limite_folha(admissao: date, ciclo: int = 0) -> date:
     return ajustar_dia_util(bruto)
 
 
+def ciclo_gozo_vigente(admissao: date, hoje: date) -> int:
+    """Ciclo concessivo em curso na data (a partir da admissão), ou o próximo."""
+    ciclo = 0
+    while ciclo < 80:
+        concessivo_fim = somar_anos(admissao, ciclo + 2) - timedelta(days=1)
+        if hoje <= concessivo_fim:
+            return ciclo
+        ciclo += 1
+    return 0
+
+
 @dataclass
 class PrazoGozo:
     limite: date | None
@@ -159,15 +170,15 @@ def calcular_prazo_gozo(
     nome: str = "",
     funcionario_id: int | None = None,
 ) -> PrazoGozo:
-    """Limite da folha: 22 meses após a admissão, em dia útil.
+    """Limite da folha no ciclo de gozo vigente: 22 meses após o aquisitivo da admissão.
 
-    Se aquele período já teve 30 dias programados, avança para o ciclo seguinte.
-    O alerta dispara 1 mês antes do limite.
+    O ciclo vigente é o período concessivo em curso. Se nele já houve 30 dias
+    programados, avança para o seguinte. O alerta dispara 1 mês antes do limite.
     """
     vazio = PrazoGozo(None, None, None, "sem_admissao", nome=nome, funcionario_id=funcionario_id, admissao=admissao)
     if not admissao:
         return vazio
-    ciclo = 0
+    ciclo = ciclo_gozo_vigente(admissao, hoje)
     while ciclo < 80:
         concessivo_ini = somar_anos(admissao, ciclo + 1)
         concessivo_fim = somar_anos(admissao, ciclo + 2) - timedelta(days=1)

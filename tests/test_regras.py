@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, data_limite_folha, meses_do_ciclo, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, meses_do_ciclo, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -32,6 +32,15 @@ def test_limite_de_gozo_e_alerta_um_mes_antes():
     gozado = [Periodo("Wagner", date(2026, 5, 10), date(2026, 6, 8), 30)]
     proximo = calcular_prazo_gozo(admissao, gozado, date(2026, 10, 20), "Wagner", 1)
     assert proximo.limite == date(2028, 2, 28)
+
+
+def test_limite_do_ciclo_vigente_pela_admissao():
+    hoje = date(2026, 10, 21)
+    assert ciclo_gozo_vigente(date(2025, 4, 29), hoje) == 0
+    assert ciclo_gozo_vigente(date(2023, 4, 29), hoje) == 2
+    antigo = calcular_prazo_gozo(date(2023, 4, 29), [], hoje, "Ana", 1)
+    assert antigo.limite == date(2027, 2, 26)
+    assert antigo.situacao == "ok"
 
 
 def test_data_limite_confere_com_a_folha():
