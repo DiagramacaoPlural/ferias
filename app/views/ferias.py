@@ -33,6 +33,7 @@ from ..workflow import (
     aceitar_proposta,
     enviar_ao_lider,
     excluir_opcoes_do_funcionario,
+    excluir_periodo,
     garantir_fila_do_lider,
     gerente_aprovar,
     gerente_sugerir,
@@ -445,8 +446,7 @@ def excluir(ferias_id: int):
         "Férias excluídas",
         f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} ({ferias.dias} dias)",
     )
-    db.session.delete(ferias)
-    db.session.commit()
+    excluir_periodo(ferias)
     flash("Férias excluídas.", "sucesso")
     return redirect(request.referrer or url_for("ferias.lista"))
 
@@ -480,8 +480,8 @@ def calendario():
         meses.append(
             {
                 "data": primeiro,
-                "aprovadas": [f for f in sai_no_mes if f.aprovada],
-                "programadas": [f for f in sai_no_mes if not f.aprovada],
+                "aprovadas": [f for f in sai_no_mes if f.status == STATUS_APROVADA],
+                "programadas": [f for f in sai_no_mes if f.status == STATUS_PROGRAMADA],
                 "atual": primeiro.year == date.today().year and primeiro.month == date.today().month,
                 "de_ferias": 0,
                 "disp": 0,

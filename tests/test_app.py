@@ -551,6 +551,7 @@ def test_importar_usuarios_xlsx_define_papeis(app, tmp_path):
         assert gercilio.papel == PAPEL_SIMPLES and not gercilio.pode_gestao()
         assert marcelo.papel == PAPEL_LIDER and marcelo.pode_lider() and not marcelo.pode_gerente()
         assert ricardo.papel == PAPEL_GERENTE and ricardo.pode_gerente() and not ricardo.pode_lider()
+        assert not marcelo.admin and not ricardo.admin
         assert comum.papel == PAPEL_SIMPLES and not comum.pode_gestao()
 
 
@@ -845,6 +846,50 @@ def test_lider_pode_excluir_periodo(app):
     with app.app_context():
         assert db.session.get(Ferias, fid) is None
         assert db.session.get(Ferias, aid) is None
+
+
+def test_gerente_excluir_aprovada_some_para_o_funcionario(app):
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
+        joao.funcionario_id = carlos.id
+        gerente = Usuario(
+            login="Gerente",
+            papel=PAPEL_GERENTE,
+            acessa_calendario=True,
+            acessa_cronograma=True,
+            trocar_senha=False,
+        )
+        gerente.definir_senha("senha123")
+        ferias = Ferias(funcionario=carlos, status=STATUS_APROVADA, criado_por="gerente", aprovado_por="Gerente")
+        ferias.definir_periodo(date(2026, 12, 14), 20)
+        opcao = SugestaoFerias(funcionario=carlos, ciclo_ano=2026, ordem=1)
+        opcao.definir_periodo(date(2026, 12, 14), 20)
+        db.session.add_all([gerente, ferias, opcao])
+        db.session.commit()
+        fid, cid = ferias.id, carlos.id
+
+    entrar(client, "Gerente", "senha123")
+    resp = client.post(f"/ferias/{fid}/excluir", follow_redirects=True)
+    assert "Férias excluídas" in resp.get_data(as_text=True)
+    with app.app_context():
+        assert db.session.get(Ferias, fid) is None
+        assert db.session.scalars(db.select(SugestaoFerias).filter_by(funcionario_id=cid)).all() == []
+
+    client.get("/logout")
+    entrar(client, "joao", "senha123")
+    pagina = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "Andamento das suas férias" not in pagina
+    assert "14/12/2026" not in pagina
+    assert "badge-aprovada" not in pagina
+    assert "badge-programada" not in pagina
+
+    with app.app_context():
+        from app.workflow import garantir_fila_do_lider
+
+        garantir_fila_do_lider(2026)
+        assert db.session.scalars(db.select(Ferias).filter_by(funcionario_id=cid)).all() == []
 
 
 def test_lider_exclui_datas_enviadas_e_sobe_para_a_fila(app):

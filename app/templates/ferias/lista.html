@@ -43,7 +43,7 @@
       Selecionar
     </label>
     <span class="texto-suave" id="lote-qtd">Nenhum selecionado</span>
-    {% if current_user.admin %}
+    {% if current_user.papel == 'admin' %}
       <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
     {% endif %}
     <button type="submit" name="acao" value="13_sim" class="btn btn-pequeno">13º Sim</button>
@@ -102,7 +102,7 @@
             <td>{% if f.vende_10 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
             <td class="texto-suave">{{ f.observacao or '' }}{% if f.gozada() %}<br><small class="texto-suave">Já gozou</small>{% endif %}</td>
             <td class="acoes-col">
-              {% if current_user.admin %}
+              {% if current_user.papel == 'admin' %}
                 {% if f.aprovada %}
                   {{ botao_post(url_for('ferias.alternar_aprovacao', ferias_id=f.id), '', 'btn btn-pequeno btn-icone', icone_nome='desfazer', titulo='Remover aprovação') }}
                 {% else %}

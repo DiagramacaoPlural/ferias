@@ -14,6 +14,7 @@ from .models import (
     STATUS_AJUSTE_GERENTE,
     STATUS_AJUSTE_LIDER,
     STATUS_APROVADA,
+    STATUS_PROGRAMADA,
     Ferias,
     Funcionario,
     Historico,
@@ -106,6 +107,8 @@ def enviar_ao_lider(funcionario: Funcionario, opcoes: list[SugestaoFerias]) -> F
 
 def garantir_fila_do_lider(ano: int) -> int:
     """Garante um período na fila para cada funcionário que já enviou opções neste ciclo."""
+    from .consultas import ciclo_atual
+
     sugestoes = db.session.scalars(
         db.select(SugestaoFerias).where(SugestaoFerias.ciclo_ano == ano).order_by(
             SugestaoFerias.funcionario_id, SugestaoFerias.ordem
@@ -121,11 +124,40 @@ def garantir_fila_do_lider(ano: int) -> int:
             continue
         if _pendentes_do_funcionario(funcionario.id):
             continue
+        if any(
+            f.status in (STATUS_APROVADA, STATUS_PROGRAMADA)
+            and ciclo_atual(f.inicio)[0].year == ano
+            for f in funcionario.ferias
+        ):
+            continue
         if _colocar_na_fila_do_lider(funcionario, opcoes, atualizar=False):
             criados += 1
     if criados:
         db.session.commit()
     return criados
+
+
+def excluir_periodo(ferias: Ferias) -> None:
+    """Remove o período e as opções do ciclo, para não reaparecer como programada."""
+    from .consultas import ciclo_atual
+
+    ano = ciclo_atual(ferias.inicio)[0].year
+    funcionario_id = ferias.funcionario_id
+    ferias_id = ferias.id
+    for sugestao in list(
+        db.session.scalars(
+            db.select(SugestaoFerias).where(
+                SugestaoFerias.funcionario_id == funcionario_id,
+                SugestaoFerias.ciclo_ano == ano,
+            )
+        )
+    ):
+        db.session.delete(sugestao)
+    for outro in _pendentes_do_funcionario(funcionario_id):
+        if outro.id != ferias_id and ciclo_atual(outro.inicio)[0].year == ano:
+            db.session.delete(outro)
+    db.session.delete(ferias)
+    db.session.commit()
 
 
 def excluir_opcoes_do_funcionario(funcionario_id: int, ano: int) -> int:
