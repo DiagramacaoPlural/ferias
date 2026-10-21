@@ -247,7 +247,7 @@ def limite_ausentes(total_ativos: int, min_disponiveis: int) -> int:
 
 
 def nivel_cobertura(ausentes: int, total_ativos: int, min_disponiveis: int) -> str:
-    """Compara disponíveis com o mínimo: verde acima, laranja perto, vermelho abaixo."""
+    """Compara disponíveis com o mínimo: verde acima, amarelo perto, vermelho abaixo."""
     if ausentes <= 0:
         return "pouco"
     disp = total_ativos - ausentes

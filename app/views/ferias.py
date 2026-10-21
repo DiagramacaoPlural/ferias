@@ -21,6 +21,7 @@ from ..regras import (
     analisar_periodo_db,
     calcular_fim,
     meses_do_ciclo,
+    nivel_cobertura,
     pode_adiantar_13,
     rotulo_ciclo,
     sobrepoe,
@@ -419,6 +420,19 @@ def calendario():
     grade = {}
     if meses:
         grade = grade_cronograma(meses[0]["data"], ultimo_dia_mes(meses[-1]["data"]))
+        total = grade.get("total_ativos") or 0
+        min_setor = grade.get("min_disponiveis") or 0
+        ausentes = grade.get("ausentes") or {}
+        dias_grade = grade.get("dias") or []
+        for mes in meses:
+            dias_mes = [d for d in dias_grade if d.year == mes["data"].year and d.month == mes["data"].month]
+            if dias_mes and total:
+                pior = max(len(ausentes.get(d, [])) for d in dias_mes)
+                mes["disp"] = total - pior
+                mes["nivel_disp"] = nivel_cobertura(pior, total, min_setor)
+            else:
+                mes["disp"] = total
+                mes["nivel_disp"] = "pouco"
 
     return render_template(
         "ferias/calendario.html",

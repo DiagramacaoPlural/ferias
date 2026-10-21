@@ -8,6 +8,8 @@
   --teal-claro: #ccfbf1;
   --ambar: #d97706;
   --ambar-claro: #fef3c7;
+  --amarelo: #eab308;
+  --amarelo-claro: #fef9c3;
   --vermelho: #dc2626;
   --vermelho-claro: #fee2e2;
   --texto: #0f172a;
@@ -369,12 +371,12 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 }
 .gantt .qtd-ferias { background: var(--azul); }
 .gantt .qtd-disp { background: var(--verde); }
-.gantt .qtd-disp.medio { background: var(--ambar); }
+.gantt .qtd-disp.medio { background: var(--amarelo); color: #713f12; }
 .gantt .qtd-disp.muito { background: var(--vermelho); }
 .gantt .ocupado { background: var(--azul-claro) !important; }
 .gantt .ocupado.critico { background: #fecaca !important; }
 .gantt .linha-disponiveis .ocupado.pouco { background: var(--verde-claro) !important; }
-.gantt .linha-disponiveis .ocupado.medio { background: var(--ambar-claro) !important; }
+.gantt .linha-disponiveis .ocupado.medio { background: var(--amarelo-claro) !important; }
 .gantt .linha-disponiveis .ocupado.muito { background: var(--vermelho-claro) !important; }
 .mes-qtds { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .mes-qtd {
@@ -382,6 +384,8 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
   background: var(--azul-claro); padding: 2px 8px; border-radius: 999px;
 }
 .mes-qtd-disp { background: var(--verde-claro); color: #166534; }
+.mes-qtd-disp.medio { background: var(--amarelo-claro); color: #854d0e; }
+.mes-qtd-disp.muito { background: var(--vermelho-claro); color: var(--vermelho); }
 .mes-qtd-setor { background: #f1f5f9; color: var(--texto-suave); }
 
 /* ------------------------------------------------------------ login */
