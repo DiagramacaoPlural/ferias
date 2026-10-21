@@ -21,10 +21,7 @@
       {% if current_user.pode_calendario() %}
         <a href="{{ url_for('main.painel') }}" class="{{ 'ativo' if ep == 'main.painel' }}">{{ icone('painel') }} Painel</a>
         <a href="{{ url_for('ferias.lista') }}" class="{{ 'ativo' if ep in ('ferias.lista', 'ferias.formulario') }}">{{ icone('ferias') }} Programação</a>
-        <a href="{{ url_for('ferias.calendario') }}" class="{{ 'ativo' if ep == 'ferias.calendario' }}">{{ icone('calendario') }} Calendário anual</a>
-      {% endif %}
-      {% if current_user.pode_cronograma() %}
-        <a href="{{ url_for('cronograma.visualizar') }}" class="{{ 'ativo' if ep == 'cronograma.visualizar' }}">{{ icone('cronograma') }} Cronograma</a>
+        <a href="{{ url_for('ferias.calendario') }}" class="{{ 'ativo' if ep in ('ferias.calendario', 'cronograma.visualizar') }}">{{ icone('calendario') }} Calendário anual</a>
       {% endif %}
       {% if current_user.admin %}
         <div class="menu-titulo">Administração</div>

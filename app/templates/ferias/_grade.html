@@ -1,30 +1,6 @@
-{% extends "base.html" %}
-{% from "_macros.html" import icone with context %}
-{% block titulo %}Cronograma{% endblock %}
-{% block conteudo %}
-<div class="cabecalho">
-  <div>
-    <h1>Cronograma</h1>
-    <p>{{ inicio|data }} a {{ fim|data }} · {{ semanas }} semana(s)</p>
-  </div>
-  <div class="acoes">
-    <a class="btn btn-icone" href="{{ url_for('cronograma.visualizar', inicio=anterior.isoformat(), semanas=semanas) }}" title="Período anterior">{{ icone('esquerda') }}</a>
-    <a class="btn" href="{{ url_for('cronograma.visualizar', inicio=semana_atual.isoformat(), semanas=semanas) }}">Hoje</a>
-    <a class="btn btn-icone" href="{{ url_for('cronograma.visualizar', inicio=proximo.isoformat(), semanas=semanas) }}" title="Próximo período">{{ icone('direita') }}</a>
-    <form method="get" class="filtros">
-      <input type="date" name="inicio" value="{{ inicio.isoformat() }}" onchange="this.form.submit()" aria-label="Início" style="width:auto">
-      <select name="semanas" onchange="this.form.submit()" aria-label="Semanas">
-        {% for s in opcoes_semanas %}
-          <option value="{{ s }}" {{ 'selected' if s == semanas }}>{{ s }} semanas</option>
-        {% endfor %}
-      </select>
-    </form>
-    <button type="button" class="btn" onclick="window.print()">{{ icone('imprimir') }} Imprimir</button>
-  </div>
-</div>
-
-<div class="card">
+<div class="card calendario-grade">
   <div class="card-titulo">
+    <strong>Cronograma</strong>
     <div class="legenda">
       <span><i style="background:var(--verde)"></i>Aprovada</span>
       <span><i style="background:#fbbf24"></i>Programada</span>
@@ -81,4 +57,3 @@
     </table>
   </div>
 </div>
-{% endblock %}

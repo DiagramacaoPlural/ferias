@@ -52,9 +52,12 @@ def test_redirecionamento_externo_bloqueado(app):
 def test_paginas_principais_carregam(app):
     client = app.test_client()
     entrar(client)
-    for url in ["/", "/ferias/", "/ferias/nova", "/ferias/calendario", "/cronograma/",
+    for url in ["/", "/ferias/", "/ferias/nova", "/ferias/calendario",
                 "/admin/funcionarios", "/admin/usuarios", "/admin/configuracoes", "/admin/historico"]:
         assert client.get(url).status_code == 200, url
+    cronograma = client.get("/cronograma/")
+    assert cronograma.status_code == 302
+    assert "/ferias/calendario" in cronograma.headers["Location"]
 
 
 def test_criar_aprovar_e_exportar(app):
@@ -162,6 +165,21 @@ def test_acoes_em_lote_aprova_e_define_13(app):
         assert ferias[ids[1]].adianta_13 is True
 
 
+def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
+    client = app.test_client()
+    entrar(client)
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        cid = carlos.id
+    client.post("/ferias/nova", data={"funcionario_id": cid, "inicio": "2026-12-01", "dias": "20"})
+    pagina = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "Dezembro/2026" in pagina
+    assert "Outubro/2026" not in pagina
+    assert "Novembro/2026" not in pagina
+    assert "Cronograma" in pagina
+    assert 'class="gantt"' in pagina
+
+
 def test_dados_do_funcionario_no_formulario(app):
     client = app.test_client()
     entrar(client)
@@ -248,13 +266,13 @@ def test_analise_ao_vivo(app):
     assert resp.get_json()["fim"] == "21/12/2026"
 
 
-def test_usuario_comum_nao_aprova_nem_ve_cronograma(app):
+def test_usuario_comum_nao_aprova_nem_acessa_admin(app):
     client = app.test_client()
     entrar(client, "joao", "senha123")
-    assert client.get("/cronograma/").status_code == 403
     assert client.get("/admin/usuarios").status_code == 403
     assert client.post("/ferias/1/aprovar").status_code == 403
     assert client.get("/ferias/").status_code == 200
+    assert client.get("/ferias/calendario").status_code == 200
 
 
 def test_troca_de_senha_obrigatoria(app):

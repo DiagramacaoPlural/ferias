@@ -13,6 +13,7 @@
   </div>
 </div>
 
+{% if meses %}
 <div class="meses">
   {% for mes in meses %}
     <div class="card mes {{ 'atual' if mes.atual }}">
@@ -41,4 +42,11 @@
     </div>
   {% endfor %}
 </div>
+
+{% if dias %}
+  {% include "ferias/_grade.html" %}
+{% endif %}
+{% else %}
+  <div class="card"><div class="vazio">Ninguém de férias neste ciclo.</div></div>
+{% endif %}
 {% endblock %}

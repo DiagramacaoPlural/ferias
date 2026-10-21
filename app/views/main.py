@@ -15,7 +15,7 @@ bp = Blueprint("main", __name__)
 def painel():
     if not current_user.pode_calendario():
         if current_user.pode_cronograma():
-            return redirect(url_for("cronograma.visualizar"))
+            return redirect(url_for("ferias.calendario"))
         return render_template("sem_acesso.html")
 
     hoje = date.today()

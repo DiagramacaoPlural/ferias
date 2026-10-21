@@ -9,6 +9,7 @@ from ..consultas import (
     ciclo_atual,
     ferias_no_intervalo,
     funcionarios_ativos,
+    grade_cronograma,
     minimo_no_setor,
     painel_cobertura,
     serie_cobertura,
@@ -404,6 +405,8 @@ def calendario():
     for primeiro in meses_do_ciclo(ciclo_ini):
         ultimo = ultimo_dia_mes(primeiro)
         do_mes = [f for f in ferias if sobrepoe(f.inicio, f.fim, primeiro, ultimo)]
+        if not do_mes:
+            continue
         meses.append(
             {
                 "data": primeiro,
@@ -413,12 +416,17 @@ def calendario():
             }
         )
 
+    grade = {}
+    if meses:
+        grade = grade_cronograma(meses[0]["data"], ultimo_dia_mes(meses[-1]["data"]))
+
     return render_template(
         "ferias/calendario.html",
         meses=meses,
         ciclo_ini=ciclo_ini,
         ciclos=_ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        **grade,
     )
 
 

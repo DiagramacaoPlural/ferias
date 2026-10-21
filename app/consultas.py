@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from .models import Configuracao, Ferias, Funcionario, db
-from .regras import MESES, MESES_ABREV, Periodo, ciclo_de, ocupacao_por_dia
+from .regras import DIAS_SEMANA_ABREV, MESES, MESES_ABREV, Periodo, ciclo_de, limite_ausentes, ocupacao_por_dia
 
 
 @dataclass
@@ -227,3 +227,47 @@ def conflitos(ferias: list[Ferias], inicio: date, fim: date, limite: int) -> lis
         atual.nomes = sorted(nomes_atual)
         resultado.append(atual)
     return resultado
+
+
+def grade_cronograma(inicio: date, fim: date) -> dict:
+    """Grade diária de ausências, com o início recuado para a segunda-feira."""
+    inicio = inicio - timedelta(days=inicio.weekday())
+    if fim < inicio:
+        return {}
+    dias = [inicio + timedelta(days=i) for i in range((fim - inicio).days + 1)]
+    ferias = ferias_no_intervalo(inicio, fim, apenas_ativos=True)
+    ativos = funcionarios_ativos()
+    min_disp = minimo_no_setor()
+    limite = limite_ausentes(len(ativos), min_disp)
+
+    meses_cabecalho = []
+    for dia in dias:
+        rotulo = f"{MESES[dia.month - 1]} {dia.year}"
+        if meses_cabecalho and meses_cabecalho[-1]["rotulo"] == rotulo:
+            meses_cabecalho[-1]["dias"] += 1
+        else:
+            meses_cabecalho.append({"rotulo": rotulo, "dias": 1})
+
+    ausentes = {dia: [] for dia in dias}
+    linhas = []
+    for func in ativos:
+        periodos = [f for f in ferias if f.funcionario_id == func.id]
+        celulas = []
+        for dia in dias:
+            periodo = next((f for f in periodos if f.inicio <= dia <= f.fim), None)
+            if periodo:
+                ausentes[dia].append(func.nome)
+            celulas.append({"dia": dia, "ferias": periodo})
+        linhas.append({"funcionario": func, "celulas": celulas, "periodos": periodos})
+
+    return {
+        "dias": dias,
+        "meses_cabecalho": meses_cabecalho,
+        "linhas": linhas,
+        "ausentes": ausentes,
+        "limite": limite,
+        "min_disponiveis": min_disp,
+        "dias_semana": DIAS_SEMANA_ABREV,
+        "inicio_grade": inicio,
+        "fim_grade": fim,
+    }

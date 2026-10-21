@@ -309,6 +309,8 @@ textarea { resize: vertical; min-height: 70px; }
 /* ------------------------------------------------------------ calendário anual */
 
 .meses { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.calendario-grade { margin-top: 20px; }
+.calendario-grade .card-titulo { justify-content: space-between; gap: 12px; }
 .mes { display: flex; flex-direction: column; }
 .mes-titulo {
   padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--borda);
