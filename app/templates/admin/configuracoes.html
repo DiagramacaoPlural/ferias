@@ -59,7 +59,8 @@
       <input type="hidden" name="dias_cronograma" value="{{ dias_cronograma }}">
       <p class="texto-suave" style="margin-top:0">
         Um mês antes da data limite da folha (22 meses após a admissão, em dia útil) o sistema avisa no painel
-        e envia e-mail para os gestores. O e-mail só sai se o SMTP abaixo estiver preenchido.
+        e envia e-mail para os gestores. Pode usar o Gmail: ligue a verificação em duas etapas na conta e crie uma
+        <strong>senha de app</strong> em Conta Google → Segurança → Senhas de app (não use a senha normal).
       </p>
       <div class="campo">
         <label for="emails_alerta_limite">Destinatários</label>
@@ -68,30 +69,33 @@
       </div>
       <div class="campo">
         <label for="smtp_host">Servidor SMTP</label>
-        <input type="text" id="smtp_host" name="smtp_host" value="{{ smtp_host }}" placeholder="smtp.office365.com">
+        <input type="text" id="smtp_host" name="smtp_host" value="{{ smtp_host }}" placeholder="smtp.gmail.com">
+        <small>Gmail: <code>smtp.gmail.com</code></small>
       </div>
       <div class="campos-linha">
         <div class="campo">
           <label for="smtp_port">Porta</label>
           <input type="number" id="smtp_port" name="smtp_port" min="1" max="65535" value="{{ smtp_port }}">
+          <small>Gmail: 587</small>
         </div>
         <div class="campo">
           <label for="smtp_user">Usuário SMTP</label>
-          <input type="text" id="smtp_user" name="smtp_user" value="{{ smtp_user }}" autocomplete="off">
+          <input type="text" id="smtp_user" name="smtp_user" value="{{ smtp_user }}" autocomplete="off" placeholder="seuemail@gmail.com">
         </div>
       </div>
       <div class="campo">
         <label for="smtp_remetente">Remetente</label>
-        <input type="text" id="smtp_remetente" name="smtp_remetente" value="{{ smtp_remetente }}" placeholder="mesmo e-mail do usuário SMTP">
+        <input type="text" id="smtp_remetente" name="smtp_remetente" value="{{ smtp_remetente }}" placeholder="o mesmo Gmail do usuário">
       </div>
       <div class="campo">
         <label for="smtp_password">Senha SMTP</label>
-        <input type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="{{ 'Cadastrada — deixe em branco para manter' if smtp_senha_ok else 'Senha ou senha de aplicativo' }}">
+        <input type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="{{ 'Cadastrada — deixe em branco para manter' if smtp_senha_ok else 'Senha de app do Gmail (16 caracteres)' }}">
       </div>
       <p class="texto-suave">
         {% if smtp_ok %}SMTP configurado.{% else %}SMTP ainda não configurado — os avisos aparecem no painel, mas o e-mail não é enviado.{% endif %}
-        No PythonAnywhere, para o aviso sair todo dia: tarefa agendada
+        No PythonAnywhere (conta paga), crie uma tarefa agendada diária:
         <code>cd ~/ferias &amp;&amp; .venv/bin/python run.py --alertas</code>.
+        Conta gratuita do PythonAnywhere bloqueia SMTP; aí o aviso fica só no painel.
       </p>
       <button type="submit" class="btn btn-primario">Salvar configurações</button>
     </div>

@@ -88,10 +88,15 @@ def _enviar_smtp(assunto: str, corpo: str, destinatarios: list[str]) -> tuple[bo
     msg["To"] = ", ".join(destinatarios)
     msg.set_content(corpo)
     try:
-        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=20) as smtp:
+        if cfg["port"] == 465:
+            smtp = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=20)
+        else:
+            smtp = smtplib.SMTP(cfg["host"], cfg["port"], timeout=20)
+        with smtp:
             smtp.ehlo()
-            smtp.starttls()
-            smtp.ehlo()
+            if cfg["port"] != 465:
+                smtp.starttls()
+                smtp.ehlo()
             if cfg["user"]:
                 smtp.login(cfg["user"], cfg["password"] or "")
             smtp.send_message(msg)

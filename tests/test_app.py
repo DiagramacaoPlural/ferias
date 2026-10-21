@@ -374,6 +374,8 @@ def test_coluna_limite_e_email_de_alerta(app, monkeypatch):
     config = client.get("/admin/configuracoes").get_data(as_text=True)
     assert "marcelo.marcolino@plural.com.br" in config
     assert "ricardo.rosas@plural.com.br" in config
+    assert "smtp.gmail.com" in config
+    assert "Senhas de app" in config
 
     from app.alertas import enviar_alertas_pendentes
 
