@@ -4,6 +4,8 @@ import os
 from datetime import date, datetime
 from pathlib import Path
 
+from flask import current_app
+
 from .models import (
     PAPEL_ADMIN,
     PAPEL_GERENTE,
@@ -11,12 +13,30 @@ from .models import (
     PAPEL_SIMPLES,
     STATUS_APROVADA,
     STATUS_PROGRAMADA,
+    Configuracao,
     Ferias,
     Funcionario,
     Historico,
     Usuario,
     db,
 )
+
+# Programação do ciclo 2026 gravada em 20/10/2026 (lista da Programação).
+PROGRAMACAO_CICLO_2026 = (
+    ("Gercilio", date(2026, 12, 14), 20, True, False, "Marcelo"),
+    ("Carlos", date(2026, 12, 28), 8, False, False, None),
+    ("Jefferson", date(2026, 12, 28), 20, False, False, None),
+    ("Luiza", date(2026, 12, 28), 30, False, False, None),
+    ("Thiago", date(2026, 12, 28), 8, False, False, None),
+    ("Claudinei", date(2027, 1, 4), 20, False, False, None),
+    ("Gabriel", date(2027, 1, 4), 20, False, False, None),
+    ("Marcelo", date(2027, 1, 11), 20, True, False, "Marcelo"),
+    ("Ricardo", date(2027, 2, 1), 20, False, False, None),
+    ("Edson", date(2027, 2, 15), 20, False, True, None),
+    ("Kenedy", date(2027, 2, 15), 20, False, False, None),
+    ("Wagner", date(2027, 2, 15), 20, False, False, None),
+)
+_CHAVE_RESTAURACAO_2026 = "programacao_ciclo_2026"
 
 
 def _primeiro_nome(nome: str) -> str:
@@ -347,6 +367,52 @@ def vincular_usuarios_aos_funcionarios() -> int:
     return resumo["criados"] + resumo["ligados"]
 
 
+def restaurar_programacao_ciclo_2026() -> int:
+    """Relança os 12 períodos do ciclo 2026 se ainda não existirem (não duplica)."""
+    if current_app.config.get("TESTING"):
+        return 0
+    if db.session.get(Configuracao, _CHAVE_RESTAURACAO_2026):
+        return 0
+    nomes = {item[0] for item in PROGRAMACAO_CICLO_2026}
+    cadastrados = db.session.scalars(
+        db.select(Funcionario.nome).filter(Funcionario.nome.in_(nomes))
+    ).all()
+    if len(set(cadastrados)) < 8:
+        return 0
+    criados = 0
+    for nome, inicio, dias, aprovada, adianta_13, aprovador in PROGRAMACAO_CICLO_2026:
+        funcionario = db.session.scalar(db.select(Funcionario).filter_by(nome=nome))
+        if not funcionario:
+            continue
+        ja_existe = db.session.scalar(
+            db.select(Ferias).filter_by(funcionario_id=funcionario.id, inicio=inicio)
+        )
+        if ja_existe:
+            continue
+        ferias = Ferias(
+            funcionario=funcionario,
+            status=STATUS_APROVADA if aprovada else STATUS_PROGRAMADA,
+            adianta_13=adianta_13,
+            criado_por="restauracao-ciclo-2026",
+            aprovado_por=aprovador,
+            aprovado_em=datetime.now() if aprovada else None,
+        )
+        ferias.definir_periodo(inicio, dias)
+        db.session.add(ferias)
+        criados += 1
+    Configuracao.definir(_CHAVE_RESTAURACAO_2026, "ok")
+    if criados:
+        db.session.add(
+            Historico(
+                usuario="sistema",
+                acao="Restauração ciclo 2026",
+                detalhe=f"{criados} períodos relançados da programação de 20/10",
+            )
+        )
+    db.session.commit()
+    return criados
+
+
 def inicializar_banco(pasta_planilha: Path | None) -> None:
     tem_usuario = db.session.scalar(db.select(db.func.count(Usuario.id)))
     if not tem_usuario:
@@ -367,3 +433,4 @@ def inicializar_banco(pasta_planilha: Path | None) -> None:
         if usuarios_xlsx:
             importar_usuarios_xlsx(usuarios_xlsx)
     garantir_usuarios_dos_funcionarios()
+    restaurar_programacao_ciclo_2026()

@@ -875,3 +875,22 @@ def test_lider_exclui_datas_enviadas_e_sobe_para_a_fila(app):
     with app.app_context():
         assert db.session.scalars(db.select(SugestaoFerias).filter_by(funcionario_id=cid)).all() == []
         assert db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid)) is None
+
+
+def test_restaurar_programacao_ciclo_2026_nao_duplica(app):
+    from app.seed import PROGRAMACAO_CICLO_2026, restaurar_programacao_ciclo_2026
+
+    with app.app_context():
+        app.config["TESTING"] = False
+        existentes = {f.nome for f in db.session.scalars(db.select(Funcionario))}
+        for nome, *_resto in PROGRAMACAO_CICLO_2026:
+            if nome not in existentes:
+                db.session.add(Funcionario(nome=nome))
+        db.session.commit()
+        assert restaurar_programacao_ciclo_2026() == 12
+        assert restaurar_programacao_ciclo_2026() == 0
+        periodos = db.session.scalars(db.select(Ferias).order_by(Ferias.inicio, Ferias.id)).all()
+        assert [(f.funcionario.nome, f.inicio, f.dias, f.aprovada, f.adianta_13) for f in periodos] == [
+            (nome, inicio, dias, aprovada, adianta)
+            for nome, inicio, dias, aprovada, adianta, _aprovador in PROGRAMACAO_CICLO_2026
+        ]
