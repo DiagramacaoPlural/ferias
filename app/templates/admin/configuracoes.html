@@ -58,14 +58,30 @@
       <input type="hidden" name="min_disponiveis" value="{{ min_disponiveis }}">
       <input type="hidden" name="dias_cronograma" value="{{ dias_cronograma }}">
       <p class="texto-suave" style="margin-top:0">
-        Um mês antes da data limite da folha (22 meses após a admissão, em dia útil) o sistema avisa no painel
-        e envia e-mail para os gestores. Pode usar o Gmail: ligue a verificação em duas etapas na conta e crie uma
-        <strong>senha de app</strong> em Conta Google → Segurança → Senhas de app (não use a senha normal).
+        Um mês antes da data limite da folha (22 meses após a admissão) o sistema avisa no painel
+        e envia e-mail para os gestores.
+        A <strong>conta gratuita do PythonAnywhere bloqueia SMTP</strong> (Gmail na porta 587).
+        Use uma API HTTPS (Brevo ou Resend), que sai pela porta 443, ou faça upgrade da conta.
       </p>
       <div class="campo">
         <label for="emails_alerta_limite">Destinatários</label>
         <input type="text" id="emails_alerta_limite" name="emails_alerta_limite" value="{{ emails_alerta_limite }}">
         <small>Separe os e-mails por vírgula.</small>
+      </div>
+      <div class="campo">
+        <label for="email_api_provedor">Envio automático (conta gratuita)</label>
+        <select id="email_api_provedor" name="email_api_provedor">
+          <option value="brevo" {{ 'selected' if email_api_provedor == 'brevo' }}>Brevo (recomendado)</option>
+          <option value="resend" {{ 'selected' if email_api_provedor == 'resend' }}>Resend</option>
+        </select>
+        <small>
+          Crie uma conta em <a href="https://www.brevo.com" target="_blank" rel="noopener">brevo.com</a>
+          → SMTP &amp; API → API keys. Verifique o e-mail remetente. Plano gratuito: 300 e-mails/dia.
+        </small>
+      </div>
+      <div class="campo">
+        <label for="email_api_chave">Chave da API HTTPS</label>
+        <input type="password" id="email_api_chave" name="email_api_chave" value="" autocomplete="new-password" placeholder="{{ 'Cadastrada — deixe em branco para manter' if email_api_chave_ok else 'Cole a chave da Brevo ou Resend' }}">
       </div>
       <div class="campo">
         <label for="smtp_host">Servidor SMTP</label>
@@ -92,10 +108,10 @@
         <input type="password" id="smtp_password" name="smtp_password" value="" autocomplete="new-password" placeholder="{{ 'Cadastrada — deixe em branco para manter' if smtp_senha_ok else 'Senha de app do Gmail (16 caracteres)' }}">
       </div>
       <p class="texto-suave">
-        {% if smtp_ok %}SMTP configurado.{% else %}SMTP ainda não configurado — os avisos aparecem no painel, mas o e-mail não é enviado.{% endif %}
-        No PythonAnywhere (conta paga), crie uma tarefa agendada diária:
+        {% if email_ok %}Envio de e-mail configurado.{% else %}Ainda sem API HTTPS nem SMTP — os avisos aparecem só no painel.{% endif %}
+        Tarefa diária no PythonAnywhere (também na conta gratuita):
         <code>cd ~/ferias &amp;&amp; .venv/bin/python run.py --alertas</code>.
-        Conta gratuita do PythonAnywhere bloqueia SMTP; aí o aviso fica só no painel.
+        SMTP (Gmail) só funciona em conta paga do PythonAnywhere.
       </p>
       <button type="submit" class="btn btn-primario">Salvar configurações</button>
     </div>

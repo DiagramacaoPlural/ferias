@@ -104,6 +104,8 @@ class Configuracao(db.Model):
         "smtp_user": "",
         "smtp_password": "",
         "smtp_remetente": "",
+        "email_api_provedor": "brevo",
+        "email_api_chave": "",
     }
 
     @classmethod

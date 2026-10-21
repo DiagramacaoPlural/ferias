@@ -5,7 +5,7 @@ from pathlib import Path
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
-from ..alertas import enviar_alertas_pendentes, prazos_dos_funcionarios, smtp_configurado
+from ..alertas import email_configurado, enviar_alertas_pendentes, prazos_dos_funcionarios, smtp_configurado
 from ..models import Configuracao, Funcionario, Historico, Usuario, db
 from ..regras import EMAILS_ALERTA_LIMITE, MESES
 from ..seed import importar_planilha, importar_programacao_pdf, nomes_abas
@@ -178,6 +178,9 @@ def configuracoes():
                 Configuracao.definir("smtp_remetente", request.form.get("smtp_remetente", "").strip())
                 if request.form.get("smtp_password"):
                     Configuracao.definir("smtp_password", request.form.get("smtp_password"))
+                Configuracao.definir("email_api_provedor", request.form.get("email_api_provedor", "brevo").strip() or "brevo")
+                if request.form.get("email_api_chave"):
+                    Configuracao.definir("email_api_chave", request.form.get("email_api_chave").strip())
             registrar(
                 "Configurações alteradas",
                 f"ciclo inicia em {MESES[mes - 1]}, mín. {minimo} disponíveis no setor, cronograma {dias_crono} dias",
@@ -199,6 +202,9 @@ def configuracoes():
         smtp_remetente=Configuracao.obter("smtp_remetente"),
         smtp_senha_ok=bool(Configuracao.obter("smtp_password")),
         smtp_ok=smtp_configurado(),
+        email_ok=email_configurado(),
+        email_api_provedor=Configuracao.obter("email_api_provedor") or "brevo",
+        email_api_chave_ok=bool(Configuracao.obter("email_api_chave")),
     )
 
 

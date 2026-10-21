@@ -421,7 +421,8 @@ def test_coluna_limite_e_email_de_alerta(app, monkeypatch):
     assert "marcelo.marcolino@plural.com.br" in config
     assert "ricardo.rosas@plural.com.br" in config
     assert "smtp.gmail.com" in config
-    assert "Senhas de app" in config
+    assert "brevo.com" in config
+    assert "conta gratuita do PythonAnywhere bloqueia SMTP" in config
 
     from app.alertas import enviar_alertas_pendentes
 
@@ -436,3 +437,40 @@ def test_coluna_limite_e_email_de_alerta(app, monkeypatch):
     destinos = enviados[0]["To"]
     assert "marcelo.marcolino@plural.com.br" in destinos
     assert "ricardo.rosas@plural.com.br" in destinos
+
+
+def test_alerta_por_api_https_brevo(app, monkeypatch):
+    import json
+
+    chamadas = []
+
+    class Resposta:
+        status = 201
+
+        def read(self):
+            return b"{}"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def urlopen(pedido, timeout=20):
+        chamadas.append(json.loads(pedido.data.decode()))
+        return Resposta()
+
+    monkeypatch.setattr("app.alertas.urllib.request.urlopen", urlopen)
+    with app.app_context():
+        db.session.add(Funcionario(nome="Wagner", data_admissao=date(2025, 4, 29), cargo="Diagramador"))
+        Configuracao.definir("email_api_provedor", "brevo")
+        Configuracao.definir("email_api_chave", "xkeysib-teste")
+        Configuracao.definir("smtp_remetente", "ferias@plural.com.br")
+        db.session.commit()
+        from app.alertas import enviar_alertas_pendentes
+
+        resultado = enviar_alertas_pendentes(hoje=date(2027, 3, 28))
+        assert resultado["erro"] is None and resultado["enviados"] == 1
+    assert chamadas
+    assert chamadas[0]["subject"].startswith("Alerta")
+    assert chamadas[0]["sender"]["email"] == "ferias@plural.com.br"

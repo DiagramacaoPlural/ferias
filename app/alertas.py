@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
 import smtplib
+import urllib.error
+import urllib.request
 from datetime import date, datetime
 from email.message import EmailMessage
 
@@ -49,6 +52,16 @@ def smtp_configurado() -> bool:
     return bool(cfg["host"] and cfg["from"])
 
 
+def _email_api() -> dict:
+    provedor = (os.environ.get("EMAIL_API_PROVEDOR") or Configuracao.obter("email_api_provedor") or "brevo").strip().lower()
+    chave = os.environ.get("EMAIL_API_KEY") or Configuracao.obter("email_api_chave")
+    return {"provedor": provedor, "key": (chave or "").strip()}
+
+
+def email_configurado() -> bool:
+    return bool(_email_api()["key"]) or smtp_configurado()
+
+
 def _montar_mensagem(pendentes: list[PrazoGozo], hoje: date) -> tuple[str, str]:
     linhas = []
     for p in sorted(pendentes, key=lambda x: (x.limite or hoje, x.nome)):
@@ -74,6 +87,57 @@ def _montar_mensagem(pendentes: list[PrazoGozo], hoje: date) -> tuple[str, str]:
         + "\n\nProgramem as férias no Controle de Férias."
     )
     return assunto, corpo
+
+
+def _enviar_http(assunto: str, corpo: str, destinatarios: list[str]) -> tuple[bool, str]:
+    api = _email_api()
+    cfg = _smtp()
+    remetente = cfg["from"] or cfg["user"]
+    if not api["key"]:
+        return False, "Informe a chave da API de e-mail em Configurações."
+    if not remetente:
+        return False, "Informe o remetente (o e-mail verificado na Brevo ou Resend)."
+    if not destinatarios:
+        return False, "Nenhum destinatário de alerta cadastrado."
+    if api["provedor"] == "resend":
+        url = "https://api.resend.com/emails"
+        headers = {
+            "Authorization": f"Bearer {api['key']}",
+            "Content-Type": "application/json",
+        }
+        payload = {"from": remetente, "to": destinatarios, "subject": assunto, "text": corpo}
+    else:
+        url = "https://api.brevo.com/v3/smtp/email"
+        headers = {
+            "api-key": api["key"],
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "sender": {"name": "Controle de Férias", "email": remetente},
+            "to": [{"email": email} for email in destinatarios],
+            "subject": assunto,
+            "textContent": corpo,
+        }
+    pedido = urllib.request.Request(
+        url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
+    )
+    try:
+        with urllib.request.urlopen(pedido, timeout=20) as resp:
+            if getattr(resp, "status", 200) >= 400:
+                return False, resp.read().decode("utf-8", errors="replace")[:400]
+    except urllib.error.HTTPError as erro:
+        detalhe = erro.read().decode("utf-8", errors="replace")[:400]
+        return False, detalhe or str(erro)
+    except Exception as erro:  # rede, TLS ou recusa do provedor
+        return False, str(erro)
+    return True, ""
+
+
+def _enviar_mensagem(assunto: str, corpo: str, destinatarios: list[str]) -> tuple[bool, str]:
+    if _email_api()["key"]:
+        return _enviar_http(assunto, corpo, destinatarios)
+    return _enviar_smtp(assunto, corpo, destinatarios)
 
 
 def _enviar_smtp(assunto: str, corpo: str, destinatarios: list[str]) -> tuple[bool, str]:
@@ -129,7 +193,7 @@ def enviar_alertas_pendentes(hoje: date | None = None, forcar: bool = False) -> 
 
     destinatarios = _destinatarios()
     assunto, corpo = _montar_mensagem(pendentes, hoje)
-    ok, erro = _enviar_smtp(assunto, corpo, destinatarios)
+    ok, erro = _enviar_mensagem(assunto, corpo, destinatarios)
     if not ok:
         return {"enviados": 0, "pendentes": len(pendentes), "erro": erro}
 
