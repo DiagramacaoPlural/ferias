@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from .models import Configuracao, Ferias, Funcionario, db
-from .regras import DIAS_SEMANA_ABREV, MESES, MESES_ABREV, Periodo, ciclo_de, limite_ausentes, nivel_cobertura, ocupacao_por_dia
+from .regras import DIAS_SEMANA_ABREV, MESES, MESES_ABREV, Periodo, ciclo_de, limite_ausentes, nivel_cobertura, ocupacao_por_dia, rotulo_ciclo
 
 
 @dataclass
@@ -15,6 +15,27 @@ class Conflito:
 
 def ciclo_atual(referencia: date | None = None) -> tuple[date, date]:
     return ciclo_de(referencia or date.today(), Configuracao.obter_int("mes_inicio_ciclo"))
+
+
+def ciclo_por_ano(ano: int | None = None) -> tuple[date, date]:
+    if not ano:
+        return ciclo_atual()
+    mes = Configuracao.obter_int("mes_inicio_ciclo")
+    return ciclo_atual(date(ano, mes, 1))
+
+
+def ciclos_disponiveis(ciclo_ini: date) -> list[dict]:
+    vigente = ciclo_atual()[0].year
+    anos = {ciclo_ini.year, vigente, vigente - 1, vigente + 1}
+    limites = db.session.execute(db.select(db.func.min(Ferias.inicio), db.func.max(Ferias.inicio))).one()
+    for valor in limites:
+        if valor:
+            anos.add(ciclo_atual(valor)[0].year)
+    mes_inicio = Configuracao.obter_int("mes_inicio_ciclo")
+    return [
+        {"ano": ano, "rotulo": rotulo_ciclo(date(ano, mes_inicio, 1))}
+        for ano in range(min(anos), max(anos) + 1)
+    ]
 
 
 def ferias_no_intervalo(inicio: date, fim: date, apenas_ativos: bool = False) -> list[Ferias]:

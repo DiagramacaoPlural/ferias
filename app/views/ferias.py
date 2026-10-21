@@ -7,6 +7,8 @@ from flask_login import current_user
 from ..alertas import prazos_dos_funcionarios
 from ..consultas import (
     ciclo_atual,
+    ciclo_por_ano,
+    ciclos_disponiveis,
     ferias_no_intervalo,
     funcionarios_ativos,
     grade_cronograma,
@@ -33,25 +35,7 @@ bp = Blueprint("ferias", __name__, url_prefix="/ferias")
 
 
 def _ciclo_da_requisicao() -> tuple[date, date]:
-    mes_inicio = Configuracao.obter_int("mes_inicio_ciclo")
-    ano = request.args.get("ciclo", type=int)
-    if ano:
-        return ciclo_atual(date(ano, mes_inicio, 1))
-    return ciclo_atual()
-
-
-def _ciclos_disponiveis(ciclo_ini: date) -> list[dict]:
-    anos = {ciclo_ini.year, ciclo_atual()[0].year}
-    limites = db.session.execute(db.select(db.func.min(Ferias.inicio), db.func.max(Ferias.inicio))).one()
-    for valor in limites:
-        if valor:
-            anos.add(ciclo_atual(valor)[0].year)
-    anos.add(max(anos) + 1)
-    mes_inicio = Configuracao.obter_int("mes_inicio_ciclo")
-    return [
-        {"ano": ano, "rotulo": rotulo_ciclo(date(ano, mes_inicio, 1))}
-        for ano in range(min(anos), max(anos) + 1)
-    ]
+    return ciclo_por_ano(request.args.get("ciclo", type=int))
 
 
 def _pode_editar(ferias: Ferias) -> bool:
@@ -120,7 +104,7 @@ def lista():
         total_ativos=len(ativos),
         min_disponiveis=min_disp,
         ciclo_ini=ciclo_ini,
-        ciclos=_ciclos_disponiveis(ciclo_ini),
+        ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
         funcionarios=db.session.scalars(db.select(Funcionario).order_by(Funcionario.nome)).all(),
         filtro_funcionario=funcionario_id,
@@ -441,7 +425,7 @@ def calendario():
         "ferias/calendario.html",
         meses=meses,
         ciclo_ini=ciclo_ini,
-        ciclos=_ciclos_disponiveis(ciclo_ini),
+        ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
         **grade,
     )

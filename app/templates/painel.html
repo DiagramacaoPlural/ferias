@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, status, botao_post with context %}
+{% from "_macros.html" import icone, status, botao_post, seletor_ciclo with context %}
 {% block titulo %}Painel{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -8,6 +8,7 @@
     <p>Ciclo {{ rotulo_ciclo }} · hoje é {{ hoje|data }}</p>
   </div>
   <div class="acoes">
+    {{ seletor_ciclo(ciclos, ciclo_ini, 'main.painel') }}
     <a href="{{ url_for('ferias.formulario') }}" class="btn btn-primario">{{ icone('mais') }} Programar férias</a>
   </div>
 </div>

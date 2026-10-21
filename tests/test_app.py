@@ -60,6 +60,26 @@ def test_paginas_principais_carregam(app):
     assert "/ferias/calendario" in cronograma.headers["Location"]
 
 
+def test_painel_e_calendario_filtram_por_ciclo(app):
+    client = app.test_client()
+    entrar(client)
+    painel = client.get("/").get_data(as_text=True)
+    assert 'name="ciclo"' in painel
+    assert 'aria-label="Ciclo"' in painel
+    cal = client.get("/ferias/calendario").get_data(as_text=True)
+    assert 'name="ciclo"' in cal
+    assert 'aria-label="Ciclo"' in cal
+
+    with app.app_context():
+        cid = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos")).id
+    client.post("/ferias/nova", data={"funcionario_id": cid, "inicio": "2026-12-01", "dias": "20"})
+    assert "Carlos" in client.get("/?ciclo=2026").get_data(as_text=True)
+    outro = client.get("/?ciclo=2024").get_data(as_text=True)
+    assert "Nada pendente" in outro
+    assert "Dezembro/2026" in client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "Dezembro/2026" not in client.get("/ferias/calendario?ciclo=2024").get_data(as_text=True)
+
+
 def test_criar_aprovar_e_exportar(app):
     client = app.test_client()
     entrar(client)

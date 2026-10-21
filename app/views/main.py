@@ -1,10 +1,10 @@
 from datetime import date, timedelta
 
-from flask import Blueprint, redirect, render_template, url_for
+from flask import Blueprint, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from ..alertas import enviar_alertas_pendentes, prazos_dos_funcionarios, prazos_que_alertam
-from ..consultas import ciclo_atual, conflitos, ferias_no_intervalo, funcionarios_ativos, minimo_no_setor
+from ..consultas import ciclo_por_ano, ciclos_disponiveis, conflitos, ferias_no_intervalo, funcionarios_ativos, minimo_no_setor
 from ..regras import DIAS_MAX_CICLO, limite_ausentes, rotulo_ciclo
 
 bp = Blueprint("main", __name__)
@@ -19,7 +19,7 @@ def painel():
         return render_template("sem_acesso.html")
 
     hoje = date.today()
-    ciclo_ini, ciclo_fim = ciclo_atual()
+    ciclo_ini, ciclo_fim = ciclo_por_ano(request.args.get("ciclo", type=int))
     ferias_ciclo = ferias_no_intervalo(ciclo_ini, ciclo_fim, apenas_ativos=True)
     funcionarios = funcionarios_ativos()
 
@@ -47,6 +47,8 @@ def painel():
     min_disp = minimo_no_setor()
     limite = limite_ausentes(len(funcionarios), min_disp)
     contexto = {
+        "ciclo_ini": ciclo_ini,
+        "ciclos": ciclos_disponiveis(ciclo_ini),
         "rotulo_ciclo": rotulo_ciclo(ciclo_ini),
         "total_funcionarios": len(funcionarios),
         "total_aprovadas": sum(1 for f in ferias_ciclo if f.aprovada),
