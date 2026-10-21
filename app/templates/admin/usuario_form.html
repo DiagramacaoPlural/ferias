@@ -26,6 +26,17 @@
       </div>
     </div>
 
+    {% set func_atual = (f.get('funcionario_id')|int if f and f.get('funcionario_id') else (usuario.funcionario_id if usuario else 0)) %}
+    <div class="campo">
+      <label for="funcionario_id">Funcionário ligado (Minhas datas e e-mails)</label>
+      <select id="funcionario_id" name="funcionario_id">
+        <option value="">Nenhum</option>
+        {% for func in funcionarios %}
+          <option value="{{ func.id }}" {{ 'selected' if func.id == func_atual }}>{{ func.nome }}{{ ' (inativo)' if not func.ativo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <h3 style="margin:6px 0 10px">Permissões</h3>
     {% set papel_atual = (f.get('papel') if f else (usuario.papel if usuario else 'simples')) %}
     <div class="campo">

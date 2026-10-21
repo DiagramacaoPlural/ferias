@@ -551,6 +551,22 @@ def test_importar_usuarios_xlsx_define_papeis(app, tmp_path):
         assert comum.papel == PAPEL_SIMPLES and not comum.pode_gestao()
 
 
+def test_vincula_usuario_existente_ao_funcionario_pelo_nome(app):
+    from app.seed import vincular_usuarios_aos_funcionarios
+
+    with app.app_context():
+        func = Funcionario(nome="Gercilio Ferreira")
+        usuario = Usuario(login="Gercilio", admin=True, acessa_calendario=True, trocar_senha=False)
+        usuario.definir_senha("123456")
+        db.session.add_all([func, usuario])
+        db.session.commit()
+        assert usuario.funcionario_id is None
+        assert vincular_usuarios_aos_funcionarios() == 1
+        usuario = db.session.scalar(db.select(Usuario).filter_by(login="Gercilio"))
+        assert usuario.funcionario_id == func.id
+        assert usuario.papel == PAPEL_LIDER
+
+
 def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     enviados = []
 

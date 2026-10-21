@@ -279,6 +279,28 @@ def nomes_abas(caminho: Path) -> list[str]:
     return nomes
 
 
+def vincular_usuarios_aos_funcionarios() -> int:
+    """Liga login ao funcionário de mesmo primeiro nome, mesmo sem a planilha Usuarios.xlsx."""
+    funcionarios = db.session.scalars(db.select(Funcionario)).all()
+    ligados = 0
+    for usuario in db.session.scalars(db.select(Usuario)):
+        if usuario.funcionario_id:
+            continue
+        func = _casar_funcionario_por_nome(usuario.login, funcionarios)
+        if not func:
+            continue
+        usuario.funcionario_id = func.id
+        if usuario.papel == PAPEL_SIMPLES:
+            usuario.papel = _papel_do_nome(func.nome)
+            full = usuario.papel != PAPEL_SIMPLES
+            usuario.acessa_calendario = True
+            usuario.acessa_cronograma = full or usuario.admin
+        ligados += 1
+    if ligados:
+        db.session.commit()
+    return ligados
+
+
 def inicializar_banco(pasta_planilha: Path | None) -> None:
     tem_usuario = db.session.scalar(db.select(db.func.count(Usuario.id)))
     if not tem_usuario:
@@ -298,3 +320,4 @@ def inicializar_banco(pasta_planilha: Path | None) -> None:
         usuarios_xlsx = _escolher_planilha(_planilhas_na_pasta(pasta_planilha), "usuario")
         if usuarios_xlsx:
             importar_usuarios_xlsx(usuarios_xlsx)
+    vincular_usuarios_aos_funcionarios()

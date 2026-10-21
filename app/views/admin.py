@@ -136,6 +136,7 @@ def usuario_form(usuario_id: int | None = None):
             usuario.admin = admin
             usuario.ativo = ativo
             usuario.papel = request.form.get("papel") or ("admin" if admin else "simples")
+            usuario.funcionario_id = request.form.get("funcionario_id", type=int) or None
             usuario.acessa_calendario = request.form.get("acessa_calendario") == "1"
             usuario.acessa_cronograma = request.form.get("acessa_cronograma") == "1"
             if senha:
@@ -146,7 +147,12 @@ def usuario_form(usuario_id: int | None = None):
             flash("Usuário salvo." + (" Ele deverá trocar a senha no próximo acesso." if senha and usuario.trocar_senha else ""), "sucesso")
             return redirect(url_for("admin.usuarios"))
 
-    return render_template("admin/usuario_form.html", usuario=usuario, senha_min=SENHA_MIN)
+    funcionarios = db.session.scalars(
+        db.select(Funcionario).order_by(Funcionario.ativo.desc(), Funcionario.nome)
+    ).all()
+    return render_template(
+        "admin/usuario_form.html", usuario=usuario, senha_min=SENHA_MIN, funcionarios=funcionarios
+    )
 
 
 # --------------------------------------------------------------- configurações
