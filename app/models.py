@@ -136,11 +136,11 @@ def garantir_esquema() -> None:
     if "adianta_13" not in colunas:
         with db.engine.begin() as conn:
             conn.execute(db.text("ALTER TABLE ferias ADD COLUMN adianta_13 BOOLEAN NOT NULL DEFAULT 0"))
-    _alinhar_fins_para_dia_util()
+    _alinhar_fins_ao_periodo()
 
 
-def _alinhar_fins_para_dia_util() -> None:
-    """Recalcula o fim já gravado quando cai em sábado, domingo ou feriado."""
+def _alinhar_fins_ao_periodo() -> None:
+    """Recalcula o fim gravado para coincidir com início + dias − 1."""
     from .regras import calcular_fim
 
     mudou = False

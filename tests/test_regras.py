@@ -63,13 +63,13 @@ def test_fim_conta_o_dia_de_inicio():
     assert calcular_fim(date(2026, 12, 7), 5) == date(2026, 12, 11)
 
 
-def test_fim_avanca_sabado_domingo_e_feriado():
+def test_fim_pode_cair_em_sabado_domingo_ou_feriado():
     assert pascoa(2026) == date(2026, 4, 5)
     assert pascoa(2027) == date(2027, 3, 28)
-    assert calcular_fim(date(2026, 12, 1), 20) == date(2026, 12, 21)
-    assert calcular_fim(date(2026, 12, 14), 20) == date(2027, 1, 4)
-    assert calcular_fim(date(2026, 12, 3), 30) == date(2027, 1, 4)
-    assert calcular_fim(date(2027, 1, 31), 10) == date(2027, 2, 10)
+    assert calcular_fim(date(2026, 12, 1), 20) == date(2026, 12, 20)
+    assert calcular_fim(date(2026, 12, 14), 20) == date(2027, 1, 2)
+    assert calcular_fim(date(2026, 12, 3), 30) == date(2027, 1, 1)
+    assert calcular_fim(date(2027, 1, 31), 10) == date(2027, 2, 9)
 
 
 def test_ciclo_maio_a_abril():

@@ -89,21 +89,11 @@ def feriados_brasil(ano: int) -> set[date]:
     }
 
 
-def eh_dia_nao_util(dia: date) -> bool:
-    return dia.weekday() >= 5 or dia in feriados_brasil(dia.year)
-
-
-def proximo_dia_util(dia: date) -> date:
-    while eh_dia_nao_util(dia):
-        dia += timedelta(days=1)
-    return dia
-
-
 def calcular_fim(inicio: date, dias: int) -> date:
-    """O dia de início conta como 1º dia. Sábado, domingo ou feriado vai ao próximo dia útil."""
+    """O dia de início conta como 1º dia. O fim pode cair em sábado, domingo ou feriado."""
     if dias < 1:
         return inicio
-    return proximo_dia_util(inicio + timedelta(days=dias - 1))
+    return inicio + timedelta(days=dias - 1)
 
 
 def pode_adiantar_13(inicio: date) -> bool:
