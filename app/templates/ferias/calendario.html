@@ -19,7 +19,7 @@
     <div class="card mes {{ 'atual' if mes.atual }}">
       <div class="mes-titulo">
         <span>{{ mes.data|mes_ano }}</span>
-        <span class="texto-suave" style="font-weight:400;font-size:12px">{{ mes.aprovadas|length + mes.programadas|length }} pessoa(s)</span>
+        <span class="mes-qtd">{{ mes.aprovadas|length + mes.programadas|length }} de férias</span>
       </div>
       <div class="mes-corpo">
         <div class="mes-coluna programadas">

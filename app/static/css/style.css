@@ -339,7 +339,7 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 .gantt thead th { background: #f8fafc; color: var(--texto-suave); font-weight: 600; }
 .gantt thead .col-nome { background: #f8fafc; }
 .gantt .mes-cab { padding: 6px 4px; font-size: 12px; color: var(--texto); border-bottom: 1px solid var(--borda); border-right: 1px solid var(--borda); }
-.gantt .dia-cab { min-width: 22px; padding: 4px 0; }
+.gantt .dia-cab { min-width: 24px; padding: 4px 0; }
 .gantt .fds { background: #f8fafc; }
 .gantt thead .fds { background: #eef2f7; }
 .gantt .hoje-col { box-shadow: inset 2px 0 0 var(--vermelho); }
@@ -351,10 +351,21 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 .gantt .barra-ferias.ini { border-radius: 5px 0 0 5px; margin-left: 2px; }
 .gantt .barra-ferias.fim { border-radius: 0 5px 5px 0; margin-right: 2px; }
 .gantt .barra-ferias.ini.fim { border-radius: 5px; }
-.gantt .linha-ausentes td { height: 26px; font-weight: 600; background: #fcfcfd; border-bottom: 2px solid var(--borda); }
-.gantt .linha-ausentes .col-nome { font-size: 12px; color: var(--texto-suave); }
-.gantt .excesso { background: var(--vermelho-claro) !important; color: var(--vermelho); }
-.gantt .ocupado { color: var(--texto); }
+.gantt .linha-ausentes td { height: 34px; background: #f8fafc; border-bottom: 2px solid var(--borda); }
+.gantt .linha-ausentes .col-nome { font-size: 12px; color: var(--texto); font-weight: 700; }
+.gantt .qtd-ferias {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 4px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; line-height: 1;
+  background: var(--azul); color: #fff;
+}
+.gantt .ocupado { background: var(--azul-claro) !important; }
+.gantt .excesso { background: var(--vermelho-claro) !important; }
+.gantt .excesso .qtd-ferias { background: var(--vermelho); }
+.mes-qtd {
+  font-weight: 700; font-size: 12px; color: var(--azul-escuro);
+  background: var(--azul-claro); padding: 2px 8px; border-radius: 999px;
+}
 
 /* ------------------------------------------------------------ login */
 
@@ -436,5 +447,5 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
   .conteudo { padding: 0; }
   .card { box-shadow: none; }
   body { background: #fff; }
-  .gantt .barra-ferias { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .gantt .barra-ferias, .gantt .qtd-ferias, .gantt .ocupado, .mes-qtd { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
