@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo, acoes_lider with context %}
+{% from "_macros.html" import icone, seletor_ciclo, acoes_lider, botao_excluir_ferias with context %}
 {% block titulo %}Validação do líder{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -106,6 +106,7 @@
           <strong>{{ f.funcionario.nome }}</strong>
           <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
         </div>
+        {{ botao_excluir_ferias(f) }}
       </div>
     {% endfor %}
   </div>

@@ -111,6 +111,8 @@
               {% endif %}
               {% if current_user.admin or not f.aprovada %}
                 <a href="{{ url_for('ferias.formulario', ferias_id=f.id) }}" class="btn btn-pequeno btn-icone" title="Editar">{{ icone('editar') }}</a>
+              {% endif %}
+              {% if current_user.admin or current_user.pode_lider() or current_user.pode_gerente() %}
                 {{ botao_post(url_for('ferias.excluir', ferias_id=f.id), '', 'btn btn-pequeno btn-icone btn-perigo', confirmar='Excluir as férias de ' ~ f.funcionario.nome ~ '?', icone_nome='lixo', titulo='Excluir') }}
               {% endif %}
             </td>

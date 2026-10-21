@@ -818,3 +818,30 @@ def test_funcionario_recusa_e_lider_define_direto_ao_gerente(app, monkeypatch):
         ferias = db.session.get(Ferias, fid)
         assert ferias.status == STATUS_AGUARDANDO_GERENTE
         assert ferias.inicio == date(2026, 12, 22)
+
+
+def test_lider_pode_excluir_periodo(app):
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        lider = Usuario(login="Lider", papel=PAPEL_LIDER, acessa_calendario=True, acessa_cronograma=True, trocar_senha=False)
+        lider.definir_senha("senha123")
+        ferias = Ferias(funcionario=carlos, status=STATUS_AGUARDANDO_LIDER, criado_por="funcionario")
+        ferias.definir_periodo(date(2026, 12, 1), 10)
+        aprovada = Ferias(funcionario=carlos, status=STATUS_APROVADA, criado_por="gerente")
+        aprovada.definir_periodo(date(2027, 1, 5), 10)
+        db.session.add_all([lider, ferias, aprovada])
+        db.session.commit()
+        fid = ferias.id
+        aid = aprovada.id
+
+    entrar(client, "Lider", "senha123")
+    fila = client.get("/ferias/validacao/lider").get_data(as_text=True)
+    assert "Excluir" in fila
+    lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
+    assert "Excluir" in lista
+    client.post(f"/ferias/{fid}/excluir", follow_redirects=True)
+    client.post(f"/ferias/{aid}/excluir", follow_redirects=True)
+    with app.app_context():
+        assert db.session.get(Ferias, fid) is None
+        assert db.session.get(Ferias, aid) is None

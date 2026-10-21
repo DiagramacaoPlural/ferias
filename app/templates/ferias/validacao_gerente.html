@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo with context %}
+{% from "_macros.html" import icone, seletor_ciclo, botao_excluir_ferias with context %}
 {% block titulo %}Aceite do gerente{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -27,12 +27,15 @@
             {% if f.vende_10 %}<span class="texto-suave"> · vende 10 dias</span>{% endif %}
             {% if f.adianta_13 %}<span class="texto-suave"> · 1ª parcela 13º</span>{% endif %}
           </div>
-          <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="acoes">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
-            <input type="date" name="inicio" aria-label="Nova data sugerida">
-            <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir mudança</button>
-          </form>
+          <div class="acoes" style="flex-wrap:wrap">
+            <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="acoes">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
+              <input type="date" name="inicio" aria-label="Nova data sugerida">
+              <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir mudança</button>
+            </form>
+            {{ botao_excluir_ferias(f) }}
+          </div>
         </div>
       {% endfor %}
     </div>

@@ -92,6 +92,10 @@ def _pode_editar(ferias: Ferias) -> bool:
     return current_user.admin or not ferias.aprovada
 
 
+def _pode_excluir(_ferias: Ferias) -> bool:
+    return current_user.admin or current_user.pode_lider() or current_user.pode_gerente()
+
+
 def _ler_formulario():
     erros = []
     funcionario = db.session.get(Funcionario, request.form.get("funcionario_id", type=int) or 0)
@@ -432,9 +436,9 @@ def mover(ferias_id: int):
 @requer("gestao")
 def excluir(ferias_id: int):
     ferias = db.get_or_404(Ferias, ferias_id)
-    if not _pode_editar(ferias):
-        flash("Férias aprovadas só podem ser excluídas por um administrador.", "aviso")
-        return redirect(url_for("ferias.lista"))
+    if not _pode_excluir(ferias):
+        flash("Você não pode excluir este período.", "aviso")
+        return redirect(request.referrer or url_for("ferias.lista"))
     registrar(
         "Férias excluídas",
         f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} ({ferias.dias} dias)",
