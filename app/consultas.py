@@ -1,8 +1,22 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
 
 from .models import Configuracao, Ferias, Funcionario, SugestaoFerias, db
-from .regras import DIAS_SEMANA_ABREV, MESES, MESES_ABREV, Periodo, ciclo_de, limite_ausentes, nivel_cobertura, ocupacao_por_dia, rotulo_ciclo
+from .regras import (
+    DIAS_SEMANA_ABREV,
+    MESES,
+    MESES_ABREV,
+    Periodo,
+    ciclo_de,
+    escolher_melhor_combinacao,
+    janela_dos_periodos,
+    limite_ausentes,
+    nivel_cobertura,
+    ocupacao_por_dia,
+    rotulo_ciclo,
+    ultimo_dia_mes,
+)
 
 
 @dataclass
@@ -256,12 +270,11 @@ def conflitos(ferias: list[Ferias], inicio: date, fim: date, limite: int) -> lis
     return resultado
 
 
-def grade_cronograma(inicio: date, fim: date) -> dict:
-    """Grade diária de ausências, do início ao fim informados."""
+def montar_grade(inicio: date, fim: date, periodos_por_id: dict[int, list], omitir_vazios: bool = False) -> dict:
+    """Grade diária a partir de períodos já agrupados por funcionário."""
     if fim < inicio:
         return {}
     dias = [inicio + timedelta(days=i) for i in range((fim - inicio).days + 1)]
-    ferias = ferias_no_intervalo(inicio, fim, apenas_ativos=True)
     ativos = funcionarios_ativos()
     min_disp = minimo_no_setor()
     limite = limite_ausentes(len(ativos), min_disp)
@@ -277,7 +290,9 @@ def grade_cronograma(inicio: date, fim: date) -> dict:
     ausentes = {dia: [] for dia in dias}
     linhas = []
     for func in ativos:
-        periodos = [f for f in ferias if f.funcionario_id == func.id]
+        periodos = list(periodos_por_id.get(func.id) or [])
+        if omitir_vazios and not periodos:
+            continue
         celulas = []
         for dia in dias:
             periodo = next((f for f in periodos if f.inicio <= dia <= f.fim), None)
@@ -304,4 +319,123 @@ def grade_cronograma(inicio: date, fim: date) -> dict:
         "dias_semana": DIAS_SEMANA_ABREV,
         "inicio_grade": inicio,
         "fim_grade": fim,
+    }
+
+
+def grade_cronograma(inicio: date, fim: date) -> dict:
+    """Grade diária de ausências, do início ao fim informados."""
+    ferias = ferias_no_intervalo(inicio, fim, apenas_ativos=True)
+    por_id: dict[int, list] = defaultdict(list)
+    for item in ferias:
+        por_id[item.funcionario_id].append(item)
+    return montar_grade(inicio, fim, por_id)
+
+
+class BarraSimulada:
+    """Período com a mesma cara da férias, para o Gantt da simulação."""
+
+    def __init__(self, funcionario, inicio: date, fim: date, dias: int, status: str, status_rotulo: str):
+        self.funcionario = funcionario
+        self.funcionario_id = funcionario.id
+        self.inicio = inicio
+        self.fim = fim
+        self.dias = dias
+        self.status = status
+        self.status_rotulo = status_rotulo
+
+
+def simular_calendario_opcoes(ano: int, sugestoes_por_func: dict[int, list] | None = None) -> dict:
+    """Monta a melhor combinação das opções enviadas e devolve Gantt + resumo."""
+    from .models import STATUS_APROVADA, STATUS_PROGRAMADA
+
+    if sugestoes_por_func is None:
+        sugestoes = db.session.scalars(
+            db.select(SugestaoFerias).where(SugestaoFerias.ciclo_ano == ano).order_by(
+                SugestaoFerias.funcionario_id, SugestaoFerias.ordem, SugestaoFerias.inicio
+            )
+        ).all()
+        por_func: dict[int, list] = defaultdict(list)
+        for s in sugestoes:
+            por_func[s.funcionario_id].append(s)
+    else:
+        por_func = {fid: list(ops) for fid, ops in sugestoes_por_func.items() if ops}
+    if not por_func:
+        return {"vazio": True}
+
+    ativos = {f.id: f for f in funcionarios_ativos()}
+    grupos: dict[int, list[Periodo]] = {}
+    for fid, ops in por_func.items():
+        func = ativos.get(fid) or db.session.get(Funcionario, fid)
+        if not func or not func.ativo:
+            continue
+        grupos[fid] = [
+            Periodo(func.nome, op.inicio, op.fim, op.dias, op.ordem) for op in ops
+        ]
+    if not grupos:
+        return {"vazio": True}
+
+    ids_opcao = set(grupos)
+    ciclo_ini, ciclo_fim = ciclo_por_ano(ano)
+    fixos_ferias = [
+        f
+        for f in ferias_no_intervalo(ciclo_ini, ciclo_fim, apenas_ativos=True)
+        if f.funcionario_id not in ids_opcao and f.status in (STATUS_APROVADA, STATUS_PROGRAMADA)
+    ]
+    fixos = [Periodo(f.funcionario.nome, f.inicio, f.fim, f.dias, f.id) for f in fixos_ferias]
+    total = len(ativos)
+    min_disp = minimo_no_setor()
+    escolhidos, score = escolher_melhor_combinacao(grupos, fixos, total, min_disp)
+
+    por_nome = {p.funcionario: p for p in escolhidos}
+    barras = []
+    escolhas = []
+    for fid, ops in grupos.items():
+        func = ativos.get(fid) or db.session.get(Funcionario, fid)
+        if not func:
+            continue
+        escolhida = por_nome.get(func.nome) or ops[0]
+        ordem = escolhida.id or 1
+        barras.append(
+            BarraSimulada(func, escolhida.inicio, escolhida.fim, escolhida.dias, "SUGERIDA", f"Opção {ordem}")
+        )
+        escolhas.append(
+            {
+                "funcionario": func,
+                "ordem": ordem,
+                "total_opcoes": len(ops),
+                "inicio": escolhida.inicio,
+                "fim": escolhida.fim,
+                "dias": escolhida.dias,
+            }
+        )
+    for ferias in fixos_ferias:
+        barras.append(
+            BarraSimulada(
+                ferias.funcionario,
+                ferias.inicio,
+                ferias.fim,
+                ferias.dias,
+                ferias.status,
+                ferias.status_rotulo,
+            )
+        )
+
+    janela = janela_dos_periodos(
+        [Periodo(b.funcionario.nome, b.inicio, b.fim, b.dias) for b in barras]
+    )
+    grade = {}
+    if janela:
+        por_id: dict[int, list] = defaultdict(list)
+        for barra in barras:
+            por_id[barra.funcionario_id].append(barra)
+        grade = montar_grade(janela[0], janela[1], por_id, omitir_vazios=True)
+
+    escolhas.sort(key=lambda e: e["funcionario"].nome)
+    return {
+        "vazio": False,
+        "grade": grade,
+        "escolhas": escolhas,
+        "score": score,
+        "min_disponiveis": min_disp,
+        "total_ativos": total,
     }

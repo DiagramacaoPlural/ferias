@@ -9,6 +9,7 @@
   </div>
   <div class="acoes">
     {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.validacao_lider') }}
+    <a class="btn" href="{{ url_for('ferias.validacao_lider', ciclo=ciclo_ini.year, simular=1) }}">Simular calendário</a>
     <form method="post" action="{{ url_for('ferias.montar') }}" class="inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="ciclo" value="{{ ciclo_ini.year }}">
@@ -102,6 +103,65 @@
     </div>
   {% endif %}
 </div>
+
+{% if simulacao and not simulacao.vazio %}
+<div class="card mt" id="simulacao-calendario">
+  <div class="card-titulo">
+    <h2>Simulação do calendário</h2>
+    <span class="texto-suave">Melhor combinação das opções enviadas</span>
+  </div>
+  <div class="card-corpo">
+    <p class="texto-suave" style="margin-top:0">
+      O setor precisa de pelo menos <strong>{{ simulacao.min_disponiveis }}</strong> disponíveis
+      ({{ simulacao.total_ativos }} no total).
+      {% if simulacao.score.criticos %}
+        Nesta combinação ainda há <strong>{{ simulacao.score.criticos }}</strong> dia(s) abaixo do mínimo
+        (pior dia: {{ simulacao.score.pior_disp }} disponíveis, pico de {{ simulacao.score.pico }} de férias).
+      {% else %}
+        Nesta combinação o mínimo do setor é respeitado
+        (pior dia: {{ simulacao.score.pior_disp }} disponíveis, pico de {{ simulacao.score.pico }} de férias).
+      {% endif %}
+    </p>
+    <div class="tabela-wrap">
+      <table class="tabela">
+        <thead>
+          <tr>
+            <th>Funcionário</th>
+            <th>Melhor opção</th>
+            <th>Período</th>
+            <th class="num">Dias</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in simulacao.escolhas %}
+            <tr>
+              <td class="col-nome"><strong>{{ item.funcionario.nome }}</strong></td>
+              <td>Opção {{ item.ordem }}{% if item.total_opcoes > 1 %} de {{ item.total_opcoes }}{% endif %}</td>
+              <td class="nowrap">{{ item.inicio|data }} a {{ item.fim|data }}</td>
+              <td class="num">{{ item.dias }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% if simulacao.grade %}
+  {% with
+    dias=simulacao.grade.dias,
+    meses_cabecalho=simulacao.grade.meses_cabecalho,
+    linhas=simulacao.grade.linhas,
+    ausentes=simulacao.grade.ausentes,
+    niveis=simulacao.grade.niveis,
+    min_disponiveis=simulacao.grade.min_disponiveis,
+    total_ativos=simulacao.grade.total_ativos,
+    dias_semana=simulacao.grade.dias_semana,
+    titulo_grade='Gantt da simulação'
+  %}
+    {% include "ferias/_grade.html" %}
+  {% endwith %}
+{% endif %}
+{% endif %}
 
 {% if aguardando_funcionario %}
 <div class="card mt">

@@ -1,9 +1,12 @@
 <div class="card calendario-grade">
   <div class="card-titulo">
-    <strong>Cronograma</strong>
+    <strong>{{ titulo_grade|default('Cronograma') }}</strong>
     <div class="legenda">
       <span><i style="background:var(--teal)"></i>Aprovada</span>
       <span><i style="background:var(--programada)"></i>Programada</span>
+      {% if titulo_grade|default('Cronograma') != 'Cronograma' %}
+        <span><i style="background:#7c3aed"></i>Melhor opção</span>
+      {% endif %}
       <span><i style="background:var(--verde)"></i>Pouco de férias</span>
       <span><i style="background:var(--amarelo)"></i>Médio</span>
       <span><i style="background:var(--vermelho)"></i>Muito de férias</span>

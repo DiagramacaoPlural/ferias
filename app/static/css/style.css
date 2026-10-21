@@ -372,6 +372,7 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 .gantt .barra-ferias { display: block; height: 18px; margin: 0 -1px; }
 .gantt .barra-ferias.aprovada { background: var(--teal); }
 .gantt .barra-ferias.programada { background: var(--programada); background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(255,255,255,.35) 4px 8px); }
+.gantt .barra-ferias.sugerida { background: #7c3aed; }
 .gantt .barra-ferias.ini { border-radius: 5px 0 0 5px; margin-left: 2px; }
 .gantt .barra-ferias.fim { border-radius: 0 5px 5px 0; margin-right: 2px; }
 .gantt .barra-ferias.ini.fim { border-radius: 5px; }

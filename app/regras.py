@@ -8,6 +8,7 @@ import calendar
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from itertools import product
 
 MESES = [
     "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -244,6 +245,104 @@ def ocupacao_por_dia(periodos: list[Periodo], inicio: date, fim: date) -> dict[d
 def limite_ausentes(total_ativos: int, min_disponiveis: int) -> int:
     """Quantas pessoas podem estar de férias sem desfalcar o setor."""
     return max(total_ativos - min_disponiveis, 0)
+
+
+MAX_COMBINACOES_SIMULACAO = 4096
+
+
+def janela_dos_periodos(periodos: list[Periodo]) -> tuple[date, date] | None:
+    if not periodos:
+        return None
+    primeiro = min(p.inicio for p in periodos).replace(day=1)
+    ultimo = max(p.fim for p in periodos)
+    return primeiro, ultimo_dia_mes(date(ultimo.year, ultimo.month, 1))
+
+
+def pontuar_cobertura(
+    periodos: list[Periodo],
+    janela_ini: date,
+    janela_fim: date,
+    total_ativos: int,
+    min_disponiveis: int,
+) -> tuple[int, int, int, int]:
+    """Menor tupla é melhor: dias críticos, inícios sex/sáb, −pior cobertura, pico."""
+    ocupacao = ocupacao_por_dia(periodos, janela_ini, janela_fim)
+    criticos = 0
+    pior = total_ativos
+    pico = 0
+    dia = janela_ini
+    while dia <= janela_fim:
+        ausentes = len(ocupacao.get(dia, set()))
+        disponiveis = total_ativos - ausentes
+        if disponiveis < min_disponiveis:
+            criticos += 1
+        if disponiveis < pior:
+            pior = disponiveis
+        if ausentes > pico:
+            pico = ausentes
+        dia += timedelta(days=1)
+    inicios_ruins = sum(1 for p in periodos if p.inicio.weekday() in (4, 5))
+    return (criticos, inicios_ruins, -pior, pico)
+
+
+def escolher_melhor_combinacao(
+    grupos: dict[int, list[Periodo]],
+    fixos: list[Periodo],
+    total_ativos: int,
+    min_disponiveis: int,
+) -> tuple[list[Periodo], dict]:
+    """Escolhe uma opção por funcionário para manter o mínimo no setor."""
+    listas = [ops for ops in grupos.values() if ops]
+    todos = list(fixos) + [p for ops in listas for p in ops]
+    janela = janela_dos_periodos(todos)
+    vazio = {"criticos": 0, "inicios_ruins": 0, "pior_disp": total_ativos, "pico": 0}
+    if not janela:
+        return [], vazio
+    janela_ini, janela_fim = janela
+
+    def resultado(escolhidos: list[Periodo], score: tuple[int, int, int, int]) -> tuple[list[Periodo], dict]:
+        return escolhidos, {
+            "criticos": score[0],
+            "inicios_ruins": score[1],
+            "pior_disp": -score[2],
+            "pico": score[3],
+        }
+
+    if not listas:
+        return resultado([], pontuar_cobertura(fixos, janela_ini, janela_fim, total_ativos, min_disponiveis))
+
+    total_combos = 1
+    for ops in listas:
+        total_combos *= len(ops)
+
+    if total_combos <= MAX_COMBINACOES_SIMULACAO:
+        melhor: list[Periodo] | None = None
+        melhor_score: tuple[int, int, int, int] | None = None
+        for combo in product(*listas):
+            score = pontuar_cobertura(
+                list(fixos) + list(combo), janela_ini, janela_fim, total_ativos, min_disponiveis
+            )
+            if melhor_score is None or score < melhor_score:
+                melhor_score = score
+                melhor = list(combo)
+        return resultado(melhor or [], melhor_score or (0, 0, 0, 0))
+
+    escolhidos: list[Periodo] = []
+    for ops in listas:
+        atual = ops[0]
+        atual_score = None
+        for op in ops:
+            score = pontuar_cobertura(
+                list(fixos) + escolhidos + [op], janela_ini, janela_fim, total_ativos, min_disponiveis
+            )
+            if atual_score is None or score < atual_score:
+                atual_score = score
+                atual = op
+        escolhidos.append(atual)
+    return resultado(
+        escolhidos,
+        pontuar_cobertura(list(fixos) + escolhidos, janela_ini, janela_fim, total_ativos, min_disponiveis),
+    )
 
 
 def nivel_cobertura(ausentes: int, total_ativos: int, min_disponiveis: int) -> str:

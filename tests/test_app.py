@@ -642,6 +642,12 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Validar opção 1" in fila
     assert "Validar opção 2" in fila
     assert "Fila para validar" in fila
+    assert "Simular calendário" in fila
+    sim = client.get("/ferias/validacao/lider?ciclo=2026&simular=1").get_data(as_text=True)
+    assert "Simulação do calendário" in sim
+    assert 'class="gantt"' in sim
+    assert "Melhor opção" in sim
+    assert "01/12/2026" in sim
 
     client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-01"}, follow_redirects=True)
     with app.app_context():

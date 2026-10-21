@@ -15,6 +15,7 @@ from ..consultas import (
     minimo_no_setor,
     painel_cobertura,
     serie_cobertura,
+    simular_calendario_opcoes,
 )
 from ..models import (
     STATUS_AGUARDANDO_FUNCIONARIO,
@@ -847,6 +848,11 @@ def validacao_lider():
     ativos = funcionarios_ativos()
     enviadas = [{"funcionario": f, "opcoes": por_func[f.id]} for f in ativos if f.id in por_func]
     faltando = [f for f in ativos if f.id not in por_func]
+    simulacao = None
+    if request.args.get("simular"):
+        simulacao = simular_calendario_opcoes(ciclo_ini.year, opcoes_por_func)
+        if simulacao.get("vazio"):
+            flash("Ninguém enviou opções neste ciclo para simular.", "aviso")
     return render_template(
         "ferias/validacao_lider.html",
         ciclo_ini=ciclo_ini,
@@ -857,6 +863,7 @@ def validacao_lider():
         fila=fila,
         aguardando_funcionario=aguardando_funcionario,
         opcoes_por_func=opcoes_por_func,
+        simulacao=simulacao,
     )
 
 

@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, escolher_melhor_combinacao, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -183,6 +183,22 @@ def test_setor_desfalcado_gera_aviso_e_alternativas():
     for alt in a.alternativas:
         assert not sobrepoe(alt.inicio, alt.fim, outro.inicio, outro.fim)
         assert alt.inicio.weekday() not in (4, 5)
+
+
+def test_simulacao_escolhe_opcao_que_mantem_o_minimo():
+    bruno = Periodo("Bruno", date(2026, 12, 1), date(2026, 12, 20), 20)
+    ana1 = Periodo("Ana", date(2026, 12, 7), calcular_fim(date(2026, 12, 7), 10), 10, 1)
+    ana2 = Periodo("Ana", date(2027, 1, 12), calcular_fim(date(2027, 1, 12), 10), 10, 2)
+    escolhidos, score = escolher_melhor_combinacao({1: [ana1, ana2]}, [bruno], 4, 3)
+    assert escolhidos[0].inicio == date(2027, 1, 12)
+    assert score["criticos"] == 0
+
+
+def test_simulacao_prefere_a_primeira_opcao_quando_empatam():
+    a1 = Periodo("Ana", date(2026, 12, 1), calcular_fim(date(2026, 12, 1), 10), 10, 1)
+    a2 = Periodo("Ana", date(2026, 12, 15), calcular_fim(date(2026, 12, 15), 10), 10, 2)
+    escolhidos, _score = escolher_melhor_combinacao({1: [a1, a2]}, [], 12, 5)
+    assert escolhidos[0].id == 1
 
 
 def test_sugestao_respeita_minimo_no_setor():
