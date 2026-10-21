@@ -26,7 +26,7 @@ PAPEL_LIDER = "lider"
 PAPEL_GERENTE = "gerente"
 PAPEL_ADMIN = "admin"
 PAPEIS_GESTAO = {PAPEL_LIDER, PAPEL_GERENTE, PAPEL_ADMIN}
-PAPEIS_FULL = {"gercilio", "marcelo", "ricardo"}
+PAPEIS_FULL = {"marcelo", "ricardo"}
 
 
 class Usuario(UserMixin, db.Model):

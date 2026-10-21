@@ -548,7 +548,7 @@ def test_importar_usuarios_xlsx_define_papeis(app, tmp_path):
         marcelo = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "marcelo"))
         ricardo = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "ricardo"))
         comum = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "carlos"))
-        assert gercilio.papel == PAPEL_LIDER and gercilio.pode_gestao()
+        assert gercilio.papel == PAPEL_SIMPLES and not gercilio.pode_gestao()
         assert marcelo.papel == PAPEL_GERENTE and marcelo.pode_gerente()
         assert ricardo.papel == PAPEL_GERENTE
         assert comum.papel == PAPEL_SIMPLES and not comum.pode_gestao()
@@ -568,7 +568,7 @@ def test_vincula_usuario_existente_ao_funcionario_pelo_nome(app):
         assert resumo["ligados"] >= 1
         usuario = db.session.scalar(db.select(Usuario).filter_by(login="Gercilio"))
         assert usuario.funcionario_id == func.id
-        assert usuario.papel == PAPEL_LIDER
+        assert usuario.papel == PAPEL_SIMPLES
 
 
 def test_cria_usuario_para_cada_funcionario_ativo(app):

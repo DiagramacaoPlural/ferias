@@ -7,7 +7,6 @@ from pathlib import Path
 from .models import (
     PAPEL_ADMIN,
     PAPEL_GERENTE,
-    PAPEL_LIDER,
     PAPEL_SIMPLES,
     PAPEIS_FULL,
     STATUS_APROVADA,
@@ -26,12 +25,8 @@ def _primeiro_nome(nome: str) -> str:
 
 def _papel_do_nome(nome: str) -> str:
     chave = _primeiro_nome(nome).casefold()
-    if chave == "gercilio":
-        return PAPEL_LIDER
-    if chave in ("marcelo", "ricardo"):
+    if chave in ("marcelo", "ricardo") or chave in PAPEIS_FULL:
         return PAPEL_GERENTE
-    if chave in PAPEIS_FULL:
-        return PAPEL_LIDER
     return PAPEL_SIMPLES
 
 
