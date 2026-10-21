@@ -552,7 +552,7 @@ def test_importar_usuarios_xlsx_define_papeis(app, tmp_path):
 
 
 def test_vincula_usuario_existente_ao_funcionario_pelo_nome(app):
-    from app.seed import vincular_usuarios_aos_funcionarios
+    from app.seed import garantir_usuarios_dos_funcionarios
 
     with app.app_context():
         func = Funcionario(nome="Gercilio Ferreira")
@@ -561,10 +561,26 @@ def test_vincula_usuario_existente_ao_funcionario_pelo_nome(app):
         db.session.add_all([func, usuario])
         db.session.commit()
         assert usuario.funcionario_id is None
-        assert vincular_usuarios_aos_funcionarios() == 1
+        resumo = garantir_usuarios_dos_funcionarios()
+        assert resumo["ligados"] >= 1
         usuario = db.session.scalar(db.select(Usuario).filter_by(login="Gercilio"))
         assert usuario.funcionario_id == func.id
         assert usuario.papel == PAPEL_LIDER
+
+
+def test_cria_usuario_para_cada_funcionario_ativo(app):
+    from app.seed import garantir_usuarios_dos_funcionarios
+
+    with app.app_context():
+        resumo = garantir_usuarios_dos_funcionarios()
+        assert resumo["criados"] >= 4
+        for nome in ("Carlos", "Edson", "Ana", "Bruno"):
+            usuario = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == nome.lower()))
+            func = db.session.scalar(db.select(Funcionario).filter_by(nome=nome))
+            assert usuario is not None
+            assert usuario.funcionario_id == func.id
+            assert usuario.papel == PAPEL_SIMPLES
+            assert usuario.conferir_senha("123")
 
 
 def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):

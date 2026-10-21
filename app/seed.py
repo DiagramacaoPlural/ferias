@@ -279,26 +279,64 @@ def nomes_abas(caminho: Path) -> list[str]:
     return nomes
 
 
-def vincular_usuarios_aos_funcionarios() -> int:
-    """Liga login ao funcionário de mesmo primeiro nome, mesmo sem a planilha Usuarios.xlsx."""
-    funcionarios = db.session.scalars(db.select(Funcionario)).all()
-    ligados = 0
+def garantir_usuarios_dos_funcionarios() -> dict:
+    """Cria e liga um usuário para cada funcionário ativo (login = primeiro nome)."""
+    senha_padrao = os.environ.get("USUARIO_SENHA_INICIAL") or "123"
+    funcionarios = db.session.scalars(db.select(Funcionario).filter_by(ativo=True).order_by(Funcionario.nome)).all()
+    resumo = {"criados": 0, "ligados": 0, "atualizados": 0}
+    vistos: set[int] = set()
+    for func in funcionarios:
+        login = _primeiro_nome(func.nome)
+        if not login:
+            continue
+        papel = _papel_do_nome(func.nome)
+        full = papel != PAPEL_SIMPLES
+        usuario = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == login.lower()))
+        if not usuario:
+            usuario = Usuario(login=login, trocar_senha=True)
+            usuario.definir_senha(senha_padrao)
+            db.session.add(usuario)
+            resumo["criados"] += 1
+        else:
+            resumo["atualizados"] += 1
+        if usuario.funcionario_id != func.id:
+            if usuario.funcionario_id is None:
+                resumo["ligados"] += 1
+            usuario.funcionario_id = func.id
+        usuario.papel = papel
+        if papel == PAPEL_SIMPLES:
+            usuario.admin = False
+        usuario.acessa_calendario = True
+        usuario.acessa_cronograma = full or usuario.admin
+        usuario.ativo = True
+        vistos.add(usuario.id)
+
     for usuario in db.session.scalars(db.select(Usuario)):
-        if usuario.funcionario_id:
+        if usuario.id in vistos or usuario.funcionario_id:
             continue
         func = _casar_funcionario_por_nome(usuario.login, funcionarios)
         if not func:
             continue
         usuario.funcionario_id = func.id
-        if usuario.papel == PAPEL_SIMPLES:
-            usuario.papel = _papel_do_nome(func.nome)
-            full = usuario.papel != PAPEL_SIMPLES
-            usuario.acessa_calendario = True
-            usuario.acessa_cronograma = full or usuario.admin
-        ligados += 1
-    if ligados:
-        db.session.commit()
-    return ligados
+        usuario.papel = _papel_do_nome(func.nome)
+        resumo["ligados"] += 1
+
+    if resumo["criados"] or resumo["ligados"]:
+        db.session.add(
+            Historico(
+                usuario="sistema",
+                acao="Usuários ligados aos funcionários",
+                detalhe=f"{resumo['criados']} novos, {resumo['ligados']} ligados, {resumo['atualizados']} atualizados",
+            )
+        )
+    db.session.commit()
+    return resumo
+
+
+def vincular_usuarios_aos_funcionarios() -> int:
+    """Compatível com chamadas antigas: liga/cria usuários e devolve quantos foram ligados ou criados."""
+    resumo = garantir_usuarios_dos_funcionarios()
+    return resumo["criados"] + resumo["ligados"]
 
 
 def inicializar_banco(pasta_planilha: Path | None) -> None:
@@ -320,4 +358,4 @@ def inicializar_banco(pasta_planilha: Path | None) -> None:
         usuarios_xlsx = _escolher_planilha(_planilhas_na_pasta(pasta_planilha), "usuario")
         if usuarios_xlsx:
             importar_usuarios_xlsx(usuarios_xlsx)
-    vincular_usuarios_aos_funcionarios()
+    garantir_usuarios_dos_funcionarios()
