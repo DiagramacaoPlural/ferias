@@ -314,7 +314,7 @@ textarea { resize: vertical; min-height: 70px; }
 .mes { display: flex; flex-direction: column; }
 .mes-titulo {
   padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--borda);
-  display: flex; justify-content: space-between; align-items: center;
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 .mes.atual { border-color: var(--azul); box-shadow: 0 0 0 2px rgba(37, 99, 235, .2), var(--sombra); }
 .mes-corpo { padding: 10px 16px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
@@ -362,10 +362,12 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 .gantt .ocupado { background: var(--azul-claro) !important; }
 .gantt .excesso { background: var(--vermelho-claro) !important; }
 .gantt .excesso .qtd-ferias { background: var(--vermelho); }
+.mes-qtds { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .mes-qtd {
   font-weight: 700; font-size: 12px; color: var(--azul-escuro);
   background: var(--azul-claro); padding: 2px 8px; border-radius: 999px;
 }
+.mes-qtd-setor { background: #f1f5f9; color: var(--texto-suave); }
 
 /* ------------------------------------------------------------ login */
 
@@ -447,5 +449,5 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
   .conteudo { padding: 0; }
   .card { box-shadow: none; }
   body { background: #fff; }
-  .gantt .barra-ferias, .gantt .qtd-ferias, .gantt .ocupado, .mes-qtd { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .gantt .barra-ferias, .gantt .qtd-ferias, .gantt .ocupado, .mes-qtd, .mes-qtd-setor { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
