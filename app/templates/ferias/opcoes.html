@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone with context %}
+{% from "_macros.html" import icone, seletor_ciclo with context %}
 {% block titulo %}Minhas datas de férias{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -7,7 +7,10 @@
     <h1>Minhas datas de férias</h1>
     <p>Envie até duas opções para o ciclo {{ rotulo_ciclo }}. O sistema respeita o mínimo de pessoas no setor.</p>
   </div>
-  <div class="acoes"><a href="{{ url_for('ferias.calendario') }}" class="btn">Voltar ao calendário</a></div>
+  <div class="acoes">
+    {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.opcoes') }}
+    <a href="{{ url_for('ferias.calendario', ciclo=ciclo_ini.year) }}" class="btn">Voltar ao calendário</a>
+  </div>
 </div>
 
 {% if not funcionario %}
@@ -21,7 +24,13 @@
 <form method="post" class="card" id="form-opcoes">
   <div class="card-corpo">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="ciclo" value="{{ ciclo_ini.year }}">
     <p class="texto-suave" style="margin-top:0">Funcionário: <strong>{{ funcionario.nome }}</strong></p>
+    {% if existentes and not dados %}
+      <div class="alerta alerta-sucesso" style="margin-bottom:16px">
+        <div>Opções já enviadas neste ciclo. Envie de novo para substituir.</div>
+      </div>
+    {% endif %}
     <div class="grade grade-2">
       {% for ordem in [1, 2] %}
         {% set atual = existentes[ordem - 1] if existentes|length >= ordem else none %}

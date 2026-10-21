@@ -484,11 +484,24 @@ def calendario():
     )
 
 
+def _sugestoes_do_ciclo(ano: int) -> dict[int, list[SugestaoFerias]]:
+    por_func: dict[int, list[SugestaoFerias]] = {}
+    for s in db.session.scalars(
+        db.select(SugestaoFerias).where(SugestaoFerias.ciclo_ano == ano).order_by(
+            SugestaoFerias.funcionario_id, SugestaoFerias.ordem
+        )
+    ):
+        por_func.setdefault(s.funcionario_id, []).append(s)
+    return por_func
+
+
 @bp.route("/opcoes", methods=["GET", "POST"])
 @requer("calendario")
 def opcoes():
     funcionario = current_user.funcionario
-    ciclo_ini, ciclo_fim = ciclo_atual()
+    ciclo_ini, ciclo_fim = _ciclo_da_requisicao()
+    if request.method == "POST" and request.form.get("ciclo", type=int):
+        ciclo_ini, ciclo_fim = ciclo_por_ano(request.form.get("ciclo", type=int))
     existentes = []
     if funcionario:
         existentes = db.session.scalars(
@@ -531,6 +544,7 @@ def opcoes():
                     "ordem": ordem,
                     "inicio": inicio,
                     "dias": dias,
+                    "ciclo_ano": ciclo_atual(inicio)[0].year,
                     "adianta_13": adianta_13,
                     "vende_10": _quer_vende_10({"vende_10": request.form.get(f"vende_10_{ordem}")}),
                 }
@@ -538,13 +552,20 @@ def opcoes():
         if not lidas and not erros:
             erros.append("Informe pelo menos uma opção de datas.")
         if not erros:
-            for antigo in existentes:
+            anos = {item["ciclo_ano"] for item in lidas} | {ciclo_ini.year}
+            antigas = db.session.scalars(
+                db.select(SugestaoFerias).where(
+                    SugestaoFerias.funcionario_id == funcionario.id,
+                    SugestaoFerias.ciclo_ano.in_(anos),
+                )
+            ).all()
+            for antigo in antigas:
                 db.session.delete(antigo)
             db.session.flush()
             for item in lidas:
                 s = SugestaoFerias(
                     funcionario=funcionario,
-                    ciclo_ano=ciclo_ini.year,
+                    ciclo_ano=item["ciclo_ano"],
                     ordem=item["ordem"],
                     adianta_13=item["adianta_13"],
                     vende_10=item["vende_10"],
@@ -553,13 +574,17 @@ def opcoes():
                 db.session.add(s)
             registrar("Opções de férias enviadas", f"{funcionario.nome}: {len(lidas)} opção(ões)")
             db.session.commit()
-            flash("Suas opções de datas foram enviadas.", "sucesso")
-            return redirect(url_for("ferias.calendario", ciclo=ciclo_ini.year))
+            flash("Suas opções de datas foram enviadas. O líder monta o calendário e depois valida.", "sucesso")
+            destino_ano = lidas[0]["ciclo_ano"]
+            if current_user.pode_lider():
+                return redirect(url_for("ferias.validacao_lider", ciclo=destino_ano))
+            return redirect(url_for("ferias.opcoes", ciclo=destino_ano))
 
     return render_template(
         "ferias/opcoes.html",
         funcionario=funcionario,
         ciclo_ini=ciclo_ini,
+        ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
         existentes=existentes,
         erros=erros,
@@ -585,7 +610,7 @@ def montar():
     if resumo["sem_encaixe"]:
         partes.append("sem encaixe: " + ", ".join(resumo["sem_encaixe"]))
     flash("Calendário montado: " + ("; ".join(partes) if partes else "ninguém havia enviado opções."), "sucesso")
-    return redirect(url_for("ferias.calendario", ciclo=ano or ciclo_atual()[0].year))
+    return redirect(url_for("ferias.validacao_lider", ciclo=ano or ciclo_atual()[0].year))
 
 
 @bp.route("/<int:ferias_id>/responder", methods=["POST"])
@@ -605,7 +630,10 @@ def responder(ferias_id: int):
         recusar_proposta(ferias)
         registrar("Funcionário recusou a data", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
         flash("Você recusou. O líder escolherá a melhor data.", "aviso")
-    return redirect(_destino_calendario())
+    ano = ciclo_atual(ferias.inicio)[0].year
+    if current_user.pode_lider():
+        return redirect(url_for("ferias.validacao_lider", ciclo=ano))
+    return redirect(url_for("ferias.calendario", ciclo=ano))
 
 
 @bp.route("/<int:ferias_id>/lider", methods=["POST"])
@@ -635,7 +663,10 @@ def acao_lider(ferias_id: int):
         lider_validar(ferias, current_user.login)
         registrar("Líder validou", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
         flash("Validado. Encaminhado ao gerente.", "sucesso")
-    return redirect(_destino_calendario())
+    ano = ciclo_atual(ferias.inicio)[0].year
+    if current_user.pode_gerente():
+        return redirect(url_for("ferias.validacao_gerente", ciclo=ano))
+    return redirect(url_for("ferias.validacao_lider", ciclo=ano))
 
 
 @bp.route("/<int:ferias_id>/gerente", methods=["POST"])
@@ -664,7 +695,47 @@ def acao_gerente(ferias_id: int):
         gerente_aprovar(ferias, current_user.login)
         registrar("Gerente aprovou", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}")
         flash(f"Férias de {ferias.funcionario.nome} aprovadas. E-mail enviado.", "sucesso")
-    return redirect(_destino_calendario())
+    return redirect(url_for("ferias.validacao_gerente", ciclo=ciclo_atual(ferias.inicio)[0].year))
+
+
+@bp.route("/validacao/lider")
+@requer("gestao")
+def validacao_lider():
+    if not current_user.pode_lider():
+        abort(403)
+    ciclo_ini, ciclo_fim = _ciclo_da_requisicao()
+    por_func = _sugestoes_do_ciclo(ciclo_ini.year)
+    ativos = funcionarios_ativos()
+    enviadas = [{"funcionario": f, "opcoes": por_func[f.id]} for f in ativos if f.id in por_func]
+    faltando = [f for f in ativos if f.id not in por_func]
+    ferias = ferias_no_intervalo(ciclo_ini, ciclo_fim, apenas_ativos=True)
+    fila = [f for f in ferias if f.status == STATUS_AGUARDANDO_LIDER]
+    return render_template(
+        "ferias/validacao_lider.html",
+        ciclo_ini=ciclo_ini,
+        ciclos=ciclos_disponiveis(ciclo_ini),
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        enviadas=enviadas,
+        faltando=faltando,
+        fila=fila,
+    )
+
+
+@bp.route("/validacao/gerente")
+@requer("gestao")
+def validacao_gerente():
+    if not current_user.pode_gerente():
+        abort(403)
+    ciclo_ini, ciclo_fim = _ciclo_da_requisicao()
+    ferias = ferias_no_intervalo(ciclo_ini, ciclo_fim, apenas_ativos=True)
+    fila = [f for f in ferias if f.status == STATUS_AGUARDANDO_GERENTE]
+    return render_template(
+        "ferias/validacao_gerente.html",
+        ciclo_ini=ciclo_ini,
+        ciclos=ciclos_disponiveis(ciclo_ini),
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        fila=fila,
+    )
 
 
 @bp.route("/exportar")

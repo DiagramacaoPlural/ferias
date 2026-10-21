@@ -22,6 +22,12 @@
         <a href="{{ url_for('main.painel') }}" class="{{ 'ativo' if ep == 'main.painel' }}">{{ icone('painel') }} Painel</a>
         <a href="{{ url_for('ferias.lista') }}" class="{{ 'ativo' if ep in ('ferias.lista', 'ferias.formulario') }}">{{ icone('ferias') }} Programação</a>
       {% endif %}
+      {% if current_user.pode_lider() %}
+        <a href="{{ url_for('ferias.validacao_lider') }}" class="{{ 'ativo' if ep == 'ferias.validacao_lider' }}">{{ icone('check') }} Validar (líder)</a>
+      {% endif %}
+      {% if current_user.pode_gerente() %}
+        <a href="{{ url_for('ferias.validacao_gerente') }}" class="{{ 'ativo' if ep == 'ferias.validacao_gerente' }}">{{ icone('check') }} Aceite gerente</a>
+      {% endif %}
       {% if current_user.pode_calendario() %}
         <a href="{{ url_for('ferias.calendario') }}" class="{{ 'ativo' if ep in ('ferias.calendario', 'cronograma.visualizar') }}">{{ icone('calendario') }} Calendário</a>
         <a href="{{ url_for('ferias.opcoes') }}" class="{{ 'ativo' if ep == 'ferias.opcoes' }}">{{ icone('ferias') }} Minhas datas</a>

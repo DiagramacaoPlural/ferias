@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone, seletor_ciclo with context %}
+{% block titulo %}Aceite do gerente{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Aceite do gerente</h1>
+    <p>Ciclo {{ rotulo_ciclo }}. Aprove o período ou sugira outra data ao funcionário.</p>
+  </div>
+  <div class="acoes">
+    {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.validacao_gerente') }}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-titulo">
+    <h2>Aguardando aceite</h2>
+    <span class="texto-suave">{{ fila|length }}</span>
+  </div>
+  {% if fila %}
+    <div class="card-corpo">
+      {% for f in fila %}
+        <div class="pendencia-item">
+          <div>
+            <strong>{{ f.funcionario.nome }}</strong>
+            <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
+            {% if f.vende_10 %}<span class="texto-suave"> · vende 10 dias</span>{% endif %}
+            {% if f.adianta_13 %}<span class="texto-suave"> · 1ª parcela 13º</span>{% endif %}
+          </div>
+          <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="acoes">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
+            <input type="date" name="inicio" aria-label="Nova data sugerida">
+            <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir mudança</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="vazio">Nenhum período aguardando o gerente neste ciclo. O líder valida primeiro em Validar (líder).</div>
+  {% endif %}
+</div>
+{% endblock %}

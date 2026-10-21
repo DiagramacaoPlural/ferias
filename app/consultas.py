@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from .models import Configuracao, Ferias, Funcionario, db
+from .models import Configuracao, Ferias, Funcionario, SugestaoFerias, db
 from .regras import DIAS_SEMANA_ABREV, MESES, MESES_ABREV, Periodo, ciclo_de, limite_ausentes, nivel_cobertura, ocupacao_por_dia, rotulo_ciclo
 
 
@@ -31,6 +31,12 @@ def ciclos_disponiveis(ciclo_ini: date) -> list[dict]:
     for valor in limites:
         if valor:
             anos.add(ciclo_atual(valor)[0].year)
+    anos_opcao = db.session.execute(
+        db.select(db.func.min(SugestaoFerias.ciclo_ano), db.func.max(SugestaoFerias.ciclo_ano))
+    ).one()
+    for valor in anos_opcao:
+        if valor:
+            anos.add(int(valor))
     mes_inicio = Configuracao.obter_int("mes_inicio_ciclo")
     return [
         {"ano": ano, "rotulo": rotulo_ciclo(date(ano, mes_inicio, 1))}

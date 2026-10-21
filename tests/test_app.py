@@ -67,6 +67,7 @@ def test_paginas_principais_carregam(app):
     client = app.test_client()
     entrar(client)
     for url in ["/", "/ferias/", "/ferias/nova", "/ferias/calendario", "/ferias/opcoes",
+                "/ferias/validacao/lider", "/ferias/validacao/gerente",
                 "/admin/funcionarios", "/admin/usuarios", "/admin/configuracoes", "/admin/historico"]:
         assert client.get(url).status_code == 200, url
     cronograma = client.get("/cronograma/")
@@ -342,6 +343,8 @@ def test_usuario_comum_nao_aprova_nem_acessa_admin(app):
     assert client.get("/ferias/nova").status_code == 403
     assert client.get("/ferias/calendario").status_code == 200
     assert client.get("/ferias/opcoes").status_code == 200
+    assert client.get("/ferias/validacao/lider").status_code == 403
+    assert client.get("/ferias/validacao/gerente").status_code == 403
     assert client.get("/").status_code == 302
 
 
@@ -618,8 +621,14 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
 
     client.get("/logout")
     entrar(client)
+    fila = client.get("/ferias/validacao/lider?ciclo=2026").get_data(as_text=True)
+    assert "Validação do líder" in fila
+    assert "Carlos" in fila
+    assert "01/12/2026" in fila
     montado = client.post("/ferias/montar", data={"ciclo": "2026"}, follow_redirects=True)
-    assert "Calendário montado" in montado.get_data(as_text=True)
+    html_montado = montado.get_data(as_text=True)
+    assert "Calendário montado" in html_montado
+    assert "Fila para validar" in html_montado
     with app.app_context():
         ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
         assert ferias.status == STATUS_AGUARDANDO_LIDER

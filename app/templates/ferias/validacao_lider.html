@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% from "_macros.html" import icone, seletor_ciclo with context %}
+{% block titulo %}Validação do líder{% endblock %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div>
+    <h1>Validação do líder</h1>
+    <p>Ciclo {{ rotulo_ciclo }}. Primeiro monte o calendário com as datas enviadas; depois valide cada período.</p>
+  </div>
+  <div class="acoes">
+    {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.validacao_lider') }}
+    <form method="post" action="{{ url_for('ferias.montar') }}" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="ciclo" value="{{ ciclo_ini.year }}">
+      <button type="submit" class="btn btn-primario">Montar calendário</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-titulo">
+    <h2>Datas enviadas pelos funcionários</h2>
+    <span class="texto-suave">{{ enviadas|length }} de {{ enviadas|length + faltando|length }}</span>
+  </div>
+  {% if enviadas %}
+  <div class="tabela-wrap">
+    <table class="tabela">
+      <thead>
+        <tr>
+          <th>Funcionário</th>
+          <th>Opção 1</th>
+          <th>Opção 2</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in enviadas %}
+          <tr>
+            <td class="col-nome"><strong>{{ item.funcionario.nome }}</strong></td>
+            {% for n in [0, 1] %}
+              <td class="nowrap">
+                {% if item.opcoes|length > n %}
+                  {{ item.opcoes[n].inicio|data }} a {{ item.opcoes[n].fim|data }}
+                  <span class="texto-suave">· {{ item.opcoes[n].dias }} dias</span>
+                  {% if item.opcoes[n].vende_10 %}<br><small>Vende 10 dias</small>{% endif %}
+                {% else %}
+                  <span class="texto-suave">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="vazio">Ninguém enviou opções neste ciclo. Peça para acessarem Minhas datas.</div>
+  {% endif %}
+  {% if faltando %}
+    <p class="texto-suave" style="padding:12px 20px 16px;margin:0">
+      Ainda não enviaram: {{ faltando|map(attribute='nome')|join(', ') }}.
+    </p>
+  {% endif %}
+</div>
+
+<div class="card mt">
+  <div class="card-titulo">
+    <h2>Fila para validar</h2>
+    <span class="texto-suave">{{ fila|length }}</span>
+  </div>
+  {% if fila %}
+    <div class="card-corpo">
+      {% for f in fila %}
+        <div class="pendencia-item">
+          <div>
+            <strong>{{ f.funcionario.nome }}</strong>
+            <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
+            {% if f.vende_10 %}<span class="texto-suave"> · vende 10 dias</span>{% endif %}
+            {% if f.observacao %}<p class="texto-suave" style="margin:4px 0 0">{{ f.observacao }}</p>{% endif %}
+          </div>
+          <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" aria-label="Data escolhida pelo líder">
+            <button type="submit" class="btn btn-pequeno btn-sucesso">Validar / definir</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="vazio">
+      {% if enviadas %}
+        Clique em <strong>Montar calendário</strong> para gerar os períodos a validar.
+      {% else %}
+        Nada pendente de validação.
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
