@@ -267,6 +267,7 @@ def grade_cronograma(inicio: date, fim: date) -> dict:
         "ausentes": ausentes,
         "limite": limite,
         "min_disponiveis": min_disp,
+        "total_ativos": len(ativos),
         "dias_semana": DIAS_SEMANA_ABREV,
         "inicio_grade": inicio,
         "fim_grade": fim,

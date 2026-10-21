@@ -426,7 +426,6 @@ def calendario():
         ciclo_ini=ciclo_ini,
         ciclos=_ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini),
-        total_ativos=len(funcionarios_ativos()),
         **grade,
     )
 

@@ -180,6 +180,7 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert 'class="gantt"' in pagina
     assert "20 dias" in pagina
     assert "no setor" in pagina
+    assert "De férias no setor" in pagina
 
 
 def test_dados_do_funcionario_no_formulario(app):

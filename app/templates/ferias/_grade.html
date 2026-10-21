@@ -30,12 +30,12 @@
       </thead>
       <tbody>
         <tr class="linha-ausentes">
-          <td class="col-nome">De férias</td>
+          <td class="col-nome">De férias no setor<br><small class="texto-suave">{{ total_ativos }} pessoas</small></td>
           {% for d in dias %}
             {% set n = ausentes[d]|length %}
             <td class="{{ 'excesso' if n > limite else ('ocupado' if n else '') }} {{ 'hoje-col' if d == hoje }}"
-                {% if n %}title="{{ d|data }}: {{ n }} de férias · {{ ausentes[d]|join(', ') }}"{% endif %}>
-              {% if n %}<span class="qtd-ferias">{{ n }}</span>{% endif %}
+                {% if n %}title="{{ d|data }}: {{ n }} de {{ total_ativos }} no setor · {{ ausentes[d]|join(', ') }}"{% endif %}>
+              {% if n %}<span class="qtd-ferias">{{ n }}/{{ total_ativos }}</span>{% endif %}
             </td>
           {% endfor %}
         </tr>
