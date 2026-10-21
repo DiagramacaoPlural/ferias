@@ -549,8 +549,8 @@ def test_importar_usuarios_xlsx_define_papeis(app, tmp_path):
         ricardo = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "ricardo"))
         comum = db.session.scalar(db.select(Usuario).filter(db.func.lower(Usuario.login) == "carlos"))
         assert gercilio.papel == PAPEL_SIMPLES and not gercilio.pode_gestao()
-        assert marcelo.papel == PAPEL_GERENTE and marcelo.pode_gerente()
-        assert ricardo.papel == PAPEL_GERENTE
+        assert marcelo.papel == PAPEL_LIDER and marcelo.pode_lider() and not marcelo.pode_gerente()
+        assert ricardo.papel == PAPEL_GERENTE and ricardo.pode_gerente() and not ricardo.pode_lider()
         assert comum.papel == PAPEL_SIMPLES and not comum.pode_gestao()
 
 
