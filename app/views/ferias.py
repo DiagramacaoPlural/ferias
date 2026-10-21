@@ -405,7 +405,7 @@ def calendario():
     for primeiro in meses_do_ciclo(ciclo_ini):
         ultimo = ultimo_dia_mes(primeiro)
         do_mes = [f for f in ferias if sobrepoe(f.inicio, f.fim, primeiro, ultimo)]
-        if not do_mes:
+        if not do_mes and primeiro.month != 11:
             continue
         meses.append(
             {

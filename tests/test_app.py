@@ -174,8 +174,8 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     client.post("/ferias/nova", data={"funcionario_id": cid, "inicio": "2026-12-01", "dias": "20"})
     pagina = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
     assert "Dezembro/2026" in pagina
+    assert "Novembro/2026" in pagina
     assert "Outubro/2026" not in pagina
-    assert "Novembro/2026" not in pagina
     assert "Cronograma" in pagina
     assert 'class="gantt"' in pagina
 
