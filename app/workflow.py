@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 
 from .alertas import enviar_email
-from .consultas import funcionarios_ativos
 from .models import (
     PAPEL_GERENTE,
     PAPEL_LIDER,
@@ -54,36 +53,34 @@ _STATUS_FILA_LIDER = (
     STATUS_AGUARDANDO_FUNCIONARIO,
     STATUS_AJUSTE_GERENTE,
 )
-_STATUS_NAO_SOBRESCREVER = (STATUS_APROVADA, STATUS_AGUARDANDO_GERENTE)
-
-
-def _ferias_do_ciclo(funcionario_id: int, ciclo_ini: date, ciclo_fim: date) -> list[Ferias]:
+def _pendentes_do_funcionario(funcionario_id: int) -> list[Ferias]:
     return list(
         db.session.scalars(
             db.select(Ferias).where(
                 Ferias.funcionario_id == funcionario_id,
-                Ferias.inicio >= ciclo_ini,
-                Ferias.inicio <= ciclo_fim,
+                Ferias.status.in_(_STATUS_FILA_LIDER + (STATUS_AGUARDANDO_GERENTE,)),
             )
         )
     )
 
 
-def _colocar_na_fila_do_lider(funcionario: Funcionario, opcoes: list[SugestaoFerias]) -> Ferias | None:
+def _colocar_na_fila_do_lider(
+    funcionario: Funcionario, opcoes: list[SugestaoFerias], atualizar: bool = True
+) -> Ferias | None:
     """Cria ou atualiza o período com a 1ª opção e deixa na fila do líder."""
-    from .consultas import ciclo_por_ano
-
     if not opcoes:
         return None
-    primeira = opcoes[0]
-    ciclo_ini, ciclo_fim = ciclo_por_ano(primeira.ciclo_ano)
-    existentes = _ferias_do_ciclo(funcionario.id, ciclo_ini, ciclo_fim)
-    if any(f.status in _STATUS_NAO_SOBRESCREVER for f in existentes):
+    pendentes = _pendentes_do_funcionario(funcionario.id)
+    if any(f.status == STATUS_AGUARDANDO_GERENTE for f in pendentes):
         return None
-    ferias = next((f for f in existentes if f.status in _STATUS_FILA_LIDER), None)
-    if ferias is None:
+    ferias = next((f for f in pendentes if f.status in _STATUS_FILA_LIDER), None)
+    if ferias is not None:
+        if ferias.status != STATUS_AGUARDANDO_LIDER or not atualizar:
+            return ferias
+    else:
         ferias = Ferias(funcionario=funcionario, criado_por="funcionario")
         db.session.add(ferias)
+    primeira = opcoes[0]
     ferias.definir_periodo(primeira.inicio, primeira.dias)
     ferias.adianta_13 = bool(primeira.adianta_13)
     ferias.vende_10 = bool(primeira.vende_10)
@@ -107,55 +104,72 @@ def enviar_ao_lider(funcionario: Funcionario, opcoes: list[SugestaoFerias]) -> F
     return ferias
 
 
-def montar_calendario(ano: int | None = None) -> dict:
-    """Coloca na fila do líder quem já enviou opções e ainda não está no fluxo."""
-    from .consultas import ciclo_por_ano
-
-    ciclo_ini, ciclo_fim = ciclo_por_ano(ano)
-    ativos = funcionarios_ativos()
+def garantir_fila_do_lider(ano: int) -> int:
+    """Garante um período na fila para cada funcionário que já enviou opções neste ciclo."""
     sugestoes = db.session.scalars(
-        db.select(SugestaoFerias).where(SugestaoFerias.ciclo_ano == ciclo_ini.year).order_by(
+        db.select(SugestaoFerias).where(SugestaoFerias.ciclo_ano == ano).order_by(
             SugestaoFerias.funcionario_id, SugestaoFerias.ordem
         )
     ).all()
     por_func: dict[int, list[SugestaoFerias]] = {}
     for s in sugestoes:
         por_func.setdefault(s.funcionario_id, []).append(s)
+    criados = 0
+    for funcionario_id, opcoes in por_func.items():
+        funcionario = db.session.get(Funcionario, funcionario_id)
+        if not funcionario or not funcionario.ativo:
+            continue
+        if _pendentes_do_funcionario(funcionario.id):
+            continue
+        if _colocar_na_fila_do_lider(funcionario, opcoes, atualizar=False):
+            criados += 1
+    if criados:
+        db.session.commit()
+    return criados
 
-    montados, ja_na_fila, sem_opcao = [], [], []
-    for func in ativos:
-        opcoes = por_func.get(func.id) or []
-        if not opcoes:
-            sem_opcao.append(func.nome)
-            continue
-        existentes = _ferias_do_ciclo(func.id, ciclo_ini, ciclo_fim)
-        if any(f.status in _STATUS_NAO_SOBRESCREVER for f in existentes):
-            ja_na_fila.append(func.nome)
-            continue
-        if any(f.status == STATUS_AGUARDANDO_LIDER for f in existentes):
-            ja_na_fila.append(func.nome)
-            continue
-        ferias = _colocar_na_fila_do_lider(func, opcoes)
-        if ferias:
-            montados.append(func.nome)
 
-    if montados:
-        _notificar_papel(
-            PAPEL_LIDER,
-            "Datas de férias na fila para validar",
-            "Há períodos enviados pelos funcionários, aguardando validação do líder.\n\n"
-            + "\n".join(f"- {n}" for n in montados),
+def excluir_opcoes_do_funcionario(funcionario_id: int, ano: int) -> int:
+    """Remove as opções enviadas no ciclo e o período pendente gerado a partir delas."""
+    from .consultas import ciclo_atual
+
+    opcoes = list(
+        db.session.scalars(
+            db.select(SugestaoFerias).where(
+                SugestaoFerias.funcionario_id == funcionario_id,
+                SugestaoFerias.ciclo_ano == ano,
+            )
         )
+    )
+    inicios = {s.inicio for s in opcoes}
+    for sugestao in opcoes:
+        db.session.delete(sugestao)
+    removidos = 0
+    for ferias in _pendentes_do_funcionario(funcionario_id):
+        if ferias.status == STATUS_AGUARDANDO_GERENTE:
+            continue
+        no_ciclo = ciclo_atual(ferias.inicio)[0].year == ano
+        if ferias.inicio in inicios or no_ciclo or ferias.status == STATUS_AGUARDANDO_LIDER:
+            db.session.delete(ferias)
+            removidos += 1
+    db.session.commit()
+    return len(opcoes)
 
+
+def montar_calendario(ano: int | None = None) -> dict:
+    """Coloca na fila do líder quem já enviou opções e ainda não está no fluxo."""
+    from .consultas import ciclo_por_ano
+
+    ciclo_ini, _ciclo_fim = ciclo_por_ano(ano)
+    criados = garantir_fila_do_lider(ciclo_ini.year)
     db.session.add(
         Historico(
             usuario="sistema",
             acao="Calendário montado",
-            detalhe=f"{len(montados)} na fila do líder, {len(ja_na_fila)} já estavam no fluxo",
+            detalhe=f"{criados} na fila do líder",
         )
     )
     db.session.commit()
-    return {"montados": montados, "propostos": [], "sem_encaixe": []}
+    return {"montados": ["ok"] * criados, "propostos": [], "sem_encaixe": []}
 
 
 def aceitar_proposta(ferias: Ferias) -> None:

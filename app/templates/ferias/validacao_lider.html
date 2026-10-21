@@ -30,6 +30,7 @@
           <th>Funcionário</th>
           <th>Opção 1</th>
           <th>Opção 2</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -47,6 +48,13 @@
                 {% endif %}
               </td>
             {% endfor %}
+            <td class="acoes-col">
+              <form method="post" action="{{ url_for('ferias.excluir_sugestoes', funcionario_id=item.funcionario.id) }}" class="inline" onsubmit="return confirm('Excluir as datas enviadas por {{ item.funcionario.nome }}?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="ciclo" value="{{ ciclo_ini.year }}">
+                <button type="submit" class="btn btn-pequeno btn-perigo">Excluir</button>
+              </form>
+            </td>
           </tr>
         {% endfor %}
       </tbody>

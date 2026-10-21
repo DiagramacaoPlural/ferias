@@ -845,3 +845,33 @@ def test_lider_pode_excluir_periodo(app):
     with app.app_context():
         assert db.session.get(Ferias, fid) is None
         assert db.session.get(Ferias, aid) is None
+
+
+def test_lider_exclui_datas_enviadas_e_sobe_para_a_fila(app):
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        lider = Usuario(login="Lider", papel=PAPEL_LIDER, acessa_calendario=True, acessa_cronograma=True, trocar_senha=False)
+        lider.definir_senha("senha123")
+        opcao = SugestaoFerias(funcionario=carlos, ciclo_ano=2026, ordem=1)
+        opcao.definir_periodo(date(2026, 12, 21), 20)
+        db.session.add_all([lider, opcao])
+        db.session.commit()
+        cid = carlos.id
+
+    entrar(client, "Lider", "senha123")
+    html = client.get("/ferias/validacao/lider?ciclo=2026").get_data(as_text=True)
+    assert "Excluir" in html
+    assert "Carlos" in html
+    assert "21/12/2026" in html
+    with app.app_context():
+        ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
+        assert ferias is not None
+        assert ferias.status == STATUS_AGUARDANDO_LIDER
+        assert ferias.inicio == date(2026, 12, 21)
+
+    resp = client.post(f"/ferias/sugestoes/{cid}/excluir", data={"ciclo": "2026"}, follow_redirects=True)
+    assert "foram excluídas" in resp.get_data(as_text=True)
+    with app.app_context():
+        assert db.session.scalars(db.select(SugestaoFerias).filter_by(funcionario_id=cid)).all() == []
+        assert db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid)) is None

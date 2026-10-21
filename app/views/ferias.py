@@ -32,6 +32,8 @@ from ..models import (
 from ..workflow import (
     aceitar_proposta,
     enviar_ao_lider,
+    excluir_opcoes_do_funcionario,
+    garantir_fila_do_lider,
     gerente_aprovar,
     gerente_sugerir,
     lider_definir,
@@ -449,6 +451,19 @@ def excluir(ferias_id: int):
     return redirect(request.referrer or url_for("ferias.lista"))
 
 
+@bp.route("/sugestoes/<int:funcionario_id>/excluir", methods=["POST"])
+@requer("gestao")
+def excluir_sugestoes(funcionario_id: int):
+    if not (current_user.pode_lider() or current_user.pode_gerente() or current_user.admin):
+        abort(403)
+    funcionario = db.get_or_404(Funcionario, funcionario_id)
+    ano = request.form.get("ciclo", type=int) or ciclo_atual()[0].year
+    qtd = excluir_opcoes_do_funcionario(funcionario.id, ano)
+    registrar("Opções de férias excluídas", f"{funcionario.nome}: ciclo {ano}, {qtd} opção(ões)")
+    flash(f"Datas enviadas por {funcionario.nome} foram excluídas.", "sucesso")
+    return redirect(url_for("ferias.validacao_lider", ciclo=ano))
+
+
 @bp.route("/calendario")
 @requer("calendario")
 def calendario():
@@ -774,6 +789,7 @@ def validacao_lider():
     if not current_user.pode_lider():
         abort(403)
     ciclo_ini, ciclo_fim = _ciclo_da_requisicao()
+    garantir_fila_do_lider(ciclo_ini.year)
     por_func = _sugestoes_do_ciclo(ciclo_ini.year)
     ativos = funcionarios_ativos()
     enviadas = [{"funcionario": f, "opcoes": por_func[f.id]} for f in ativos if f.id in por_func]
