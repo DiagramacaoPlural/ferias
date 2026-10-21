@@ -161,15 +161,15 @@ def test_painel_cobertura_destaca_pico():
 
 
 def test_nivel_cobertura_por_volume_de_ferias():
-    # 12 no setor, mínimo 3: até 3 de férias é pouco, 4–6 médio, 7+ muito
-    assert nivel_cobertura(1, 12, 3) == "pouco"
-    assert nivel_cobertura(3, 12, 3) == "pouco"
-    assert nivel_cobertura(4, 12, 3) == "medio"
-    assert nivel_cobertura(6, 12, 3) == "medio"
-    assert nivel_cobertura(7, 12, 3) == "muito"
-    assert nivel_cobertura(10, 12, 3) == "muito"
-    # 4 no setor, mínimo 3: qualquer ausência já é muito
-    assert nivel_cobertura(1, 4, 3) == "muito"
+    # 12 no setor, mínimo 5: vermelho só abaixo do mínimo; 7 disponíveis é laranja
+    assert nivel_cobertura(1, 12, 5) == "pouco"
+    assert nivel_cobertura(4, 12, 5) == "pouco"
+    assert nivel_cobertura(5, 12, 5) == "medio"
+    assert nivel_cobertura(7, 12, 5) == "medio"
+    assert nivel_cobertura(8, 12, 5) == "muito"
+    # 4 no setor, mínimo 3: no mínimo é médio; abaixo é muito
+    assert nivel_cobertura(1, 4, 3) == "medio"
+    assert nivel_cobertura(2, 4, 3) == "muito"
 
 
 def test_setor_desfalcado_gera_aviso_e_alternativas():

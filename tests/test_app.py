@@ -170,8 +170,10 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     entrar(client)
     with app.app_context():
         carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
-        cid = carlos.id
+        edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
+        cid, eid = carlos.id, edson.id
     client.post("/ferias/nova", data={"funcionario_id": cid, "inicio": "2026-12-01", "dias": "20"})
+    client.post("/ferias/nova", data={"funcionario_id": eid, "inicio": "2026-12-01", "dias": "20", "confirmar": "1"})
     pagina = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
     assert "Dezembro/2026" in pagina
     assert "Novembro/2026" in pagina
