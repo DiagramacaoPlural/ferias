@@ -186,7 +186,7 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert 'class="gantt"' in pagina
     assert "20 dias" in pagina
     assert "no setor" in pagina
-    assert "4 de férias" in pagina
+    assert "2 de férias" in pagina
     assert "2 disponíveis" in pagina
     cards = pagina.split("Cronograma")[0]
     assert "Janeiro/2027" in cards

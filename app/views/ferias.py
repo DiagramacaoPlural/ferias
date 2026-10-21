@@ -429,9 +429,11 @@ def calendario():
             dias_mes = [d for d in dias_grade if d.year == mes["data"].year and d.month == mes["data"].month]
             if dias_mes and total:
                 pior = max(len(ausentes.get(d, [])) for d in dias_mes)
+                mes["de_ferias"] = pior
                 mes["disp"] = total - pior
                 mes["nivel_disp"] = nivel_cobertura(pior, total, min_setor)
             else:
+                mes["de_ferias"] = 0
                 mes["disp"] = total
                 mes["nivel_disp"] = "pouco"
 

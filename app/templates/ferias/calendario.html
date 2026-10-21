@@ -20,8 +20,7 @@
       <div class="mes-titulo">
         <span>{{ mes.data|mes_ano }}</span>
         <span class="mes-qtds">
-          {% set de_ferias = mes.aprovadas|length + mes.programadas|length %}
-          <span class="mes-qtd">{{ de_ferias }} de férias</span>
+          <span class="mes-qtd">{{ mes.de_ferias }} de férias</span>
           <span class="mes-qtd mes-qtd-disp {{ mes.nivel_disp }}">{{ mes.disp }} disponíveis</span>
           <span class="mes-qtd mes-qtd-setor">{{ total_ativos }} no setor</span>
         </span>
