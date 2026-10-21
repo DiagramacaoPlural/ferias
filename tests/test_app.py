@@ -204,6 +204,9 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert "Outubro/2026" not in pagina
     assert "Cronograma" in pagina
     assert 'class="gantt"' in pagina
+    gantt = pagina.split("Cronograma", 1)[1]
+    assert "Dezembro 2026" in gantt
+    assert "Novembro 2026" not in gantt
     assert "20 dias" in pagina
     assert "no setor" in pagina
     assert "2 de férias" in pagina

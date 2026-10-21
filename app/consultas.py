@@ -251,8 +251,7 @@ def conflitos(ferias: list[Ferias], inicio: date, fim: date, limite: int) -> lis
 
 
 def grade_cronograma(inicio: date, fim: date) -> dict:
-    """Grade diária de ausências, com o início recuado para a segunda-feira."""
-    inicio = inicio - timedelta(days=inicio.weekday())
+    """Grade diária de ausências, do início ao fim informados."""
     if fim < inicio:
         return {}
     dias = [inicio + timedelta(days=i) for i in range((fim - inicio).days + 1)]

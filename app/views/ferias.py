@@ -399,12 +399,16 @@ def calendario():
                 "aprovadas": [f for f in sai_no_mes if f.aprovada],
                 "programadas": [f for f in sai_no_mes if not f.aprovada],
                 "atual": primeiro.year == date.today().year and primeiro.month == date.today().month,
+                "de_ferias": 0,
+                "disp": 0,
+                "nivel_disp": "pouco",
             }
         )
 
     grade = {}
-    if meses:
-        grade = grade_cronograma(meses[0]["data"], ultimo_dia_mes(meses[-1]["data"]))
+    saidas = [m for m in meses if m["aprovadas"] or m["programadas"]]
+    if saidas:
+        grade = grade_cronograma(saidas[0]["data"], ultimo_dia_mes(meses[-1]["data"]))
         total = grade.get("total_ativos") or 0
         min_setor = grade.get("min_disponiveis") or 0
         ausentes = grade.get("ausentes") or {}
