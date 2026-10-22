@@ -43,7 +43,7 @@
       Selecionar
     </label>
     <span class="texto-suave" id="lote-qtd">Nenhum selecionado</span>
-    {% if current_user.papel == 'admin' %}
+    {% if current_user.pode_gestao() %}
       <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
     {% endif %}
     <button type="submit" name="acao" value="13_sim" class="btn btn-pequeno">13º Sim</button>

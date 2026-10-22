@@ -10,6 +10,7 @@ from app.models import (
     STATUS_AGUARDANDO_LIDER,
     STATUS_AJUSTE_LIDER,
     STATUS_APROVADA,
+    STATUS_PROGRAMADA,
     Configuracao,
     Ferias,
     Funcionario,
@@ -205,6 +206,37 @@ def test_acoes_em_lote_aprova_e_define_13(app):
     client.post("/ferias/lote", data={"acao": "vende_sim", "ids": ids}, follow_redirects=True)
     with app.app_context():
         assert all(f.vende_10 for f in db.session.scalars(db.select(Ferias)))
+
+
+def test_lider_aprova_varios_periodos_em_lote(app):
+    client = app.test_client()
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
+        lider = Usuario(
+            login="Lider",
+            papel=PAPEL_LIDER,
+            acessa_calendario=True,
+            acessa_cronograma=True,
+            trocar_senha=False,
+        )
+        lider.definir_senha("senha123")
+        um = Ferias(funcionario=carlos, status=STATUS_PROGRAMADA, criado_por="lider")
+        um.definir_periodo(date(2026, 12, 1), 10)
+        dois = Ferias(funcionario=edson, status=STATUS_PROGRAMADA, criado_por="lider")
+        dois.definir_periodo(date(2026, 12, 15), 10)
+        db.session.add_all([lider, um, dois])
+        db.session.commit()
+        ids = [um.id, dois.id]
+
+    entrar(client, "Lider", "senha123")
+    lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
+    assert "Aprovar" in lista
+    resp = client.post("/ferias/lote", data={"acao": "aprovar", "ids": ids}, follow_redirects=True)
+    assert "2 período(s) aprovado(s)" in resp.get_data(as_text=True)
+    with app.app_context():
+        periodos = db.session.scalars(db.select(Ferias).where(Ferias.id.in_(ids))).all()
+        assert all(f.aprovada and f.aprovado_por == "Lider" for f in periodos)
 
 
 def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):

@@ -356,8 +356,6 @@ def acao_lote():
 
     registros = db.session.scalars(db.select(Ferias).where(Ferias.id.in_(ids))).all()
     if acao == "aprovar":
-        if not current_user.admin:
-            abort(403)
         feitos = []
         for ferias in registros:
             if ferias.aprovada:
