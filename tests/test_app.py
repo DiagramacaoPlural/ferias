@@ -869,6 +869,7 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Aceite do gerente" in gerente
     assert "Carlos" in gerente
     assert "01/12/2026" in gerente
+    assert 'value="2026-12-01"' in gerente
 
     client.post(f"/ferias/{fid}/gerente", data={"acao": "aprovar"}, follow_redirects=True)
     with app.app_context():
@@ -910,6 +911,7 @@ def test_lider_nao_e_gerente_e_a_fila_do_gerente_recebe_a_validacao(app):
     html = client.get("/ferias/validacao/gerente").get_data(as_text=True)
     assert "Carlos" in html
     assert "01/12/2026" in html
+    assert 'value="2026-12-01"' in html
 
 
 def test_lider_ve_e_valida_a_segunda_opcao(app, monkeypatch):
