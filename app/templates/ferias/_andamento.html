@@ -1,4 +1,4 @@
-{% from "_macros.html" import status with context %}
+{% from "_macros.html" import status, flags_13_abono with context %}
 {% if andamento %}
 <div class="card caixa-pendencia">
   <div class="card-titulo"><h2>Andamento das suas férias</h2></div>
@@ -7,7 +7,7 @@
       <div class="andamento-item">
         <div class="andamento-cabeca">
           <strong>{{ f.inicio|data }} a {{ f.fim|data }}</strong>
-          <span class="texto-suave"> · {{ f.dias }} dias</span>
+          <span class="texto-suave"> · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
           {{ status(f) }}
         </div>
         <p class="texto-suave" style="margin:6px 0 0">{{ f.status_explicacao }}</p>

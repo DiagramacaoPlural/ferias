@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo, acoes_lider, botao_excluir_ferias, status with context %}
+{% from "_macros.html" import icone, seletor_ciclo, acoes_lider, botao_excluir_ferias, status, flags_13_abono with context %}
 {% block titulo %}Calendário{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -30,7 +30,7 @@
       <div class="pendencia-item">
         <div>
           <strong>{{ f.inicio|data }} a {{ f.fim|data }}</strong>
-          <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · abono pecuniário{% endif %}</span>
+          <span class="texto-suave"> · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
           <p class="texto-suave" style="margin:4px 0 0">
             {% if f.status == 'AJUSTE_LIDER' %}O líder sugeriu esta data.{% elif f.status == 'AJUSTE_GERENTE' %}O gerente sugeriu esta data.{% else %}Não foi possível usar a data que você enviou. Esta é a sugestão mais próxima.{% endif %}
           </p>
@@ -57,7 +57,7 @@
         <div>
           <strong>{{ f.funcionario.nome }}</strong>
           {% if not opcoes_por_func.get(f.funcionario_id) %}
-            <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
+            <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
           {% endif %}
           {% if f.recusou_ajuste %}<p class="texto-suave" style="margin:4px 0 0">Funcionário recusou. Defina a data e envie ao gerente.</p>{% endif %}
           {% if f.observacao %}<p class="texto-suave" style="margin:4px 0 0">{{ f.observacao }}</p>{% endif %}
@@ -77,7 +77,7 @@
       <div class="pendencia-item">
         <div>
           <strong>{{ f.funcionario.nome }}</strong>
-          <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
+          <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
         </div>
         <div class="acoes" style="flex-wrap:wrap">
           <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="acoes">
@@ -110,7 +110,7 @@
         <div class="mes-coluna programadas">
           <h3>Programadas</h3>
           {% for f in mes.programadas %}
-            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · abono pecuniário{% endif %}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}
@@ -118,7 +118,7 @@
         <div class="mes-coluna aprovadas">
           <h3>Aprovadas</h3>
           {% for f in mes.aprovadas %}
-            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · abono pecuniário{% endif %}{% if f.gozada() %} · já gozou{% endif %}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}{% if f.gozada() %} · já gozou{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}

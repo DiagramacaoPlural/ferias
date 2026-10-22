@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo, botao_excluir_ferias with context %}
+{% from "_macros.html" import icone, seletor_ciclo, botao_excluir_ferias, flags_13_abono with context %}
 {% block titulo %}Aceite do gerente{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -23,9 +23,7 @@
         <div class="pendencia-item">
           <div>
             <strong>{{ f.funcionario.nome }}</strong>
-            <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
-            {% if f.vende_10 %}<span class="texto-suave"> · abono pecuniário</span>{% endif %}
-            {% if f.adianta_13 %}<span class="texto-suave"> · 1ª parcela 13º</span>{% endif %}
+            <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
           </div>
           <div class="acoes" style="flex-wrap:wrap">
             <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="acoes">

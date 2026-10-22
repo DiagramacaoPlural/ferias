@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo with context %}
+{% from "_macros.html" import icone, seletor_ciclo, flags_13_abono with context %}
 {% block titulo %}Minhas datas de férias{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -27,7 +27,7 @@
       <div class="pendencia-item">
         <div>
           <strong>{{ f.inicio|data }} a {{ f.fim|data }}</strong>
-          <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · abono pecuniário{% endif %}</span>
+          <span class="texto-suave"> · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
           <p class="texto-suave" style="margin:4px 0 0">
             {% if f.status == 'AJUSTE_LIDER' %}O líder sugeriu esta data.{% elif f.status == 'AJUSTE_GERENTE' %}O gerente sugeriu esta data.{% else %}Não foi possível usar a data que você enviou. Esta é a sugestão mais próxima.{% endif %}
           </p>
@@ -86,13 +86,27 @@
             <div class="campo">
               <span class="rotulo-campo">Antecipar 1ª parcela do 13º</span>
               <div class="opcoes-sim-nao">
-                <label class="checkbox"><input type="checkbox" name="adianta_13_{{ ordem }}" value="1" {{ 'checked' if v_13 }}> Sim</label>
+                <label class="checkbox">
+                  <input type="checkbox" id="adianta_13_{{ ordem }}_sim" name="adianta_13_{{ ordem }}" value="1" {{ 'checked' if v_13 }}>
+                  Sim
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="adianta_13_{{ ordem }}_nao" {{ 'checked' if not v_13 }}>
+                  Não
+                </label>
               </div>
             </div>
             <div class="campo">
               <span class="rotulo-campo">Abono pecuniário</span>
               <div class="opcoes-sim-nao">
-                <label class="checkbox"><input type="checkbox" name="vende_10_{{ ordem }}" value="1" {{ 'checked' if v_vende }}> Sim</label>
+                <label class="checkbox">
+                  <input type="checkbox" id="vende_10_{{ ordem }}_sim" name="vende_10_{{ ordem }}" value="1" {{ 'checked' if v_vende }}>
+                  Sim
+                </label>
+                <label class="checkbox">
+                  <input type="checkbox" id="vende_10_{{ ordem }}_nao" {{ 'checked' if not v_vende }}>
+                  Não
+                </label>
               </div>
             </div>
             <div id="analise_{{ ordem }}" class="alertas"></div>
@@ -162,12 +176,29 @@
     } catch (e) { /* validação ao vivo é auxiliar */ }
   }
 
+  function marcarPar(simEl, naoEl, sim) {
+    simEl.checked = sim;
+    naoEl.checked = !sim;
+  }
+
   [1, 2].forEach(function (ordem) {
     ['inicio_' + ordem, 'dias_' + ordem].forEach(function (id) {
       const el = document.getElementById(id);
       if (el) el.addEventListener('change', function () { analisar(ordem); });
       if (el) el.addEventListener('input', function () { analisar(ordem); });
     });
+    const a13s = document.getElementById('adianta_13_' + ordem + '_sim');
+    const a13n = document.getElementById('adianta_13_' + ordem + '_nao');
+    const v10s = document.getElementById('vende_10_' + ordem + '_sim');
+    const v10n = document.getElementById('vende_10_' + ordem + '_nao');
+    if (a13s && a13n) {
+      a13s.addEventListener('change', function () { marcarPar(a13s, a13n, this.checked); });
+      a13n.addEventListener('change', function () { marcarPar(a13s, a13n, !this.checked); });
+    }
+    if (v10s && v10n) {
+      v10s.addEventListener('change', function () { marcarPar(v10s, v10n, this.checked); });
+      v10n.addEventListener('change', function () { marcarPar(v10s, v10n, !this.checked); });
+    }
     analisar(ordem);
   });
 

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo, acoes_lider, botao_excluir_ferias with context %}
+{% from "_macros.html" import icone, seletor_ciclo, acoes_lider, botao_excluir_ferias, flags_13_abono with context %}
 {% block titulo %}Validação do líder{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -43,7 +43,7 @@
                 {% if item.opcoes|length > n %}
                   {{ item.opcoes[n].inicio|data }} a {{ item.opcoes[n].fim|data }}
                   <span class="texto-suave">· {{ item.opcoes[n].dias }} dias</span>
-                  {% if item.opcoes[n].vende_10 %}<br><small>Abono pecuniário</small>{% endif %}
+                  <br><small>{{ flags_13_abono(item.opcoes[n]) }}</small>
                 {% else %}
                   <span class="texto-suave">—</span>
                 {% endif %}
@@ -83,8 +83,7 @@
           <div>
             <strong>{{ f.funcionario.nome }}</strong>
             {% if not opcoes_por_func.get(f.funcionario_id) %}
-              <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
-              {% if f.vende_10 %}<span class="texto-suave"> · abono pecuniário</span>{% endif %}
+              <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
             {% endif %}
             {% if f.recusou_ajuste %}<p class="texto-suave" style="margin:4px 0 0">Funcionário recusou. Defina a data e envie ao gerente.</p>{% endif %}
             {% if f.observacao %}<p class="texto-suave" style="margin:4px 0 0">{{ f.observacao }}</p>{% endif %}
@@ -174,7 +173,7 @@
       <div class="pendencia-item">
         <div>
           <strong>{{ f.funcionario.nome }}</strong>
-          <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
+          <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
         </div>
         {{ botao_excluir_ferias(f) }}
       </div>

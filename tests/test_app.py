@@ -162,6 +162,9 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
 
     lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
     assert ">Sim</span>" in lista
+    cal = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "1ª parcela 13º: Sim" in cal
+    assert "Abono: Sim" in cal
 
     ao_vivo = client.post(
         "/ferias/analisar",
@@ -262,6 +265,8 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert "Dezembro 2026" in gantt
     assert "Novembro 2026" not in gantt
     assert "20 dias" in pagina
+    assert "1ª parcela 13º: Não" in pagina
+    assert "Abono: Não" in pagina
     assert "no setor" in pagina
     assert "2 de férias" in pagina
     assert "2 disponíveis" in pagina
@@ -639,6 +644,11 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     entrar(client, "joao", "senha123")
     nav = client.get("/ferias/calendario").get_data(as_text=True)
     assert "Minhas datas" in nav
+    minhas = client.get("/ferias/opcoes?ciclo=2026").get_data(as_text=True)
+    assert 'id="adianta_13_1_sim"' in minhas
+    assert 'id="adianta_13_1_nao"' in minhas
+    assert 'id="vende_10_1_sim"' in minhas
+    assert 'id="vende_10_1_nao"' in minhas
     assert "Painel</a>" not in nav
     assert "Programação</a>" not in nav
     envio = client.post(
@@ -673,6 +683,9 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Opção 2" in fila
     assert "Validar opção 1" in fila
     assert "Validar opção 2" in fila
+    assert "1ª parcela 13º: Não" in fila
+    assert "Abono: Sim" in fila
+    assert "Abono: Não" in fila
     assert "Fila para validar" in fila
     assert "Simular calendário" in fila
     sim = client.get("/ferias/validacao/lider?ciclo=2026&simular=1").get_data(as_text=True)

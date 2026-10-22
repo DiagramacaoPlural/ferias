@@ -53,6 +53,10 @@
 {{ botao_post(url_for('ferias.excluir', ferias_id=f.id), 'Excluir', 'btn btn-pequeno btn-perigo', confirmar='Excluir as férias de ' ~ f.funcionario.nome ~ '?', titulo='Excluir') }}
 {%- endmacro %}
 
+{% macro flags_13_abono(item) -%}
+1ª parcela 13º: {{ 'Sim' if item.adianta_13 else 'Não' }} · Abono: {{ 'Sim' if item.vende_10 else 'Não' }}
+{%- endmacro %}
+
 {% macro acoes_lider(f, opcoes=None) -%}
 {% set ops = opcoes or [] %}
 <div class="acoes acoes-lider" style="flex-wrap:wrap">
@@ -75,8 +79,7 @@
             Opção {{ loop.index }}:
             <strong>{{ op.inicio|data }}</strong> a {{ op.fim|data }}
             · {{ op.dias }} dias
-            {% if op.vende_10 %} · abono pecuniário{% endif %}
-            {% if op.adianta_13 %} · 13º{% endif %}
+            · {{ flags_13_abono(op) }}
           </span>
           <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar opção {{ loop.index }}</button>
         </form>
@@ -91,6 +94,7 @@
     <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes" style="flex-wrap:wrap">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" aria-label="Data do líder">
+      <span class="texto-suave">{{ flags_13_abono(f) }}</span>
       <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar e enviar ao gerente</button>
       <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir nova data ao funcionário</button>
     </form>
