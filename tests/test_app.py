@@ -164,7 +164,7 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
     assert ">Sim</span>" in lista
     cal = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
     assert "1ª parcela 13º: Sim" in cal
-    assert "Abono: Sim" in cal
+    assert "Abono pecuniário: Sim" in cal
 
     ao_vivo = client.post(
         "/ferias/analisar",
@@ -267,7 +267,7 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert "20 dias" in pagina
     assert '<strong class="mes-item-nome">Carlos</strong>' in pagina
     assert "1ª parcela 13º: Não" in pagina
-    assert "Abono: Não" in pagina
+    assert "Abono pecuniário: Não" in pagina
     assert "no setor" in pagina
     assert "2 de férias" in pagina
     assert "2 disponíveis" in pagina
@@ -685,8 +685,8 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Validar opção 1" in fila
     assert "Validar opção 2" in fila
     assert "1ª parcela 13º: Não" in fila
-    assert "Abono: Sim" in fila
-    assert "Abono: Não" in fila
+    assert "Abono pecuniário: Sim" in fila
+    assert "Abono pecuniário: Não" in fila
     assert "Fila para validar" in fila
     assert "Simular calendário" in fila
     sim = client.get("/ferias/validacao/lider?ciclo=2026&simular=1").get_data(as_text=True)

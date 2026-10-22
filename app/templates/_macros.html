@@ -54,7 +54,7 @@
 {%- endmacro %}
 
 {% macro flags_13_abono(item) -%}
-1ª parcela 13º: {{ 'Sim' if item.adianta_13 else 'Não' }} · Abono: {{ 'Sim' if item.vende_10 else 'Não' }}
+1ª parcela 13º: {{ 'Sim' if item.adianta_13 else 'Não' }} · Abono pecuniário: {{ 'Sim' if item.vende_10 else 'Não' }}
 {%- endmacro %}
 
 {% macro card_mes_periodo(f) -%}
@@ -63,7 +63,7 @@
   {{ status(f) }}
   <small>{{ f.dias }} dias</small>
   <small>1ª parcela 13º: {{ 'Sim' if f.adianta_13 else 'Não' }}</small>
-  <small>Abono: {{ 'Sim' if f.vende_10 else 'Não' }}</small>
+  <small>Abono pecuniário: {{ 'Sim' if f.vende_10 else 'Não' }}</small>
   {% if f.gozada() %}<small>já gozou</small>{% endif %}
 </div>
 {%- endmacro %}
