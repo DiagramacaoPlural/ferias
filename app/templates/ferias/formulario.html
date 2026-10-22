@@ -94,7 +94,7 @@
       <textarea id="observacao" name="observacao" maxlength="500" placeholder="Opcional (ex.: acordo com a gestão…)">{{ v_obs }}</textarea>
     </div>
 
-    {% if current_user.admin %}
+    {% if current_user.pode_admin() %}
       <label class="checkbox"><input type="checkbox" id="aprovada" name="aprovada" value="1" {{ 'checked' if v_aprovada }}> Férias aprovadas</label>
     {% endif %}
 

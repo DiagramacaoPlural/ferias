@@ -48,7 +48,8 @@
         <option value="admin" {{ 'selected' if papel_atual == 'admin' }}>Administrador</option>
       </select>
     </div>
-    <label class="checkbox"><input type="checkbox" name="admin" value="1" {{ marcado('admin', false) }}> Administrador (aprova férias e gerencia cadastros)</label>
+    <label class="checkbox"><input type="checkbox" name="admin" value="1" {{ marcado('admin', false) }}> Administrador (gerencia cadastros)</label>
+    <small>Líder e gerente já têm os privilégios de administrador do sistema.</small>
     <label class="checkbox"><input type="checkbox" name="acessa_calendario" value="1" {{ marcado('acessa_calendario', true) }}> Acessa calendário e minhas datas</label>
     <label class="checkbox"><input type="checkbox" name="acessa_cronograma" value="1" {{ marcado('acessa_cronograma', true) }}> Acessa o cronograma</label>
     <label class="checkbox"><input type="checkbox" name="ativo" value="1" {{ marcado('ativo', true) }}> Usuário ativo</label>

@@ -386,6 +386,46 @@ def test_usuario_comum_nao_aprova_nem_acessa_admin(app):
     assert client.get("/").status_code == 302
 
 
+def test_lider_e_gerente_acessam_administracao(app):
+    client = app.test_client()
+    with app.app_context():
+        lider = Usuario(
+            login="Lider",
+            papel=PAPEL_LIDER,
+            acessa_calendario=True,
+            acessa_cronograma=True,
+            trocar_senha=False,
+        )
+        lider.definir_senha("senha123")
+        gerente = Usuario(
+            login="Gerente",
+            papel=PAPEL_GERENTE,
+            acessa_calendario=True,
+            acessa_cronograma=True,
+            trocar_senha=False,
+        )
+        gerente.definir_senha("senha123")
+        db.session.add_all([lider, gerente])
+        db.session.commit()
+        assert lider.pode_admin() and gerente.pode_admin()
+        assert lider.pode_lider() and not lider.pode_gerente()
+        assert gerente.pode_gerente() and not gerente.pode_lider()
+
+    for login in ("Lider", "Gerente"):
+        entrar(client, login, "senha123")
+        nav = client.get("/ferias/calendario").get_data(as_text=True)
+        assert "Funcionários" in nav
+        assert "Usuários" in nav
+        assert "Configurações" in nav
+        assert "Histórico" in nav
+        assert "Administrador" in nav
+        assert client.get("/admin/usuarios").status_code == 200
+        assert client.get("/admin/funcionarios").status_code == 200
+        assert client.get("/admin/configuracoes").status_code == 200
+        assert client.get("/admin/historico").status_code == 200
+        client.get("/logout")
+
+
 def test_troca_de_senha_obrigatoria(app):
     with app.app_context():
         u = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
@@ -589,8 +629,9 @@ def test_importar_usuarios_xlsx_define_papeis(app, tmp_path):
         assert gercilio.papel == PAPEL_SIMPLES and not gercilio.pode_gestao()
         assert marcelo.papel == PAPEL_LIDER and marcelo.pode_lider() and not marcelo.pode_gerente()
         assert ricardo.papel == PAPEL_GERENTE and ricardo.pode_gerente() and not ricardo.pode_lider()
-        assert not marcelo.admin and not ricardo.admin
-        assert comum.papel == PAPEL_SIMPLES and not comum.pode_gestao()
+        assert marcelo.admin and ricardo.admin
+        assert marcelo.pode_admin() and ricardo.pode_admin()
+        assert comum.papel == PAPEL_SIMPLES and not comum.pode_gestao() and not comum.pode_admin()
 
 
 def test_vincula_usuario_existente_ao_funcionario_pelo_nome(app):
@@ -608,6 +649,7 @@ def test_vincula_usuario_existente_ao_funcionario_pelo_nome(app):
         usuario = db.session.scalar(db.select(Usuario).filter_by(login="Gercilio"))
         assert usuario.funcionario_id == func.id
         assert usuario.papel == PAPEL_SIMPLES
+        assert not usuario.admin and not usuario.pode_admin()
 
 
 def test_cria_usuario_para_cada_funcionario_ativo(app):

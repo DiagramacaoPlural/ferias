@@ -6,7 +6,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from ..alertas import email_configurado, enviar_alertas_pendentes, prazos_dos_funcionarios, smtp_configurado
-from ..models import Configuracao, Funcionario, Historico, Usuario, db
+from ..models import PAPEL_ADMIN, PAPEL_SIMPLES, Configuracao, Funcionario, Historico, Usuario, db, papel_concede_admin
 from ..regras import EMAILS_ALERTA_LIMITE, MESES
 from ..seed import importar_planilha, importar_programacao_pdf, importar_usuarios_xlsx, nomes_abas
 from . import registrar, requer
@@ -110,7 +110,10 @@ def usuario_form(usuario_id: int | None = None):
     if request.method == "POST":
         login = request.form.get("login", "").strip()
         senha = request.form.get("senha", "")
-        admin = request.form.get("admin") == "1"
+        papel = request.form.get("papel") or PAPEL_SIMPLES
+        if request.form.get("admin") == "1" and papel == PAPEL_SIMPLES:
+            papel = PAPEL_ADMIN
+        admin = papel_concede_admin(papel)
         ativo = request.form.get("ativo") == "1"
         duplicado = db.session.scalar(
             db.select(Usuario).filter(db.func.lower(Usuario.login) == login.lower(), Usuario.id != (usuario_id or 0))
@@ -135,7 +138,7 @@ def usuario_form(usuario_id: int | None = None):
             usuario.login = login
             usuario.admin = admin
             usuario.ativo = ativo
-            usuario.papel = request.form.get("papel") or ("admin" if admin else "simples")
+            usuario.papel = papel
             usuario.funcionario_id = request.form.get("funcionario_id", type=int) or None
             usuario.acessa_calendario = request.form.get("acessa_calendario") == "1"
             usuario.acessa_cronograma = request.form.get("acessa_cronograma") == "1"

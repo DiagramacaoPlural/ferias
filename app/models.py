@@ -41,6 +41,10 @@ PAPEIS_GESTAO = {PAPEL_LIDER, PAPEL_GERENTE, PAPEL_ADMIN}
 PAPEIS_FULL = {"marcelo", "ricardo"}
 
 
+def papel_concede_admin(papel: str) -> bool:
+    return (papel or "") in PAPEIS_GESTAO
+
+
 class Usuario(UserMixin, db.Model):
     __tablename__ = "usuarios"
 
@@ -75,6 +79,12 @@ class Usuario(UserMixin, db.Model):
 
     def pode_gestao(self) -> bool:
         return self.admin or self.papel in PAPEIS_GESTAO
+
+    def pode_admin(self) -> bool:
+        return bool(self.admin) or papel_concede_admin(self.papel)
+
+    def aplicar_admin_do_papel(self) -> None:
+        self.admin = papel_concede_admin(self.papel)
 
     def pode_lider(self) -> bool:
         return self.papel in {PAPEL_LIDER, PAPEL_ADMIN}

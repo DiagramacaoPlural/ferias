@@ -92,11 +92,11 @@ def _andamento_do_funcionario(funcionario_id: int | None, ciclo_ini: date, ciclo
 
 
 def _pode_editar(ferias: Ferias) -> bool:
-    return current_user.admin or not ferias.aprovada
+    return current_user.pode_admin() or not ferias.aprovada
 
 
 def _pode_excluir(_ferias: Ferias) -> bool:
-    return current_user.admin or current_user.pode_lider() or current_user.pode_gerente()
+    return current_user.pode_admin() or current_user.pode_lider() or current_user.pode_gerente()
 
 
 def _ler_formulario():
@@ -211,7 +211,7 @@ def formulario(ferias_id: int | None = None):
             ferias.adianta_13 = adianta_13
             ferias.vende_10 = vende_10
 
-            if current_user.admin:
+            if current_user.pode_admin():
                 aprovar = request.form.get("aprovada") == "1"
                 if aprovar and not ferias.aprovada:
                     ferias.aprovado_por, ferias.aprovado_em = current_user.login, datetime.now()
@@ -452,7 +452,7 @@ def excluir(ferias_id: int):
 @bp.route("/sugestoes/<int:funcionario_id>/excluir", methods=["POST"])
 @requer("gestao")
 def excluir_sugestoes(funcionario_id: int):
-    if not (current_user.pode_lider() or current_user.pode_gerente() or current_user.admin):
+    if not (current_user.pode_lider() or current_user.pode_gerente() or current_user.pode_admin()):
         abort(403)
     funcionario = db.get_or_404(Funcionario, funcionario_id)
     ano = request.form.get("ciclo", type=int) or ciclo_atual()[0].year
@@ -691,7 +691,7 @@ def opcoes():
 @bp.route("/montar", methods=["POST"])
 @requer("gestao")
 def montar():
-    if not (current_user.pode_lider() or current_user.admin):
+    if not (current_user.pode_lider() or current_user.pode_admin()):
         abort(403)
     ano = request.form.get("ciclo", type=int)
     resumo = montar_calendario(ano)
@@ -706,7 +706,7 @@ def montar():
 @requer("calendario")
 def responder(ferias_id: int):
     ferias = db.get_or_404(Ferias, ferias_id)
-    if ferias.funcionario_id != current_user.funcionario_id and not current_user.admin:
+    if ferias.funcionario_id != current_user.funcionario_id and not current_user.pode_admin():
         abort(403)
     if ferias.status not in (STATUS_AGUARDANDO_FUNCIONARIO, STATUS_AJUSTE_GERENTE, STATUS_AJUSTE_LIDER):
         flash("Este período não está aguardando a sua resposta.", "aviso")

@@ -118,7 +118,7 @@
         {% for f in pendentes %}
           <li>
             <span>{{ f.funcionario.nome }}<br><span class="secundario">{{ f.inicio|data }} a {{ f.fim|data }}</span></span>
-            {% if current_user.admin %}
+            {% if current_user.pode_admin() %}
               {{ botao_post(url_for('ferias.alternar_aprovacao', ferias_id=f.id), 'Aprovar', 'btn btn-pequeno btn-sucesso', icone_nome='check') }}
             {% endif %}
           </li>

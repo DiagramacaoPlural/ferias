@@ -19,7 +19,7 @@ def requer(permissao: str):
         @login_required
         def envolvida(*args, **kwargs):
             checagens = {
-                "admin": lambda: current_user.admin and current_user.papel == "admin",
+                "admin": current_user.pode_admin,
                 "gestao": current_user.pode_gestao,
                 "calendario": current_user.pode_calendario,
                 "cronograma": current_user.pode_cronograma,

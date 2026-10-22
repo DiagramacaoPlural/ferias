@@ -99,8 +99,7 @@ def importar_usuarios_xlsx(caminho: Path) -> dict:
         else:
             resumo["atualizados"] += 1
         usuario.papel = papel
-        if papel != PAPEL_ADMIN:
-            usuario.admin = False
+        usuario.aplicar_admin_do_papel()
         usuario.acessa_calendario = True
         usuario.acessa_cronograma = full
         usuario.funcionario_id = func.id
@@ -332,8 +331,7 @@ def garantir_usuarios_dos_funcionarios() -> dict:
                 resumo["ligados"] += 1
             usuario.funcionario_id = func.id
         usuario.papel = papel
-        if papel != PAPEL_ADMIN:
-            usuario.admin = False
+        usuario.aplicar_admin_do_papel()
         usuario.acessa_calendario = True
         usuario.acessa_cronograma = full or usuario.admin
         usuario.ativo = True
@@ -347,8 +345,7 @@ def garantir_usuarios_dos_funcionarios() -> dict:
             continue
         usuario.funcionario_id = func.id
         usuario.papel = _papel_do_nome(func.nome)
-        if usuario.papel != PAPEL_ADMIN:
-            usuario.admin = False
+        usuario.aplicar_admin_do_papel()
         resumo["ligados"] += 1
 
     if resumo["criados"] or resumo["ligados"]:

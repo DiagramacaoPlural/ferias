@@ -32,7 +32,7 @@
         <a href="{{ url_for('ferias.calendario') }}" class="{{ 'ativo' if ep in ('ferias.calendario', 'cronograma.visualizar') }}">{{ icone('calendario') }} Calendário</a>
         <a href="{{ url_for('ferias.opcoes') }}" class="{{ 'ativo' if ep == 'ferias.opcoes' }}">{{ icone('ferias') }} Minhas datas</a>
       {% endif %}
-      {% if current_user.admin %}
+      {% if current_user.pode_admin() %}
         <div class="menu-titulo">Administração</div>
         <a href="{{ url_for('admin.funcionarios') }}" class="{{ 'ativo' if ep.startswith('admin.funcionario') }}">{{ icone('pessoas') }} Funcionários</a>
         <a href="{{ url_for('admin.usuarios') }}" class="{{ 'ativo' if ep.startswith('admin.usuario') }}">{{ icone('chave') }} Usuários</a>
@@ -42,7 +42,10 @@
     </nav>
     <div class="usuario-box">
       <strong>{{ current_user.login }}</strong>
-      <span class="texto-suave">{{ 'Administrador' if current_user.admin else ('Líder' if current_user.papel == 'lider' else ('Gerente' if current_user.papel == 'gerente' else 'Usuário')) }}</span>
+      <span class="texto-suave">{% if current_user.papel == 'lider' %}Líder{% elif current_user.papel == 'gerente' %}Gerente{% elif current_user.papel == 'admin' %}Administrador{% else %}Usuário{% endif %}</span>
+      {% if current_user.pode_admin() and current_user.papel != 'admin' %}
+        <span class="texto-suave">Administrador</span>
+      {% endif %}
       <div class="mt" style="margin-top:8px">
         <a href="{{ url_for('auth.trocar_senha') }}">Trocar senha</a>
         <a href="{{ url_for('auth.logout') }}">Sair</a>

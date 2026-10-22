@@ -78,7 +78,7 @@
               {% if avisos[f.id] %}
                 <span class="aviso-icone" title="{{ avisos[f.id]|join('\n') }}">⚠</span>
               {% endif %}
-              {% if alternativas.get(f.id) and (current_user.admin or not f.aprovada) %}
+              {% if alternativas.get(f.id) and (current_user.pode_admin() or not f.aprovada) %}
                 <div class="sugestoes">
                   <span class="texto-suave">Alternativa:</span>
                   {% for alt in alternativas[f.id] %}
@@ -102,17 +102,17 @@
             <td>{% if f.vende_10 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
             <td class="texto-suave">{{ f.observacao or '' }}{% if f.gozada() %}<br><small class="texto-suave">Já gozou</small>{% endif %}</td>
             <td class="acoes-col">
-              {% if current_user.papel == 'admin' %}
+              {% if current_user.pode_admin() %}
                 {% if f.aprovada %}
                   {{ botao_post(url_for('ferias.alternar_aprovacao', ferias_id=f.id), '', 'btn btn-pequeno btn-icone', icone_nome='desfazer', titulo='Remover aprovação') }}
                 {% else %}
                   {{ botao_post(url_for('ferias.alternar_aprovacao', ferias_id=f.id), 'Aprovar', 'btn btn-pequeno btn-sucesso', icone_nome='check') }}
                 {% endif %}
               {% endif %}
-              {% if current_user.admin or not f.aprovada %}
+              {% if current_user.pode_admin() or not f.aprovada %}
                 <a href="{{ url_for('ferias.formulario', ferias_id=f.id) }}" class="btn btn-pequeno btn-icone" title="Editar">{{ icone('editar') }}</a>
               {% endif %}
-              {% if current_user.admin or current_user.pode_lider() or current_user.pode_gerente() %}
+              {% if current_user.pode_admin() or current_user.pode_lider() or current_user.pode_gerente() %}
                 {{ botao_post(url_for('ferias.excluir', ferias_id=f.id), '', 'btn btn-pequeno btn-icone btn-perigo', confirmar='Excluir as férias de ' ~ f.funcionario.nome ~ '?', icone_nome='lixo', titulo='Excluir') }}
               {% endif %}
             </td>
