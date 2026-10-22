@@ -400,7 +400,7 @@ def simular_calendario_opcoes(ano: int, sugestoes_por_func: dict[int, list] | No
         escolhida = por_nome.get(func.nome) or ops[0]
         ordem = escolhida.id or 1
         barras.append(
-            BarraSimulada(func, escolhida.inicio, escolhida.fim, escolhida.dias, "SUGERIDA", f"Opção {ordem}")
+            BarraSimulada(func, escolhida.inicio, escolhida.fim, escolhida.dias, "SUGERIDA", "Enviada")
         )
         escolhas.append(
             {

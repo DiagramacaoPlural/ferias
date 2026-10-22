@@ -5,7 +5,7 @@
 <div class="cabecalho">
   <div>
     <h1>Minhas datas de férias</h1>
-    <p>Envie até duas opções para o ciclo {{ rotulo_ciclo }} ({{ ciclo_ini|data }} a {{ ciclo_fim|data }}). Elas vão para o líder validar ou sugerir outra data.</p>
+    <p>Envie a data de férias do ciclo {{ rotulo_ciclo }} ({{ ciclo_ini|data }} a {{ ciclo_fim|data }}). Ela vai para o líder validar ou sugerir outra data.</p>
   </div>
   <div class="acoes">
     {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.opcoes') }}
@@ -54,69 +54,60 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="ciclo" value="{{ ciclo_ini.year }}">
     <p class="texto-suave" style="margin-top:0">Funcionário: <strong>{{ funcionario.nome }}</strong></p>
+    {% set atual = existentes[0] if existentes else none %}
+    {% set v_inicio = dados.get('inicio_1') if dados else (atual.inicio.isoformat() if atual else '') %}
+    {% set v_dias = dados.get('dias_1') if dados else (atual.dias if atual else 20) %}
+    {% set v_13 = dados.get('adianta_13_1') == '1' if dados else (atual.adianta_13 if atual else false) %}
+    {% set pode_13 = v_inicio and fevereiro_13 and v_inicio >= fevereiro_13.isoformat() %}
+    {% set v_13 = v_13 and pode_13 %}
+    {% set v_vende = dados.get('vende_10_1') == '1' if dados else (atual.vende_10 if atual else false) %}
     {% if existentes and not dados %}
       <div class="alerta alerta-sucesso" style="margin-bottom:16px">
-        <div>Opções já enviadas neste ciclo. Envie de novo para substituir.</div>
+        <div>Data já enviada neste ciclo. Envie de novo para substituir.</div>
       </div>
     {% endif %}
-    <div class="grade grade-2">
-      {% for ordem in [1, 2] %}
-        {% set atual = existentes[ordem - 1] if existentes|length >= ordem else none %}
-        {% set v_inicio = dados.get('inicio_' ~ ordem) if dados else (atual.inicio.isoformat() if atual else '') %}
-        {% set v_dias = dados.get('dias_' ~ ordem) if dados else (atual.dias if atual else 20) %}
-        {% set v_13 = dados.get('adianta_13_' ~ ordem) == '1' if dados else (atual.adianta_13 if atual else false) %}
-        {% set pode_13 = v_inicio and fevereiro_13 and v_inicio >= fevereiro_13.isoformat() %}
-        {% set v_13 = v_13 and pode_13 %}
-        {% set v_vende = dados.get('vende_10_' ~ ordem) == '1' if dados else (atual.vende_10 if atual else false) %}
-        <div class="card" style="box-shadow:none">
-          <div class="card-titulo"><h2>Opção {{ ordem }}{% if ordem == 2 %} <span class="texto-suave">(opcional)</span>{% endif %}</h2></div>
-          <div class="card-corpo">
-            <div class="campos-linha">
-              <div class="campo">
-                <label for="inicio_{{ ordem }}">Início</label>
-                <input type="date" id="inicio_{{ ordem }}" name="inicio_{{ ordem }}" value="{{ v_inicio }}" min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}" {{ 'required' if ordem == 1 }}>
-              </div>
-              <div class="campo">
-                <label for="dias_{{ ordem }}">Dias</label>
-                <input type="number" id="dias_{{ ordem }}" name="dias_{{ ordem }}" min="1" max="{{ dias_max }}" value="{{ v_dias }}">
-              </div>
-              <div class="campo">
-                <label for="fim_{{ ordem }}">Fim</label>
-                <input type="text" id="fim_{{ ordem }}" value="{{ atual.fim|data if atual and not dados else '' }}" readonly tabindex="-1">
-              </div>
-            </div>
-            <div class="campo campo-13{{ ' indisponivel' if not pode_13 }}" id="campo_13_{{ ordem }}">
-              <span class="rotulo-campo">Antecipar 1ª parcela do 13º</span>
-              <div class="opcoes-sim-nao">
-                <label class="checkbox" id="lbl_adianta_13_{{ ordem }}_sim" {{ 'hidden' if not pode_13 }}>
-                  <input type="checkbox" id="adianta_13_{{ ordem }}_sim" name="adianta_13_{{ ordem }}" value="1" {{ 'checked' if v_13 }} {{ 'disabled' if not pode_13 }}>
-                  Sim
-                </label>
-                <label class="checkbox">
-                  <input type="checkbox" id="adianta_13_{{ ordem }}_nao" {{ 'checked' if not v_13 }}>
-                  Não
-                </label>
-              </div>
-              <small id="ajuda_13_{{ ordem }}">{{ aviso_13 if not pode_13 else 'Disponível para férias com início a partir de ' ~ fevereiro_13.strftime('%d/%m/%Y') ~ '.' }}</small>
-            </div>
-            <div class="campo">
-              <span class="rotulo-campo">Abono pecuniário</span>
-              <div class="opcoes-sim-nao">
-                <label class="checkbox">
-                  <input type="checkbox" id="vende_10_{{ ordem }}_sim" name="vende_10_{{ ordem }}" value="1" {{ 'checked' if v_vende }}>
-                  Sim
-                </label>
-                <label class="checkbox">
-                  <input type="checkbox" id="vende_10_{{ ordem }}_nao" {{ 'checked' if not v_vende }}>
-                  Não
-                </label>
-              </div>
-            </div>
-            <div id="analise_{{ ordem }}" class="alertas"></div>
-          </div>
-        </div>
-      {% endfor %}
+    <div class="campos-linha">
+      <div class="campo">
+        <label for="inicio_1">Início</label>
+        <input type="date" id="inicio_1" name="inicio_1" value="{{ v_inicio }}" min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}" required>
+      </div>
+      <div class="campo">
+        <label for="dias_1">Dias</label>
+        <input type="number" id="dias_1" name="dias_1" min="1" max="{{ dias_max }}" value="{{ v_dias }}" required>
+      </div>
+      <div class="campo">
+        <label for="fim_1">Fim</label>
+        <input type="text" id="fim_1" value="{{ atual.fim|data if atual and not dados else '' }}" readonly tabindex="-1">
+      </div>
     </div>
+    <div class="campo campo-13{{ ' indisponivel' if not pode_13 }}" id="campo_13_1">
+      <span class="rotulo-campo">Antecipar 1ª parcela do 13º</span>
+      <div class="opcoes-sim-nao">
+        <label class="checkbox" id="lbl_adianta_13_1_sim" {{ 'hidden' if not pode_13 }}>
+          <input type="checkbox" id="adianta_13_1_sim" name="adianta_13_1" value="1" {{ 'checked' if v_13 }} {{ 'disabled' if not pode_13 }}>
+          Sim
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="adianta_13_1_nao" {{ 'checked' if not v_13 }}>
+          Não
+        </label>
+      </div>
+      <small id="ajuda_13_1">{{ aviso_13 if not pode_13 else 'Disponível para férias com início a partir de ' ~ fevereiro_13.strftime('%d/%m/%Y') ~ '.' }}</small>
+    </div>
+    <div class="campo">
+      <span class="rotulo-campo">Abono pecuniário</span>
+      <div class="opcoes-sim-nao">
+        <label class="checkbox">
+          <input type="checkbox" id="vende_10_1_sim" name="vende_10_1" value="1" {{ 'checked' if v_vende }}>
+          Sim
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="vende_10_1_nao" {{ 'checked' if not v_vende }}>
+          Não
+        </label>
+      </div>
+    </div>
+    <div id="analise_1" class="alertas"></div>
 
     {% if avisos %}
       <div class="alerta alerta-aviso" style="margin-top:12px">
@@ -137,7 +128,7 @@
   </div>
   <div class="card-titulo" style="border-top:1px solid var(--borda);border-bottom:none;justify-content:flex-end;gap:8px">
     <a href="{{ url_for('ferias.calendario') }}" class="btn">Cancelar</a>
-    <button type="submit" class="btn btn-primario">Enviar opções</button>
+    <button type="submit" class="btn btn-primario">Enviar data</button>
   </div>
 </form>
 {% endif %}
@@ -224,27 +215,26 @@
     naoEl.checked = !sim;
   }
 
-  [1, 2].forEach(function (ordem) {
-    ['inicio_' + ordem, 'dias_' + ordem].forEach(function (id) {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('change', function () { atualizar13(ordem); analisar(ordem); });
-      if (el) el.addEventListener('input', function () { atualizar13(ordem); analisar(ordem); });
-    });
-    const a13s = document.getElementById('adianta_13_' + ordem + '_sim');
-    const a13n = document.getElementById('adianta_13_' + ordem + '_nao');
-    const v10s = document.getElementById('vende_10_' + ordem + '_sim');
-    const v10n = document.getElementById('vende_10_' + ordem + '_nao');
-    if (a13s && a13n) {
-      a13s.addEventListener('change', function () { marcarPar(a13s, a13n, this.checked); });
-      a13n.addEventListener('change', function () { marcarPar(a13s, a13n, !this.checked); });
-    }
-    if (v10s && v10n) {
-      v10s.addEventListener('change', function () { marcarPar(v10s, v10n, this.checked); });
-      v10n.addEventListener('change', function () { marcarPar(v10s, v10n, !this.checked); });
-    }
-    atualizar13(ordem);
-    analisar(ordem);
+  const ordem = 1;
+  ['inicio_1', 'dias_1'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', function () { atualizar13(ordem); analisar(ordem); });
+    if (el) el.addEventListener('input', function () { atualizar13(ordem); analisar(ordem); });
   });
+  const a13s = document.getElementById('adianta_13_1_sim');
+  const a13n = document.getElementById('adianta_13_1_nao');
+  const v10s = document.getElementById('vende_10_1_sim');
+  const v10n = document.getElementById('vende_10_1_nao');
+  if (a13s && a13n) {
+    a13s.addEventListener('change', function () { marcarPar(a13s, a13n, this.checked); });
+    a13n.addEventListener('change', function () { marcarPar(a13s, a13n, !this.checked); });
+  }
+  if (v10s && v10n) {
+    v10s.addEventListener('change', function () { marcarPar(v10s, v10n, this.checked); });
+    v10n.addEventListener('change', function () { marcarPar(v10s, v10n, !this.checked); });
+  }
+  atualizar13(ordem);
+  analisar(ordem);
 
   document.querySelectorAll('[data-inicio]').forEach(function (btn) {
     btn.addEventListener('click', function () {

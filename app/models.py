@@ -306,7 +306,7 @@ def _alinhar_fins_ao_periodo() -> None:
 
 
 class SugestaoFerias(db.Model):
-    """Até duas opções de datas enviadas pelo funcionário no ciclo."""
+    """Data de férias enviada pelo funcionário no ciclo."""
 
     __tablename__ = "sugestoes_ferias"
 

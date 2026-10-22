@@ -286,7 +286,7 @@ def test_opcoes_respeitam_ciclo_e_13_so_depois_de_fevereiro(app):
         data={"ciclo": "2026", "inicio_1": "2027-02-01", "dias_1": "10", "adianta_13_1": "1"},
         follow_redirects=True,
     )
-    assert "enviadas ao líder" in ok.get_data(as_text=True)
+    assert "enviada ao líder" in ok.get_data(as_text=True)
     with app.app_context():
         opcao = db.session.scalar(db.select(SugestaoFerias))
         assert opcao.inicio == date(2027, 2, 1)
@@ -821,13 +821,13 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Programação</a>" not in nav
     envio = client.post(
         "/ferias/opcoes",
-        data={"inicio_1": "2026-12-01", "dias_1": "10", "vende_10_1": "1", "inicio_2": "2027-01-12", "dias_2": "10"},
+        data={"inicio_1": "2026-12-01", "dias_1": "10", "vende_10_1": "1"},
         follow_redirects=True,
     )
-    assert "enviadas ao líder" in envio.get_data(as_text=True)
+    assert "enviada ao líder" in envio.get_data(as_text=True)
     with app.app_context():
         opcoes = db.session.scalars(db.select(SugestaoFerias).filter_by(funcionario_id=cid)).all()
-        assert len(opcoes) == 2
+        assert len(opcoes) == 1
         assert opcoes[0].vende_10 is True
         ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
         assert ferias.status == STATUS_AGUARDANDO_LIDER
@@ -846,20 +846,16 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Validação do líder" in fila
     assert "Carlos" in fila
     assert "01/12/2026" in fila
-    assert "12/01/2027" in fila
-    assert "Opção 1" in fila
-    assert "Opção 2" in fila
-    assert "Validar opção 1" in fila
-    assert "Validar opção 2" in fila
+    assert "Opção 2" not in fila
+    assert ">Validar<" in fila or "Validar</button>" in fila
+    assert "Validar opção 2" not in fila
     assert "1ª parcela 13º: Não" in fila
     assert "Abono pecuniário: Sim" in fila
-    assert "Abono pecuniário: Não" in fila
     assert "Fila para validar" in fila
     assert "Simular calendário" in fila
     sim = client.get("/ferias/validacao/lider?ciclo=2026&simular=1").get_data(as_text=True)
     assert "Simulação do calendário" in sim
     assert 'class="gantt"' in sim
-    assert "Melhor opção" in sim
     assert "01/12/2026" in sim
 
     client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-01"}, follow_redirects=True)
@@ -914,7 +910,7 @@ def test_lider_nao_e_gerente_e_a_fila_do_gerente_recebe_a_validacao(app):
     assert 'value="2026-12-01"' in html
 
 
-def test_lider_ve_e_valida_a_segunda_opcao(app, monkeypatch):
+def test_funcionario_envia_so_uma_data_mesmo_se_mandar_duas(app, monkeypatch):
     monkeypatch.setattr("app.workflow.enviar_email", lambda *a, **k: (True, ""))
     client = app.test_client()
     with app.app_context():
@@ -934,22 +930,24 @@ def test_lider_ve_e_valida_a_segunda_opcao(app, monkeypatch):
         follow_redirects=True,
     )
     with app.app_context():
+        opcoes = db.session.scalars(db.select(SugestaoFerias).filter_by(funcionario_id=cid)).all()
+        assert len(opcoes) == 1
         ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
         fid = ferias.id
         assert ferias.inicio == date(2026, 12, 1)
+        assert ferias.dias == 10
 
     client.get("/logout")
     entrar(client, "Lider", "senha123")
     html = client.get("/ferias/validacao/lider?ciclo=2026").get_data(as_text=True)
     assert "01/12/2026" in html
-    assert "12/01/2027" in html
-    assert "Validar opção 2" in html
-    client.post(f"/ferias/{fid}/lider", data={"inicio": "2027-01-12", "acao": "validar"}, follow_redirects=True)
+    assert "Validar opção 2" not in html
+    client.post(f"/ferias/{fid}/lider", data={"inicio": "2026-12-01", "acao": "validar"}, follow_redirects=True)
     with app.app_context():
         ferias = db.session.get(Ferias, fid)
         assert ferias.status == STATUS_AGUARDANDO_GERENTE
-        assert ferias.inicio == date(2027, 1, 12)
-        assert ferias.dias == 15
+        assert ferias.inicio == date(2026, 12, 1)
+        assert ferias.dias == 10
 
 
 def test_envio_das_opcoes_cai_na_fila_do_lider_mesmo_com_setor_ocupado(app, monkeypatch):

@@ -199,7 +199,7 @@ form.inline { display: inline; }
 .tabela-fila td { vertical-align: top; }
 .tabela-fila .col-nome { white-space: nowrap; width: 1%; }
 .tabela-fila small { display: block; color: var(--texto-suave); margin-top: 2px; }
-.fila-opcao { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.fila-opcao { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .fila-sugerir { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .fila-sugerir input[type=date] { width: 11.6rem; padding: 5px 8px; }
 .caixa-pendencia { margin-bottom: 16px; }

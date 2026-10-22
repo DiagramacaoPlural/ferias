@@ -614,7 +614,7 @@ def _sugestoes_do_ciclo(ano: int) -> dict[int, list[SugestaoFerias]]:
 
 
 def _opcoes_por_funcionario(ids) -> dict[int, list[SugestaoFerias]]:
-    """Todas as opções de cada funcionário, para o líder ver as duas datas."""
+    """Data enviada por cada funcionário, para a fila do líder."""
     por: dict[int, list[SugestaoFerias]] = {}
     ids = {int(i) for i in ids if i}
     if not ids:
@@ -656,27 +656,27 @@ def opcoes():
             flash("Seu usuário não está ligado a um funcionário cadastrado.", "erro")
             return redirect(url_for("ferias.opcoes"))
         lidas = []
-        for ordem in (1, 2):
+        for ordem in (1,):
             bruto = request.form.get(f"inicio_{ordem}", "").strip()
             if not bruto:
                 continue
             try:
                 inicio = datetime.strptime(bruto, "%Y-%m-%d").date()
             except ValueError:
-                erros.append(f"Opção {ordem}: data de início inválida.")
+                erros.append("Data de início inválida.")
                 continue
             dias = request.form.get(f"dias_{ordem}", type=int)
             if not dias:
-                erros.append(f"Opção {ordem}: informe a quantidade de dias.")
+                erros.append("Informe a quantidade de dias.")
                 continue
             adianta_13 = _quer_adiantar_13({"adianta_13": request.form.get(f"adianta_13_{ordem}")})
             if erro_13 := _erro_adianta_13(inicio, adianta_13, ciclo_ini, ciclo_fim):
-                erros.append(f"Opção {ordem}: {erro_13}")
+                erros.append(erro_13)
                 continue
             analise = analisar_periodo_db(funcionario, inicio, dias, ciclo_ini=ciclo_ini, ciclo_fim=ciclo_fim)
             if analise.erros:
-                erros.extend(f"Opção {ordem}: {e}" for e in analise.erros)
-            avisos.extend(f"Opção {ordem}: {a}" for a in analise.avisos)
+                erros.extend(analise.erros)
+            avisos.extend(analise.avisos)
             if analise.alternativas and ordem == 1:
                 alternativas = analise.alternativas
             lidas.append(
@@ -690,7 +690,7 @@ def opcoes():
                 }
             )
         if not lidas and not erros:
-            erros.append("Informe pelo menos uma opção de datas.")
+            erros.append("Informe a data de início das férias.")
         if not erros:
             antigas = db.session.scalars(
                 db.select(SugestaoFerias).where(SugestaoFerias.funcionario_id == funcionario.id)
@@ -708,7 +708,7 @@ def opcoes():
                 )
                 s.definir_periodo(item["inicio"], item["dias"])
                 db.session.add(s)
-            registrar("Opções de férias enviadas", f"{funcionario.nome}: {len(lidas)} opção(ões)")
+            registrar("Data de férias enviada", f"{funcionario.nome}: {lidas[0]['inicio']:%d/%m/%Y} ({lidas[0]['dias']} dias)")
             db.session.commit()
             anos_enviados = {item["ciclo_ano"] for item in lidas}
             gravadas = db.session.scalars(
@@ -724,7 +724,7 @@ def opcoes():
                 por_ano.setdefault(sugestao.ciclo_ano, []).append(sugestao)
             for opcoes_ano in por_ano.values():
                 enviar_ao_lider(funcionario, opcoes_ano)
-            flash("Suas opções de datas foram enviadas ao líder para validar ou sugerir outra data.", "sucesso")
+            flash("Sua data de férias foi enviada ao líder para validar ou sugerir outra data.", "sucesso")
             destino_ano = lidas[0]["ciclo_ano"]
             if current_user.pode_lider():
                 return redirect(url_for("ferias.validacao_lider", ciclo=destino_ano))
