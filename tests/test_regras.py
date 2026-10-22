@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, escolher_melhor_combinacao, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, escolher_melhor_combinacao, janela_gantt, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -84,6 +84,24 @@ def test_meses_do_ciclo():
     assert len(meses) == 12
     assert meses[0] == date(2026, 5, 1)
     assert meses[-1] == date(2027, 4, 1)
+
+
+def test_ciclo_com_mes_final_atraves_do_ano():
+    assert ciclo_de(date(2026, 10, 22), 10, 9) == (date(2026, 10, 1), date(2027, 9, 30))
+    assert ciclo_de(date(2026, 10, 22), 10, 3) == (date(2026, 10, 1), date(2027, 3, 31))
+    assert ciclo_de(date(2027, 2, 1), 10, 3) == (date(2026, 10, 1), date(2027, 3, 31))
+    meses = meses_do_ciclo(date(2026, 10, 1), date(2027, 3, 31))
+    assert meses[0] == date(2026, 10, 1)
+    assert meses[-1] == date(2027, 3, 1)
+    assert len(meses) == 6
+
+
+def test_janela_gantt_tem_margem_de_uma_semana():
+    periodos = [
+        Periodo("A", date(2026, 12, 14), date(2027, 1, 2), 20),
+        Periodo("B", date(2027, 2, 15), date(2027, 3, 6), 20),
+    ]
+    assert janela_gantt(periodos) == (date(2026, 12, 7), date(2027, 3, 13))
 
 
 def test_periodo_valido_sem_avisos():

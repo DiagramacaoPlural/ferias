@@ -48,6 +48,7 @@ from ..regras import (
     DIAS_MAX_CICLO,
     analisar_periodo_db,
     calcular_fim,
+    janela_gantt,
     meses_do_ciclo,
     nivel_cobertura,
     pode_adiantar_13,
@@ -170,7 +171,7 @@ def lista():
         min_disponiveis=min_disp,
         ciclo_ini=ciclo_ini,
         ciclos=ciclos_disponiveis(ciclo_ini),
-        rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         funcionarios=db.session.scalars(db.select(Funcionario).order_by(Funcionario.nome)).all(),
         filtro_funcionario=funcionario_id,
         filtro_status=status,
@@ -469,7 +470,7 @@ def calendario():
     ferias = ferias_no_intervalo(ciclo_ini, ciclo_fim, apenas_ativos=True)
 
     meses = []
-    for primeiro in meses_do_ciclo(ciclo_ini):
+    for primeiro in meses_do_ciclo(ciclo_ini, ciclo_fim):
         ultimo = ultimo_dia_mes(primeiro)
         do_mes = [f for f in ferias if sobrepoe(f.inicio, f.fim, primeiro, ultimo)]
         if not do_mes and primeiro.month != 11:
@@ -488,9 +489,10 @@ def calendario():
         )
 
     grade = {}
-    saidas = [m for m in meses if m["aprovadas"] or m["programadas"]]
-    if saidas:
-        grade = grade_cronograma(saidas[0]["data"], ultimo_dia_mes(meses[-1]["data"]))
+    exibidas = [f for f in ferias if f.status in (STATUS_APROVADA, STATUS_PROGRAMADA)]
+    janela = janela_gantt(exibidas)
+    if janela:
+        grade = grade_cronograma(janela[0], janela[1])
         total = grade.get("total_ativos") or 0
         min_setor = grade.get("min_disponiveis") or 0
         ausentes = grade.get("ausentes") or {}
@@ -533,7 +535,7 @@ def calendario():
         meses=meses,
         ciclo_ini=ciclo_ini,
         ciclos=ciclos_disponiveis(ciclo_ini),
-        rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         minhas_pendencias=minhas,
         andamento=_andamento_do_funcionario(current_user.funcionario_id, ciclo_ini, ciclo_fim),
         fila_lider=fila_lider,
@@ -676,7 +678,7 @@ def opcoes():
         funcionario=funcionario,
         ciclo_ini=ciclo_ini,
         ciclos=ciclos_disponiveis(ciclo_ini),
-        rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         existentes=existentes,
         pendencias=pendencias,
         andamento=_andamento_do_funcionario(funcionario.id if funcionario else None, ciclo_ini, ciclo_fim),
@@ -855,7 +857,7 @@ def validacao_lider():
         "ferias/validacao_lider.html",
         ciclo_ini=ciclo_ini,
         ciclos=ciclos_disponiveis(ciclo_ini),
-        rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         enviadas=enviadas,
         faltando=faltando,
         fila=fila,
@@ -882,7 +884,7 @@ def validacao_gerente():
         "ferias/validacao_gerente.html",
         ciclo_ini=ciclo_ini,
         ciclos=ciclos_disponiveis(ciclo_ini),
-        rotulo_ciclo=rotulo_ciclo(ciclo_ini),
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         fila=fila,
     )
 

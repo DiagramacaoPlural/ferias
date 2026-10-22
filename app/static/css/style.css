@@ -363,8 +363,9 @@ table.gantt { border-collapse: separate; border-spacing: 0; font-size: 11px; min
 }
 .gantt thead th { background: #f8fafc; color: var(--texto-suave); font-weight: 600; }
 .gantt thead .col-nome { background: #f8fafc; }
-.gantt .mes-cab { padding: 6px 4px; font-size: 12px; color: var(--texto); border-bottom: 1px solid var(--borda); border-right: 1px solid var(--borda); }
+.gantt .mes-cab { padding: 6px 4px; font-size: 12px; color: var(--texto); border-bottom: 1px solid var(--borda); border-left: 2px solid #64748b; border-right: 2px solid #64748b; }
 .gantt .dia-cab { min-width: 32px; padding: 4px 0; }
+.gantt .mes-sep { border-left: 2px solid #64748b; }
 .gantt .fds { background: #f8fafc; }
 .gantt thead .fds { background: #eef2f7; }
 .gantt .hoje-col { box-shadow: inset 2px 0 0 var(--vermelho); }

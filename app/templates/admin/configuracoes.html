@@ -10,15 +10,25 @@
     <div class="card-titulo"><h2>Regras gerais</h2></div>
     <div class="card-corpo">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="campo">
-        <label for="mes_inicio_ciclo">Mês de início do ciclo de férias</label>
-        <select id="mes_inicio_ciclo" name="mes_inicio_ciclo">
-          {% for nome in meses %}
-            <option value="{{ loop.index }}" {{ 'selected' if loop.index == mes_inicio_ciclo }}>{{ nome }}</option>
-          {% endfor %}
-        </select>
-        <small>Na planilha original o ciclo ia de maio a abril.</small>
+      <div class="campos-linha">
+        <div class="campo">
+          <label for="mes_inicio_ciclo">Mês inicial do ciclo</label>
+          <select id="mes_inicio_ciclo" name="mes_inicio_ciclo">
+            {% for nome in meses %}
+              <option value="{{ loop.index }}" {{ 'selected' if loop.index == mes_inicio_ciclo }}>{{ nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="campo">
+          <label for="mes_fim_ciclo">Mês final do ciclo</label>
+          <select id="mes_fim_ciclo" name="mes_fim_ciclo">
+            {% for nome in meses %}
+              <option value="{{ loop.index }}" {{ 'selected' if loop.index == mes_fim_ciclo }}>{{ nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
+      <small>O ciclo vai do primeiro dia do mês inicial até o último dia do mês final. Se o mês final vier antes do inicial, o ciclo atravessa o ano (ex.: outubro a setembro).</small>
       <div class="campo">
         <label for="min_disponiveis">Mínimo de pessoas disponíveis no setor</label>
         <input type="number" id="min_disponiveis" name="min_disponiveis" min="1" value="{{ min_disponiveis }}">
@@ -56,6 +66,7 @@
     <div class="card-corpo">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="mes_inicio_ciclo" value="{{ mes_inicio_ciclo }}">
+      <input type="hidden" name="mes_fim_ciclo" value="{{ mes_fim_ciclo }}">
       <input type="hidden" name="min_disponiveis" value="{{ min_disponiveis }}">
       <input type="hidden" name="dias_cronograma" value="{{ dias_cronograma }}">
       <p class="texto-suave" style="margin-top:0">

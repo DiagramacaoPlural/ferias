@@ -49,7 +49,7 @@ def painel():
     contexto = {
         "ciclo_ini": ciclo_ini,
         "ciclos": ciclos_disponiveis(ciclo_ini),
-        "rotulo_ciclo": rotulo_ciclo(ciclo_ini),
+        "rotulo_ciclo": rotulo_ciclo(ciclo_ini, ciclo_fim),
         "total_funcionarios": len(funcionarios),
         "total_aprovadas": sum(1 for f in ferias_ciclo if f.aprovada),
         "total_pendentes": sum(1 for f in ferias_ciclo if not f.aprovada),

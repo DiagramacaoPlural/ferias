@@ -165,12 +165,15 @@ def usuario_form(usuario_id: int | None = None):
 def configuracoes():
     if request.method == "POST":
         mes = request.form.get("mes_inicio_ciclo", type=int)
+        mes_fim = request.form.get("mes_fim_ciclo", type=int)
         minimo = request.form.get("min_disponiveis", type=int)
         dias_crono = request.form.get("dias_cronograma", type=int)
         alerta = "emails_alerta_limite" in request.form
         smtp_port = request.form.get("smtp_port", type=int) if alerta else 587
         if not mes or not 1 <= mes <= 12:
             flash("Mês de início do ciclo inválido.", "erro")
+        elif not mes_fim or not 1 <= mes_fim <= 12:
+            flash("Mês de fim do ciclo inválido.", "erro")
         elif minimo is None or minimo < 1:
             flash("O mínimo de pessoas disponíveis no setor deve ser pelo menos 1.", "erro")
         elif not dias_crono or not 7 <= dias_crono <= 364:
@@ -179,6 +182,7 @@ def configuracoes():
             flash("A porta SMTP deve estar entre 1 e 65535.", "erro")
         else:
             Configuracao.definir("mes_inicio_ciclo", mes)
+            Configuracao.definir("mes_fim_ciclo", mes_fim)
             Configuracao.definir("min_disponiveis", minimo)
             Configuracao.definir("dias_cronograma", dias_crono)
             if alerta:
@@ -194,7 +198,7 @@ def configuracoes():
                     Configuracao.definir("email_api_chave", request.form.get("email_api_chave").strip())
             registrar(
                 "Configurações alteradas",
-                f"ciclo inicia em {MESES[mes - 1]}, mín. {minimo} disponíveis no setor, cronograma {dias_crono} dias",
+                f"ciclo de {MESES[mes - 1]} a {MESES[mes_fim - 1]}, mín. {minimo} disponíveis no setor, cronograma {dias_crono} dias",
             )
             db.session.commit()
             flash("Configurações salvas.", "sucesso")
@@ -203,7 +207,8 @@ def configuracoes():
     return render_template(
         "admin/configuracoes.html",
         meses=MESES,
-        mes_inicio_ciclo=Configuracao.obter_int("mes_inicio_ciclo"),
+        mes_inicio_ciclo=Configuracao.mes_inicio_ciclo(),
+        mes_fim_ciclo=Configuracao.mes_fim_ciclo(),
         min_disponiveis=Configuracao.obter_int("min_disponiveis"),
         dias_cronograma=Configuracao.obter_int("dias_cronograma"),
         emails_alerta_limite=Configuracao.obter("emails_alerta_limite"),

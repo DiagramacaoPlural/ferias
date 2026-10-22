@@ -181,6 +181,7 @@ class Configuracao(db.Model):
 
     PADROES = {
         "mes_inicio_ciclo": "5",
+        "mes_fim_ciclo": "4",
         "min_disponiveis": "3",
         "dias_cronograma": "56",
         "emails_alerta_limite": "marcelo.marcolino@plural.com.br, ricardo.rosas@plural.com.br",
@@ -212,6 +213,24 @@ class Configuracao(db.Model):
             item.valor = str(valor)
         else:
             db.session.add(cls(chave=chave, valor=str(valor)))
+
+    @classmethod
+    def mes_inicio_ciclo(cls) -> int:
+        valor = cls.obter_int("mes_inicio_ciclo")
+        return valor if 1 <= valor <= 12 else 5
+
+    @classmethod
+    def mes_fim_ciclo(cls) -> int:
+        item = db.session.get(cls, "mes_fim_ciclo")
+        if item:
+            try:
+                valor = int(item.valor)
+                if 1 <= valor <= 12:
+                    return valor
+            except (TypeError, ValueError):
+                pass
+        inicio = cls.mes_inicio_ciclo()
+        return 12 if inicio == 1 else inicio - 1
 
 
 def _adicionar_coluna(tabela: str, coluna: str, ddl: str) -> None:

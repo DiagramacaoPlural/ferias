@@ -76,6 +76,27 @@ def test_paginas_principais_carregam(app):
     assert "/ferias/calendario" in cronograma.headers["Location"]
 
 
+def test_configura_mes_inicial_e_final_do_ciclo(app):
+    client = app.test_client()
+    entrar(client)
+    pagina = client.get("/admin/configuracoes").get_data(as_text=True)
+    assert "Mês inicial do ciclo" in pagina
+    assert "Mês final do ciclo" in pagina
+    resp = client.post(
+        "/admin/configuracoes",
+        data={
+            "mes_inicio_ciclo": "10",
+            "mes_fim_ciclo": "9",
+            "min_disponiveis": "3",
+            "dias_cronograma": "56",
+        },
+        follow_redirects=True,
+    )
+    assert "Configurações salvas" in resp.get_data(as_text=True)
+    cal = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "out/2026 a set/2027" in cal
+
+
 def test_painel_e_calendario_filtram_por_ciclo(app):
     client = app.test_client()
     entrar(client)
@@ -263,7 +284,8 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert 'class="gantt"' in pagina
     gantt = pagina.split("Cronograma", 1)[1]
     assert "Dezembro 2026" in gantt
-    assert "Novembro 2026" not in gantt
+    assert "Novembro 2026" in gantt
+    assert "mes-sep" in gantt
     assert "20 dias" in pagina
     assert '<strong class="mes-item-nome">Carlos</strong>' in pagina
     assert "1ª parcela 13º: Não" in pagina

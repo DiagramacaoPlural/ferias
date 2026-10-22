@@ -197,26 +197,47 @@ def calcular_prazo_gozo(
     return PrazoGozo(None, None, None, "ok", nome=nome, funcionario_id=funcionario_id, admissao=admissao)
 
 
-def ciclo_de(dia: date, mes_inicio: int) -> tuple[date, date]:
-    ano = dia.year if dia.month >= mes_inicio else dia.year - 1
-    inicio = date(ano, mes_inicio, 1)
-    fim = date(ano + 1, mes_inicio, 1) - timedelta(days=1)
-    return inicio, fim
+def mes_fim_padrao(mes_inicio: int) -> int:
+    return 12 if mes_inicio == 1 else mes_inicio - 1
 
 
-def rotulo_ciclo(inicio_ciclo: date) -> str:
-    fim = date(inicio_ciclo.year + 1, inicio_ciclo.month, 1) - timedelta(days=1)
-    return f"{MESES_ABREV[inicio_ciclo.month - 1]}/{inicio_ciclo.year} a {MESES_ABREV[fim.month - 1]}/{fim.year}"
+def _fim_do_ciclo(ano_inicio: int, mes_inicio: int, mes_fim: int) -> date:
+    ano_fim = ano_inicio if mes_fim >= mes_inicio else ano_inicio + 1
+    return ultimo_dia_mes(date(ano_fim, mes_fim, 1))
 
 
-def meses_do_ciclo(inicio_ciclo: date) -> list[date]:
+def ciclo_de(dia: date, mes_inicio: int, mes_fim: int | None = None) -> tuple[date, date]:
+    if mes_fim is None or not 1 <= mes_fim <= 12:
+        mes_fim = mes_fim_padrao(mes_inicio)
+    for ano in (dia.year, dia.year - 1):
+        inicio = date(ano, mes_inicio, 1)
+        fim = _fim_do_ciclo(ano, mes_inicio, mes_fim)
+        if inicio <= dia <= fim:
+            return inicio, fim
+    if dia.month < mes_inicio:
+        return date(dia.year, mes_inicio, 1), _fim_do_ciclo(dia.year, mes_inicio, mes_fim)
+    return date(dia.year + 1, mes_inicio, 1), _fim_do_ciclo(dia.year + 1, mes_inicio, mes_fim)
+
+
+def rotulo_ciclo(inicio_ciclo: date, fim_ciclo: date | None = None) -> str:
+    if fim_ciclo is None:
+        fim_ciclo = date(inicio_ciclo.year + 1, inicio_ciclo.month, 1) - timedelta(days=1)
+    return f"{MESES_ABREV[inicio_ciclo.month - 1]}/{inicio_ciclo.year} a {MESES_ABREV[fim_ciclo.month - 1]}/{fim_ciclo.year}"
+
+
+def meses_do_ciclo(inicio_ciclo: date, fim_ciclo: date | None = None) -> list[date]:
+    if fim_ciclo is None:
+        fim_ciclo = date(inicio_ciclo.year + 1, inicio_ciclo.month, 1) - timedelta(days=1)
     meses = []
     ano, mes = inicio_ciclo.year, inicio_ciclo.month
-    for _ in range(12):
+    limite = date(fim_ciclo.year, fim_ciclo.month, 1)
+    while date(ano, mes, 1) <= limite:
         meses.append(date(ano, mes, 1))
         mes += 1
         if mes > 12:
             mes, ano = 1, ano + 1
+        if len(meses) > 12:
+            break
     return meses
 
 
@@ -256,6 +277,18 @@ def janela_dos_periodos(periodos: list[Periodo]) -> tuple[date, date] | None:
     primeiro = min(p.inicio for p in periodos).replace(day=1)
     ultimo = max(p.fim for p in periodos)
     return primeiro, ultimo_dia_mes(date(ultimo.year, ultimo.month, 1))
+
+
+MARGEM_GANTT_DIAS = 7
+
+
+def janela_gantt(periodos: list) -> tuple[date, date] | None:
+    """Uma semana antes do primeiro início e uma semana depois do último fim."""
+    if not periodos:
+        return None
+    primeiro = min(p.inicio for p in periodos) - timedelta(days=MARGEM_GANTT_DIAS)
+    ultimo = max(p.fim for p in periodos) + timedelta(days=MARGEM_GANTT_DIAS)
+    return primeiro, ultimo
 
 
 def pontuar_cobertura(
@@ -428,6 +461,7 @@ def analisar_periodo(
     mes_inicio_ciclo: int,
     total_ativos: int | None = None,
     min_disponiveis: int | None = None,
+    mes_fim_ciclo: int | None = None,
 ) -> Analise:
     """Valida um período de férias.
 
@@ -462,11 +496,11 @@ def analisar_periodo(
             "o repouso semanal ou feriado (art. 134, §3º)."
         )
 
-    ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo)
+    ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo, mes_fim_ciclo)
     do_ciclo = [p for p in outros_do_funcionario if ciclo_ini <= p.inicio <= ciclo_fim]
     duracoes = [p.dias for p in do_ciclo] + [dias]
     total = sum(duracoes)
-    rotulo = rotulo_ciclo(ciclo_ini)
+    rotulo = rotulo_ciclo(ciclo_ini, ciclo_fim)
 
     if len(duracoes) > MAX_PERIODOS:
         analise.avisos.append(
@@ -502,7 +536,7 @@ def analisar_periodo(
                 f"O setor ficaria com {pior_disp} pessoa(s) disponível(is) em {pico_dia:%d/%m/%Y} "
                 f"(mínimo: {min_disponiveis}).{complemento}"
             )
-            ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo)
+            ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo, mes_fim_ciclo)
             ocupacao_ciclo = ocupacao_por_dia(periodos_de_outros, ciclo_ini, ciclo_fim)
             analise.alternativas = sugerir_alternativas(
                 inicio, dias, ocupacao_ciclo, total_ativos, min_disponiveis,
@@ -537,7 +571,9 @@ def analisar_periodo_db(funcionario, inicio: date, dias: int, ferias_id: int | N
         return Periodo(f.funcionario.nome, f.inicio, f.fim, f.dias, f.id)
 
     fim = calcular_fim(inicio, max(dias, 1))
-    ciclo_ini, ciclo_fim = ciclo_de(inicio, Configuracao.obter_int("mes_inicio_ciclo"))
+    mes_inicio = Configuracao.mes_inicio_ciclo()
+    mes_fim = Configuracao.mes_fim_ciclo()
+    ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio, mes_fim)
     janela_ini, janela_fim = min(ciclo_ini, inicio), max(ciclo_fim, fim)
 
     consulta = db.select(Ferias).where(Ferias.inicio <= janela_fim, Ferias.fim >= janela_ini)
@@ -557,7 +593,8 @@ def analisar_periodo_db(funcionario, inicio: date, dias: int, ferias_id: int | N
         do_funcionario,
         de_outros,
         limite_ausentes(total_ativos, min_disponiveis),
-        Configuracao.obter_int("mes_inicio_ciclo"),
+        mes_inicio,
         total_ativos=total_ativos,
         min_disponiveis=min_disponiveis,
+        mes_fim_ciclo=mes_fim,
     )

@@ -10,7 +10,7 @@ from .regras import (
     Periodo,
     ciclo_de,
     escolher_melhor_combinacao,
-    janela_dos_periodos,
+    janela_gantt,
     limite_ausentes,
     nivel_cobertura,
     ocupacao_por_dia,
@@ -28,14 +28,18 @@ class Conflito:
 
 
 def ciclo_atual(referencia: date | None = None) -> tuple[date, date]:
-    return ciclo_de(referencia or date.today(), Configuracao.obter_int("mes_inicio_ciclo"))
+    return ciclo_de(
+        referencia or date.today(),
+        Configuracao.mes_inicio_ciclo(),
+        Configuracao.mes_fim_ciclo(),
+    )
 
 
 def ciclo_por_ano(ano: int | None = None) -> tuple[date, date]:
     if not ano:
         return ciclo_atual()
-    mes = Configuracao.obter_int("mes_inicio_ciclo")
-    return ciclo_atual(date(ano, mes, 1))
+    mes = Configuracao.mes_inicio_ciclo()
+    return ciclo_de(date(ano, mes, 1), mes, Configuracao.mes_fim_ciclo())
 
 
 def ciclos_disponiveis(ciclo_ini: date) -> list[dict]:
@@ -51,9 +55,8 @@ def ciclos_disponiveis(ciclo_ini: date) -> list[dict]:
     for valor in anos_opcao:
         if valor:
             anos.add(int(valor))
-    mes_inicio = Configuracao.obter_int("mes_inicio_ciclo")
     return [
-        {"ano": ano, "rotulo": rotulo_ciclo(date(ano, mes_inicio, 1))}
+        {"ano": ano, "rotulo": rotulo_ciclo(*ciclo_por_ano(ano))}
         for ano in range(min(anos), max(anos) + 1)
     ]
 
@@ -420,9 +423,7 @@ def simular_calendario_opcoes(ano: int, sugestoes_por_func: dict[int, list] | No
             )
         )
 
-    janela = janela_dos_periodos(
-        [Periodo(b.funcionario.nome, b.inicio, b.fim, b.dias) for b in barras]
-    )
+    janela = janela_gantt(barras)
     grade = {}
     if janela:
         por_id: dict[int, list] = defaultdict(list)
