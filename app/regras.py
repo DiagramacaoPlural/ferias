@@ -22,7 +22,7 @@ DIAS_MIN_PERIODO_PRINCIPAL = 14
 DIAS_MAX_CICLO = 30
 MAX_PERIODOS = 3
 AVISO_13_FEVEREIRO = (
-    "A 1ª parcela do 13º só pode ser antecipada em férias com início a partir de fevereiro."
+    "A 1ª parcela do 13º só pode ser antecipada em férias com início a partir de fevereiro do ciclo."
 )
 EMAILS_ALERTA_LIMITE = (
     "marcelo.marcolino@plural.com.br, ricardo.rosas@plural.com.br"
@@ -97,9 +97,34 @@ def calcular_fim(inicio: date, dias: int) -> date:
     return inicio + timedelta(days=dias - 1)
 
 
-def pode_adiantar_13(inicio: date) -> bool:
-    """A 1ª parcela do 13º só vale para férias que começam em fevereiro ou depois."""
-    return inicio.month >= 2
+def fevereiro_do_ciclo(ciclo_ini: date, ciclo_fim: date) -> date | None:
+    """Primeiro 1º de fevereiro que cai dentro do ciclo."""
+    fev = date(ciclo_ini.year, 2, 1)
+    if fev < ciclo_ini:
+        fev = date(ciclo_ini.year + 1, 2, 1)
+    if ciclo_ini <= fev <= ciclo_fim:
+        return fev
+    return None
+
+
+def aviso_13_do_ciclo(ciclo_ini: date, ciclo_fim: date) -> str:
+    fev = fevereiro_do_ciclo(ciclo_ini, ciclo_fim)
+    if not fev:
+        return "Neste ciclo não há fevereiro; a 1ª parcela do 13º não pode ser antecipada."
+    return (
+        f"A 1ª parcela do 13º só pode ser antecipada em férias com início a partir de "
+        f"{fev:%d/%m/%Y}."
+    )
+
+
+def pode_adiantar_13(inicio: date, ciclo_ini: date | None = None, ciclo_fim: date | None = None) -> bool:
+    """A 1ª parcela do 13º só vale a partir do fevereiro daquele ciclo."""
+    if ciclo_ini is None or ciclo_fim is None:
+        return 2 <= inicio.month <= 11
+    if not (ciclo_ini <= inicio <= ciclo_fim):
+        return False
+    fev = fevereiro_do_ciclo(ciclo_ini, ciclo_fim)
+    return fev is not None and inicio >= fev
 
 
 def somar_anos(dia: date, anos: int) -> date:
@@ -462,6 +487,8 @@ def analisar_periodo(
     total_ativos: int | None = None,
     min_disponiveis: int | None = None,
     mes_fim_ciclo: int | None = None,
+    ciclo_ini: date | None = None,
+    ciclo_fim: date | None = None,
 ) -> Analise:
     """Valida um período de férias.
 
@@ -475,6 +502,20 @@ def analisar_periodo(
         return analise
 
     fim = calcular_fim(inicio, dias)
+    if ciclo_ini is None or ciclo_fim is None:
+        ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo, mes_fim_ciclo)
+    rotulo = rotulo_ciclo(ciclo_ini, ciclo_fim)
+    if inicio < ciclo_ini or inicio > ciclo_fim:
+        analise.erros.append(
+            f"As férias devem começar entre {ciclo_ini:%d/%m/%Y} e {ciclo_fim:%d/%m/%Y} (ciclo {rotulo})."
+        )
+        return analise
+    if fim > ciclo_fim:
+        analise.erros.append(
+            f"O período termina depois do fim do ciclo {rotulo} ({ciclo_fim:%d/%m/%Y}). "
+            "Escolha uma data de início que caiba no ciclo."
+        )
+        return analise
 
     for p in outros_do_funcionario:
         if sobrepoe(inicio, fim, p.inicio, p.fim):
@@ -496,11 +537,9 @@ def analisar_periodo(
             "o repouso semanal ou feriado (art. 134, §3º)."
         )
 
-    ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo, mes_fim_ciclo)
     do_ciclo = [p for p in outros_do_funcionario if ciclo_ini <= p.inicio <= ciclo_fim]
     duracoes = [p.dias for p in do_ciclo] + [dias]
     total = sum(duracoes)
-    rotulo = rotulo_ciclo(ciclo_ini, ciclo_fim)
 
     if len(duracoes) > MAX_PERIODOS:
         analise.avisos.append(
@@ -536,7 +575,6 @@ def analisar_periodo(
                 f"O setor ficaria com {pior_disp} pessoa(s) disponível(is) em {pico_dia:%d/%m/%Y} "
                 f"(mínimo: {min_disponiveis}).{complemento}"
             )
-            ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo, mes_fim_ciclo)
             ocupacao_ciclo = ocupacao_por_dia(periodos_de_outros, ciclo_ini, ciclo_fim)
             analise.alternativas = sugerir_alternativas(
                 inicio, dias, ocupacao_ciclo, total_ativos, min_disponiveis,
@@ -564,7 +602,14 @@ def analisar_periodo(
     return analise
 
 
-def analisar_periodo_db(funcionario, inicio: date, dias: int, ferias_id: int | None = None) -> Analise:
+def analisar_periodo_db(
+    funcionario,
+    inicio: date,
+    dias: int,
+    ferias_id: int | None = None,
+    ciclo_ini: date | None = None,
+    ciclo_fim: date | None = None,
+) -> Analise:
     from .models import Configuracao, Ferias, Funcionario, db
 
     def para_periodo(f):
@@ -573,7 +618,8 @@ def analisar_periodo_db(funcionario, inicio: date, dias: int, ferias_id: int | N
     fim = calcular_fim(inicio, max(dias, 1))
     mes_inicio = Configuracao.mes_inicio_ciclo()
     mes_fim = Configuracao.mes_fim_ciclo()
-    ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio, mes_fim)
+    if ciclo_ini is None or ciclo_fim is None:
+        ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio, mes_fim)
     janela_ini, janela_fim = min(ciclo_ini, inicio), max(ciclo_fim, fim)
 
     consulta = db.select(Ferias).where(Ferias.inicio <= janela_fim, Ferias.fim >= janela_ini)
@@ -597,4 +643,6 @@ def analisar_periodo_db(funcionario, inicio: date, dias: int, ferias_id: int | N
         total_ativos=total_ativos,
         min_disponiveis=min_disponiveis,
         mes_fim_ciclo=mes_fim,
+        ciclo_ini=ciclo_ini,
+        ciclo_fim=ciclo_fim,
     )

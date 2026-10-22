@@ -5,7 +5,7 @@
 <div class="cabecalho">
   <div>
     <h1>Minhas datas de férias</h1>
-    <p>Envie até duas opções para o ciclo {{ rotulo_ciclo }}. Elas vão para o líder validar ou sugerir outra data.</p>
+    <p>Envie até duas opções para o ciclo {{ rotulo_ciclo }} ({{ ciclo_ini|data }} a {{ ciclo_fim|data }}). Elas vão para o líder validar ou sugerir outra data.</p>
   </div>
   <div class="acoes">
     {{ seletor_ciclo(ciclos, ciclo_ini, 'ferias.opcoes') }}
@@ -65,6 +65,8 @@
         {% set v_inicio = dados.get('inicio_' ~ ordem) if dados else (atual.inicio.isoformat() if atual else '') %}
         {% set v_dias = dados.get('dias_' ~ ordem) if dados else (atual.dias if atual else 20) %}
         {% set v_13 = dados.get('adianta_13_' ~ ordem) == '1' if dados else (atual.adianta_13 if atual else false) %}
+        {% set pode_13 = v_inicio and fevereiro_13 and v_inicio >= fevereiro_13.isoformat() %}
+        {% set v_13 = v_13 and pode_13 %}
         {% set v_vende = dados.get('vende_10_' ~ ordem) == '1' if dados else (atual.vende_10 if atual else false) %}
         <div class="card" style="box-shadow:none">
           <div class="card-titulo"><h2>Opção {{ ordem }}{% if ordem == 2 %} <span class="texto-suave">(opcional)</span>{% endif %}</h2></div>
@@ -72,7 +74,7 @@
             <div class="campos-linha">
               <div class="campo">
                 <label for="inicio_{{ ordem }}">Início</label>
-                <input type="date" id="inicio_{{ ordem }}" name="inicio_{{ ordem }}" value="{{ v_inicio }}" {{ 'required' if ordem == 1 }}>
+                <input type="date" id="inicio_{{ ordem }}" name="inicio_{{ ordem }}" value="{{ v_inicio }}" min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}" {{ 'required' if ordem == 1 }}>
               </div>
               <div class="campo">
                 <label for="dias_{{ ordem }}">Dias</label>
@@ -83,11 +85,11 @@
                 <input type="text" id="fim_{{ ordem }}" value="{{ atual.fim|data if atual and not dados else '' }}" readonly tabindex="-1">
               </div>
             </div>
-            <div class="campo">
+            <div class="campo campo-13{{ ' indisponivel' if not pode_13 }}" id="campo_13_{{ ordem }}">
               <span class="rotulo-campo">Antecipar 1ª parcela do 13º</span>
               <div class="opcoes-sim-nao">
-                <label class="checkbox">
-                  <input type="checkbox" id="adianta_13_{{ ordem }}_sim" name="adianta_13_{{ ordem }}" value="1" {{ 'checked' if v_13 }}>
+                <label class="checkbox" id="lbl_adianta_13_{{ ordem }}_sim" {{ 'hidden' if not pode_13 }}>
+                  <input type="checkbox" id="adianta_13_{{ ordem }}_sim" name="adianta_13_{{ ordem }}" value="1" {{ 'checked' if v_13 }} {{ 'disabled' if not pode_13 }}>
                   Sim
                 </label>
                 <label class="checkbox">
@@ -95,6 +97,7 @@
                   Não
                 </label>
               </div>
+              <small id="ajuda_13_{{ ordem }}">{{ aviso_13 if not pode_13 else 'Disponível para férias com início a partir de ' ~ fevereiro_13.strftime('%d/%m/%Y') ~ '.' }}</small>
             </div>
             <div class="campo">
               <span class="rotulo-campo">Abono pecuniário</span>
@@ -145,7 +148,46 @@
 (function () {
   const token = document.querySelector('meta[name="csrf-token"]').content;
   const funcId = {{ funcionario.id if funcionario else 0 }};
+  const ciclo = '{{ ciclo_ini.year }}';
+  const cicloIni = '{{ ciclo_ini.isoformat() }}';
+  const cicloFim = '{{ ciclo_fim.isoformat() }}';
+  const fev13 = '{{ fevereiro_13.isoformat() if fevereiro_13 else "" }}';
   if (!funcId) return;
+
+  function fmtData(iso) {
+    if (!iso) return '';
+    const p = iso.split('-');
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+
+  function pode13(inicioISO) {
+    if (!inicioISO || !fev13) return false;
+    return inicioISO >= fev13 && inicioISO >= cicloIni && inicioISO <= cicloFim;
+  }
+
+  function atualizar13(ordem) {
+    const inicio = document.getElementById('inicio_' + ordem);
+    const sim = document.getElementById('adianta_13_' + ordem + '_sim');
+    const nao = document.getElementById('adianta_13_' + ordem + '_nao');
+    const lbl = document.getElementById('lbl_adianta_13_' + ordem + '_sim');
+    const campo = document.getElementById('campo_13_' + ordem);
+    const ajuda = document.getElementById('ajuda_13_' + ordem);
+    const pode = inicio ? pode13(inicio.value) : false;
+    if (campo) campo.classList.toggle('indisponivel', !pode);
+    if (lbl) lbl.hidden = !pode;
+    if (sim) {
+      sim.disabled = !pode;
+      if (!pode) sim.checked = false;
+    }
+    if (nao && !pode) nao.checked = true;
+    if (ajuda) {
+      ajuda.textContent = !fev13
+        ? 'Neste ciclo não há fevereiro; a 1ª parcela do 13º não pode ser antecipada.'
+        : (pode
+            ? 'Disponível para férias com início a partir de ' + fmtData(fev13) + '.'
+            : 'A 1ª parcela do 13º só pode ser antecipada em férias com início a partir de ' + fmtData(fev13) + '.');
+    }
+  }
 
   function escapar(texto) {
     const div = document.createElement('div');
@@ -163,7 +205,7 @@
       const resp = await fetch('{{ url_for("ferias.analisar") }}', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
-        body: JSON.stringify({ funcionario_id: funcId, inicio: inicio.value, dias: dias.value }),
+        body: JSON.stringify({ funcionario_id: funcId, inicio: inicio.value, dias: dias.value, ciclo: ciclo }),
       });
       if (!resp.ok) return;
       const r = await resp.json();
@@ -173,6 +215,7 @@
       else if ((r.avisos || []).length) html += '<div class="alerta alerta-aviso"><div><ul>' + r.avisos.map(e => '<li>' + escapar(e) + '</li>').join('') + '</ul></div></div>';
       else html = '<div class="alerta alerta-sucesso">Período sem conflitos com o mínimo do setor.</div>';
       painel.innerHTML = html;
+      atualizar13(ordem);
     } catch (e) { /* validação ao vivo é auxiliar */ }
   }
 
@@ -184,8 +227,8 @@
   [1, 2].forEach(function (ordem) {
     ['inicio_' + ordem, 'dias_' + ordem].forEach(function (id) {
       const el = document.getElementById(id);
-      if (el) el.addEventListener('change', function () { analisar(ordem); });
-      if (el) el.addEventListener('input', function () { analisar(ordem); });
+      if (el) el.addEventListener('change', function () { atualizar13(ordem); analisar(ordem); });
+      if (el) el.addEventListener('input', function () { atualizar13(ordem); analisar(ordem); });
     });
     const a13s = document.getElementById('adianta_13_' + ordem + '_sim');
     const a13n = document.getElementById('adianta_13_' + ordem + '_nao');
@@ -199,12 +242,14 @@
       v10s.addEventListener('change', function () { marcarPar(v10s, v10n, this.checked); });
       v10n.addEventListener('change', function () { marcarPar(v10s, v10n, !this.checked); });
     }
+    atualizar13(ordem);
     analisar(ordem);
   });
 
   document.querySelectorAll('[data-inicio]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.getElementById('inicio_1').value = btn.dataset.inicio;
+      atualizar13(1);
       analisar(1);
     });
   });

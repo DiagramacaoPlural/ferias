@@ -9,11 +9,13 @@
 {% set v_13 = (dados.get('adianta_13') == '1' if dados else (ferias.adianta_13 if ferias else false)) %}
 {% set v_vende = (dados.get('vende_10') == '1' if dados else (ferias.vende_10 if ferias else false)) %}
 {% set v_aprovada = (dados.get('aprovada') == '1' if dados else (ferias.aprovada if ferias else false)) %}
+{% set pode_13 = v_inicio and fevereiro_13 and v_inicio >= fevereiro_13.isoformat() %}
+{% set v_13 = v_13 and pode_13 %}
 
 <div class="cabecalho">
   <div>
     <h1 id="titulo-form">{{ 'Editar férias' if ferias else 'Programar férias' }}</h1>
-    <p>O dia de início conta como o 1º dia de férias.</p>
+    <p>O dia de início conta como o 1º dia de férias. Só é possível marcar no ciclo {{ rotulo_ciclo }} ({{ ciclo_ini|data }} a {{ ciclo_fim|data }}).</p>
   </div>
   <div class="acoes"><a href="{{ url_for('ferias.lista') }}" class="btn">Voltar</a></div>
 </div>
@@ -23,9 +25,12 @@
 {% endif %}
 
 <form method="post" class="card form-estreito" id="form-ferias" data-ferias-id="{{ ferias.id if ferias else '' }}"
+      data-ciclo="{{ ciclo_ini.year }}" data-ciclo-ini="{{ ciclo_ini.isoformat() }}" data-ciclo-fim="{{ ciclo_fim.isoformat() }}"
+      data-fevereiro-13="{{ fevereiro_13.isoformat() if fevereiro_13 else '' }}"
       action="{{ url_for('ferias.formulario', ferias_id=ferias.id) if ferias else url_for('ferias.formulario') }}">
   <div class="card-corpo">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="ciclo" value="{{ ciclo_ini.year }}">
 
     <div class="campo">
       <label for="funcionario_id">Funcionário</label>
@@ -41,7 +46,7 @@
     <div class="campos-linha">
       <div class="campo">
         <label for="inicio">Início</label>
-        <input type="date" id="inicio" name="inicio" value="{{ v_inicio }}" required>
+        <input type="date" id="inicio" name="inicio" value="{{ v_inicio }}" min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}" required>
       </div>
       <div class="campo">
         <label for="dias">Dias</label>
@@ -59,11 +64,11 @@
       {% endfor %}
     </div>
 
-    <div class="campo">
+    <div class="campo campo-13{{ ' indisponivel' if not pode_13 }}" id="campo_13">
       <span class="rotulo-campo">Antecipar a 1ª parcela do 13º</span>
       <div class="opcoes-sim-nao">
-        <label class="checkbox">
-          <input type="checkbox" id="adianta_13_sim" name="adianta_13" value="1" {{ 'checked' if v_13 }}>
+        <label class="checkbox" id="lbl_adianta_13_sim" {{ 'hidden' if not pode_13 }}>
+          <input type="checkbox" id="adianta_13_sim" name="adianta_13" value="1" {{ 'checked' if v_13 }} {{ 'disabled' if not pode_13 }}>
           Sim
         </label>
         <label class="checkbox">
@@ -71,7 +76,7 @@
           Não
         </label>
       </div>
-      <small>Somente para férias com início a partir de fevereiro.</small>
+      <small id="ajuda_13">{{ aviso_13 if not pode_13 else 'Disponível para férias com início a partir de ' ~ fevereiro_13.strftime('%d/%m/%Y') ~ '.' }}</small>
     </div>
 
     <div class="campo">
@@ -150,7 +155,41 @@
   const token = document.querySelector('meta[name="csrf-token"]').content;
   const urlNova = '{{ url_for("ferias.formulario") }}';
   const urlDados = '{{ url_for("ferias.dados_funcionario", funcionario_id=0) }}';
+  const campo13 = document.getElementById('campo_13');
+  const lbl13Sim = document.getElementById('lbl_adianta_13_sim');
+  const ajuda13 = document.getElementById('ajuda_13');
   let temporizador;
+
+  function fmtData(iso) {
+    if (!iso) return '';
+    const p = iso.split('-');
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+
+  function pode13(inicioISO) {
+    const fev = form.dataset.fevereiro13;
+    if (!inicioISO || !fev) return false;
+    return inicioISO >= fev && inicioISO >= form.dataset.cicloIni && inicioISO <= form.dataset.cicloFim;
+  }
+
+  function atualizar13(inicioISO) {
+    const pode = pode13(inicioISO);
+    if (campo13) campo13.classList.toggle('indisponivel', !pode);
+    if (lbl13Sim) lbl13Sim.hidden = !pode;
+    campos.adianta13Sim.disabled = !pode;
+    if (!pode) {
+      campos.adianta13Sim.checked = false;
+      campos.adianta13Nao.checked = true;
+    }
+    if (ajuda13) {
+      const fev = form.dataset.fevereiro13;
+      ajuda13.textContent = !fev
+        ? 'Neste ciclo não há fevereiro; a 1ª parcela do 13º não pode ser antecipada.'
+        : (pode
+            ? 'Disponível para férias com início a partir de ' + fmtData(fev) + '.'
+            : 'A 1ª parcela do 13º só pode ser antecipada em férias com início a partir de ' + fmtData(fev) + '.');
+    }
+  }
 
   function escapar(texto) {
     const div = document.createElement('div');
@@ -175,6 +214,7 @@
           inicio: campos.inicio.value,
           dias: campos.dias.value,
           adianta_13: campos.adianta13Sim.checked,
+          ciclo: form.dataset.ciclo,
           ferias_id: form.dataset.feriasId || null,
         }),
       });
@@ -198,6 +238,7 @@
           agendar();
         });
       });
+      atualizar13(campos.inicio.value);
       if (!r.erros.length && !r.avisos.length && campos.funcionario.value) {
         painel.innerHTML = '<div class="alerta alerta-sucesso">Período sem conflitos. O setor permanece com a cobertura mínima.</div>';
       }
@@ -215,7 +256,8 @@
       campos.dias.value = '30';
       campos.fim.value = '';
       if (observacao) observacao.value = '';
-      marcar13(false);
+      marcar13(false, false);
+      atualizar13('');
       marcarVende(false);
       if (aprovada) aprovada.checked = false;
       return;
@@ -223,7 +265,8 @@
     campos.inicio.value = p.inicio;
     campos.dias.value = p.dias;
     if (observacao) observacao.value = p.observacao || '';
-    marcar13(!!p.adianta_13);
+    atualizar13(p.inicio);
+    marcar13(!!p.adianta_13 && pode13(p.inicio), false);
     marcarVende(!!p.vende_10);
     if (aprovada) aprovada.checked = !!p.aprovada;
   }
@@ -277,14 +320,15 @@
   }
 
   ['change', 'input'].forEach(ev => {
-    campos.inicio.addEventListener(ev, agendar);
+    campos.inicio.addEventListener(ev, function () { atualizar13(campos.inicio.value); agendar(); });
     campos.dias.addEventListener(ev, agendar);
   });
   campos.funcionario.addEventListener('change', carregarFuncionario);
-  function marcar13(sim) {
-    campos.adianta13Sim.checked = sim;
-    campos.adianta13Nao.checked = !sim;
-    agendar();
+  function marcar13(sim, analisarDepois) {
+    const pode = pode13(campos.inicio.value);
+    campos.adianta13Sim.checked = !!(sim && pode);
+    campos.adianta13Nao.checked = !campos.adianta13Sim.checked;
+    if (analisarDepois !== false) agendar();
   }
   campos.adianta13Sim.addEventListener('change', function () { marcar13(this.checked); });
   campos.adianta13Nao.addEventListener('change', function () { marcar13(!this.checked); });
@@ -301,8 +345,10 @@
   }));
   document.querySelectorAll('[data-inicio]').forEach(btn => btn.addEventListener('click', () => {
     campos.inicio.value = btn.dataset.inicio;
+    atualizar13(campos.inicio.value);
     agendar();
   }));
+  atualizar13(campos.inicio.value);
 
   if (campos.funcionario.value) {
     fetch(urlDoFuncionario(campos.funcionario.value))

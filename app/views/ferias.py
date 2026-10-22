@@ -44,10 +44,11 @@ from ..workflow import (
     recusar_proposta,
 )
 from ..regras import (
-    AVISO_13_FEVEREIRO,
     DIAS_MAX_CICLO,
+    aviso_13_do_ciclo,
     analisar_periodo_db,
     calcular_fim,
+    fevereiro_do_ciclo,
     janela_gantt,
     meses_do_ciclo,
     nivel_cobertura,
@@ -128,10 +129,46 @@ def _destino_calendario():
     return request.referrer or url_for("ferias.calendario")
 
 
-def _erro_adianta_13(inicio: date | None, adianta: bool) -> str | None:
-    if adianta and inicio and not pode_adiantar_13(inicio):
-        return AVISO_13_FEVEREIRO
+def _ciclo_selecionado(referencia: date | None = None) -> tuple[date, date]:
+    ano = None
+    if request.form:
+        ano = request.form.get("ciclo", type=int)
+    if not ano:
+        ano = request.args.get("ciclo", type=int)
+    if ano:
+        return ciclo_por_ano(ano)
+    if referencia:
+        return ciclo_atual(referencia)
+    return ciclo_atual()
+
+
+def _ciclo_dos_dados(dados, inicio: date | None = None) -> tuple[date, date]:
+    try:
+        ano = int(dados.get("ciclo") or 0)
+    except (TypeError, ValueError):
+        ano = 0
+    if ano:
+        return ciclo_por_ano(ano)
+    if inicio:
+        return ciclo_atual(inicio)
+    return ciclo_atual()
+
+
+def _erro_adianta_13(inicio: date | None, adianta: bool, ciclo_ini: date | None = None, ciclo_fim: date | None = None) -> str | None:
+    if not adianta or not inicio:
+        return None
+    if ciclo_ini is None or ciclo_fim is None:
+        ciclo_ini, ciclo_fim = ciclo_atual(inicio)
+    if not pode_adiantar_13(inicio, ciclo_ini, ciclo_fim):
+        return aviso_13_do_ciclo(ciclo_ini, ciclo_fim)
     return None
+
+
+def _forcar_13_do_ciclo(ferias: Ferias, ciclo_ini: date | None = None, ciclo_fim: date | None = None) -> None:
+    if ciclo_ini is None or ciclo_fim is None:
+        ciclo_ini, ciclo_fim = ciclo_atual(ferias.inicio)
+    if ferias.adianta_13 and not pode_adiantar_13(ferias.inicio, ciclo_ini, ciclo_fim):
+        ferias.adianta_13 = False
 
 
 @bp.route("/")
@@ -170,6 +207,7 @@ def lista():
         total_ativos=len(ativos),
         min_disponiveis=min_disp,
         ciclo_ini=ciclo_ini,
+        ciclo_fim=ciclo_fim,
         ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         funcionarios=db.session.scalars(db.select(Funcionario).order_by(Funcionario.nome)).all(),
@@ -189,15 +227,16 @@ def formulario(ferias_id: int | None = None):
         flash("Férias aprovadas só podem ser alteradas por um administrador.", "aviso")
         return redirect(url_for("ferias.lista"))
 
+    ciclo_ini, ciclo_fim = _ciclo_selecionado(ferias.inicio if ferias else None)
     avisos, erros, alternativas = [], [], []
     if request.method == "POST":
         funcionario, inicio, dias, erros = _ler_formulario()
         adianta_13 = _quer_adiantar_13(request.form)
         vende_10 = _quer_vende_10(request.form)
-        if erro_13 := _erro_adianta_13(inicio, adianta_13):
+        if erro_13 := _erro_adianta_13(inicio, adianta_13, ciclo_ini, ciclo_fim):
             erros.append(erro_13)
         if not erros:
-            analise = analisar_periodo_db(funcionario, inicio, dias, ferias_id)
+            analise = analisar_periodo_db(funcionario, inicio, dias, ferias_id, ciclo_ini, ciclo_fim)
             erros, avisos, alternativas = analise.erros, analise.avisos, analise.alternativas
 
         confirmado = request.form.get("confirmar") == "1"
@@ -236,6 +275,7 @@ def formulario(ferias_id: int | None = None):
     if ferias and ferias.funcionario not in funcionarios:
         funcionarios.append(ferias.funcionario)
 
+    fevereiro_13 = fevereiro_do_ciclo(ciclo_ini, ciclo_fim)
     return render_template(
         "ferias/formulario.html",
         ferias=ferias,
@@ -245,6 +285,11 @@ def formulario(ferias_id: int | None = None):
         alternativas=alternativas,
         dados=request.form if request.method == "POST" else None,
         dias_max=DIAS_MAX_CICLO,
+        ciclo_ini=ciclo_ini,
+        ciclo_fim=ciclo_fim,
+        fevereiro_13=fevereiro_13,
+        aviso_13=aviso_13_do_ciclo(ciclo_ini, ciclo_fim),
+        rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
     )
 
 
@@ -307,17 +352,24 @@ def analisar():
         inicio = datetime.strptime(dados.get("inicio", ""), "%Y-%m-%d").date()
         dias = int(dados.get("dias"))
     except (TypeError, ValueError):
-        return jsonify(fim=None, erros=[], avisos=[])
+        return jsonify(fim=None, erros=[], avisos=[], pode_adiantar_13=False)
 
+    ciclo_ini, ciclo_fim = _ciclo_dos_dados(dados, inicio)
+    fev = fevereiro_do_ciclo(ciclo_ini, ciclo_fim)
+    flags_13 = {
+        "pode_adiantar_13": pode_adiantar_13(inicio, ciclo_ini, ciclo_fim),
+        "fevereiro_13": fev.isoformat() if fev else None,
+        "aviso_13": aviso_13_do_ciclo(ciclo_ini, ciclo_fim),
+    }
     fim = calcular_fim(inicio, dias) if dias > 0 else None
     erros_13 = []
-    if erro_13 := _erro_adianta_13(inicio, _quer_adiantar_13(dados)):
+    if erro_13 := _erro_adianta_13(inicio, _quer_adiantar_13(dados), ciclo_ini, ciclo_fim):
         erros_13.append(erro_13)
     if not funcionario:
-        return jsonify(fim=fim.strftime("%d/%m/%Y") if fim else None, erros=erros_13, avisos=[])
+        return jsonify(fim=fim.strftime("%d/%m/%Y") if fim else None, erros=erros_13, avisos=[], **flags_13)
 
     ferias_id = int(dados["ferias_id"]) if str(dados.get("ferias_id") or "").isdigit() else None
-    analise = analisar_periodo_db(funcionario, inicio, dias, ferias_id)
+    analise = analisar_periodo_db(funcionario, inicio, dias, ferias_id, ciclo_ini, ciclo_fim)
     return jsonify(
         fim=fim.strftime("%d/%m/%Y") if fim else None,
         erros=erros_13 + analise.erros,
@@ -326,6 +378,7 @@ def analisar():
             {"inicio": a.inicio.isoformat(), "fim": a.fim.strftime("%d/%m/%Y"), "rotulo": a.inicio.strftime("%d/%m/%Y")}
             for a in analise.alternativas
         ],
+        **flags_13,
     )
 
 
@@ -395,7 +448,7 @@ def acao_lote():
         if feitos:
             flash(f"{rotulo} marcado como {'Sim' if sim else 'Não'} em {len(feitos)} período(s).", "sucesso")
         if recusados:
-            extra = ". A 1ª parcela só vale para férias a partir de fevereiro." if sim and not vende else "."
+            extra = ". A 1ª parcela só vale para férias a partir de fevereiro do ciclo." if sim and not vende else "."
             flash("Não foi possível alterar: " + ", ".join(recusados) + extra, "aviso")
         if not feitos and not recusados:
             flash("Nenhum período foi alterado.", "aviso")
@@ -418,10 +471,13 @@ def mover(ferias_id: int):
         flash("Data alternativa inválida.", "erro")
         return redirect(url_for("ferias.lista"))
 
-    analise = analisar_periodo_db(ferias.funcionario, inicio, ferias.dias, ferias.id)
+    ciclo_ini, ciclo_fim = ciclo_atual(ferias.inicio)
+    analise = analisar_periodo_db(ferias.funcionario, inicio, ferias.dias, ferias.id, ciclo_ini, ciclo_fim)
     if analise.erros:
         flash(analise.erros[0], "erro")
         return redirect(url_for("ferias.lista"))
+    if ferias.adianta_13 and not pode_adiantar_13(inicio, ciclo_ini, ciclo_fim):
+        ferias.adianta_13 = False
 
     anterior = f"{ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}"
     ferias.definir_periodo(inicio, ferias.dias)
@@ -534,6 +590,7 @@ def calendario():
         "ferias/calendario.html",
         meses=meses,
         ciclo_ini=ciclo_ini,
+        ciclo_fim=ciclo_fim,
         ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         minhas_pendencias=minhas,
@@ -613,10 +670,10 @@ def opcoes():
                 erros.append(f"Opção {ordem}: informe a quantidade de dias.")
                 continue
             adianta_13 = _quer_adiantar_13({"adianta_13": request.form.get(f"adianta_13_{ordem}")})
-            if erro_13 := _erro_adianta_13(inicio, adianta_13):
+            if erro_13 := _erro_adianta_13(inicio, adianta_13, ciclo_ini, ciclo_fim):
                 erros.append(f"Opção {ordem}: {erro_13}")
                 continue
-            analise = analisar_periodo_db(funcionario, inicio, dias)
+            analise = analisar_periodo_db(funcionario, inicio, dias, ciclo_ini=ciclo_ini, ciclo_fim=ciclo_fim)
             if analise.erros:
                 erros.extend(f"Opção {ordem}: {e}" for e in analise.erros)
             avisos.extend(f"Opção {ordem}: {a}" for a in analise.avisos)
@@ -677,6 +734,9 @@ def opcoes():
         "ferias/opcoes.html",
         funcionario=funcionario,
         ciclo_ini=ciclo_ini,
+        ciclo_fim=ciclo_fim,
+        fevereiro_13=fevereiro_do_ciclo(ciclo_ini, ciclo_fim),
+        aviso_13=aviso_13_do_ciclo(ciclo_ini, ciclo_fim),
         ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         existentes=existentes,
@@ -755,6 +815,11 @@ def acao_lider(ferias_id: int):
     dias = request.form.get("dias", type=int) or (opcao.dias if opcao else ferias.dias)
     if dias < 1:
         dias = ferias.dias
+    ciclo_ini, ciclo_fim = ciclo_atual(ferias.inicio)
+    analise = analisar_periodo_db(ferias.funcionario, inicio, dias, ferias.id, ciclo_ini, ciclo_fim)
+    if analise.erros:
+        flash(analise.erros[0], "erro")
+        return redirect(destino_lider)
     definir_final = bool(ferias.recusou_ajuste) or acao == "definir"
     sugerir = (not definir_final) and (acao == "sugerir" or (acao != "validar" and inicio != ferias.inicio))
     if sugerir:
@@ -778,6 +843,7 @@ def acao_lider(ferias_id: int):
         ferias.adianta_13 = request.form.get("adianta_13") == "1"
     elif opcao is not None:
         ferias.adianta_13 = bool(opcao.adianta_13)
+    _forcar_13_do_ciclo(ferias, ciclo_ini, ciclo_fim)
     lider_validar(ferias, current_user.login)
     if definir_final:
         flash("Data definida e encaminhada ao gerente (Aceite gerente).", "sucesso")
@@ -804,7 +870,8 @@ def acao_gerente(ferias_id: int):
         except ValueError:
             flash("Informe a nova data sugerida.", "erro")
             return redirect(_destino_calendario())
-        analise = analisar_periodo_db(ferias.funcionario, inicio, ferias.dias, ferias.id)
+        ciclo_ini, ciclo_fim = ciclo_atual(ferias.inicio)
+        analise = analisar_periodo_db(ferias.funcionario, inicio, ferias.dias, ferias.id, ciclo_ini, ciclo_fim)
         if analise.erros:
             flash(analise.erros[0], "erro")
             return redirect(_destino_calendario())
@@ -856,6 +923,7 @@ def validacao_lider():
     return render_template(
         "ferias/validacao_lider.html",
         ciclo_ini=ciclo_ini,
+        ciclo_fim=ciclo_fim,
         ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         enviadas=enviadas,
@@ -883,6 +951,7 @@ def validacao_gerente():
     return render_template(
         "ferias/validacao_gerente.html",
         ciclo_ini=ciclo_ini,
+        ciclo_fim=ciclo_fim,
         ciclos=ciclos_disponiveis(ciclo_ini),
         rotulo_ciclo=rotulo_ciclo(ciclo_ini, ciclo_fim),
         fila=fila,

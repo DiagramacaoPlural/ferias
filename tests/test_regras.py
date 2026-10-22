@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, escolher_melhor_combinacao, janela_gantt, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, escolher_melhor_combinacao, fevereiro_do_ciclo, janela_gantt, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
@@ -11,7 +11,53 @@ def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
 def test_primeira_parcela_13_so_a_partir_de_fevereiro():
     assert not pode_adiantar_13(date(2027, 1, 31))
     assert pode_adiantar_13(date(2027, 2, 1))
-    assert pode_adiantar_13(date(2026, 12, 1))
+    assert not pode_adiantar_13(date(2026, 12, 1))
+
+
+def test_primeira_parcela_13_usa_fevereiro_do_ciclo():
+    ini, fim = date(2026, 11, 1), date(2027, 10, 31)
+    assert fevereiro_do_ciclo(ini, fim) == date(2027, 2, 1)
+    assert not pode_adiantar_13(date(2026, 12, 1), ini, fim)
+    assert not pode_adiantar_13(date(2027, 1, 31), ini, fim)
+    assert pode_adiantar_13(date(2027, 2, 1), ini, fim)
+    assert pode_adiantar_13(date(2027, 3, 1), ini, fim)
+
+    calendario = (date(2027, 1, 1), date(2027, 12, 31))
+    assert fevereiro_do_ciclo(*calendario) == date(2027, 2, 1)
+    assert not pode_adiantar_13(date(2027, 1, 15), *calendario)
+    assert pode_adiantar_13(date(2027, 12, 1), *calendario)
+
+
+def test_periodo_precisa_ficar_no_ciclo_escolhido():
+    a = analisar_periodo(
+        "Ana",
+        date(2026, 4, 1),
+        10,
+        [],
+        [],
+        1,
+        5,
+        mes_fim_ciclo=4,
+        ciclo_ini=date(2026, 5, 1),
+        ciclo_fim=date(2027, 4, 30),
+    )
+    assert not a.ok
+    assert any("ciclo" in e.lower() for e in a.erros)
+
+    estoura = analisar_periodo(
+        "Ana",
+        date(2027, 4, 20),
+        20,
+        [],
+        [],
+        1,
+        5,
+        mes_fim_ciclo=4,
+        ciclo_ini=date(2026, 5, 1),
+        ciclo_fim=date(2027, 4, 30),
+    )
+    assert not estoura.ok
+    assert any("fim do ciclo" in e.lower() for e in estoura.erros)
 
 
 def test_limite_de_gozo_e_alerta_um_mes_antes():

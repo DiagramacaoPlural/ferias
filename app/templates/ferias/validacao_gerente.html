@@ -29,7 +29,7 @@
             <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="acoes">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
-              <input type="date" name="inicio" aria-label="Nova data sugerida">
+              <input type="date" name="inicio" min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}" aria-label="Nova data sugerida">
               <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir mudança</button>
             </form>
             {{ botao_excluir_ferias(f) }}
