@@ -265,6 +265,7 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert "Dezembro 2026" in gantt
     assert "Novembro 2026" not in gantt
     assert "20 dias" in pagina
+    assert '<strong class="mes-item-nome">Carlos</strong>' in pagina
     assert "1ª parcela 13º: Não" in pagina
     assert "Abono: Não" in pagina
     assert "no setor" in pagina

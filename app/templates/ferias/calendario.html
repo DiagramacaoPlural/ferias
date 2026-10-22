@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo, acoes_lider, botao_excluir_ferias, status, flags_13_abono with context %}
+{% from "_macros.html" import icone, seletor_ciclo, acoes_lider, botao_excluir_ferias, status, flags_13_abono, card_mes_periodo with context %}
 {% block titulo %}Calendário{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -110,7 +110,7 @@
         <div class="mes-coluna programadas">
           <h3>Programadas</h3>
           {% for f in mes.programadas %}
-            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}</small></div>
+            {{ card_mes_periodo(f) }}
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}
@@ -118,7 +118,7 @@
         <div class="mes-coluna aprovadas">
           <h3>Aprovadas</h3>
           {% for f in mes.aprovadas %}
-            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}{% if f.gozada() %} · já gozou{% endif %}</small></div>
+            {{ card_mes_periodo(f) }}
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}

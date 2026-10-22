@@ -57,6 +57,17 @@
 1ª parcela 13º: {{ 'Sim' if item.adianta_13 else 'Não' }} · Abono: {{ 'Sim' if item.vende_10 else 'Não' }}
 {%- endmacro %}
 
+{% macro card_mes_periodo(f) -%}
+<div class="mes-item">
+  <strong class="mes-item-nome">{{ f.funcionario.nome }}</strong>
+  {{ status(f) }}
+  <small>{{ f.dias }} dias</small>
+  <small>1ª parcela 13º: {{ 'Sim' if f.adianta_13 else 'Não' }}</small>
+  <small>Abono: {{ 'Sim' if f.vende_10 else 'Não' }}</small>
+  {% if f.gozada() %}<small>já gozou</small>{% endif %}
+</div>
+{%- endmacro %}
+
 {% macro acoes_lider(f, opcoes=None) -%}
 {% set ops = opcoes or [] %}
 <div class="acoes acoes-lider" style="flex-wrap:wrap">
