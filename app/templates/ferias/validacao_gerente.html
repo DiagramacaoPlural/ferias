@@ -24,7 +24,7 @@
           <div>
             <strong>{{ f.funcionario.nome }}</strong>
             <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias</span>
-            {% if f.vende_10 %}<span class="texto-suave"> · vende 10 dias</span>{% endif %}
+            {% if f.vende_10 %}<span class="texto-suave"> · abono pecuniário</span>{% endif %}
             {% if f.adianta_13 %}<span class="texto-suave"> · 1ª parcela 13º</span>{% endif %}
           </div>
           <div class="acoes" style="flex-wrap:wrap">

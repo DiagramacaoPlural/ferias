@@ -27,7 +27,7 @@
       <div class="pendencia-item">
         <div>
           <strong>{{ f.inicio|data }} a {{ f.fim|data }}</strong>
-          <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · vende 10 dias{% endif %}</span>
+          <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · abono pecuniário{% endif %}</span>
           <p class="texto-suave" style="margin:4px 0 0">
             {% if f.status == 'AJUSTE_LIDER' %}O líder sugeriu esta data.{% elif f.status == 'AJUSTE_GERENTE' %}O gerente sugeriu esta data.{% else %}Não foi possível usar a data que você enviou. Esta é a sugestão mais próxima.{% endif %}
           </p>
@@ -90,7 +90,7 @@
               </div>
             </div>
             <div class="campo">
-              <span class="rotulo-campo">Vender 10 dias</span>
+              <span class="rotulo-campo">Abono pecuniário</span>
               <div class="opcoes-sim-nao">
                 <label class="checkbox"><input type="checkbox" name="vende_10_{{ ordem }}" value="1" {{ 'checked' if v_vende }}> Sim</label>
               </div>

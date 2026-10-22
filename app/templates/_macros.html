@@ -75,7 +75,7 @@
             Opção {{ loop.index }}:
             <strong>{{ op.inicio|data }}</strong> a {{ op.fim|data }}
             · {{ op.dias }} dias
-            {% if op.vende_10 %} · vende 10 dias{% endif %}
+            {% if op.vende_10 %} · abono pecuniário{% endif %}
             {% if op.adianta_13 %} · 13º{% endif %}
           </span>
           <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar opção {{ loop.index }}</button>

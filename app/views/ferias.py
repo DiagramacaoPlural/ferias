@@ -223,7 +223,7 @@ def formulario(ferias_id: int | None = None):
             if adianta_13:
                 descricao += " · 1ª parcela do 13º"
             if vende_10:
-                descricao += " · vende 10 dias"
+                descricao += " · abono pecuniário"
             if avisos:
                 descricao += f" | salvo com {len(avisos)} aviso(s)"
             registrar("Férias criadas" if novo else "Férias alteradas", descricao)
@@ -387,7 +387,7 @@ def acao_lote():
             else:
                 ferias.adianta_13 = sim
             feitos.append(ferias.funcionario.nome)
-        rotulo = "Venda de 10 dias" if vende else "13º"
+        rotulo = "Abono pecuniário" if vende else "13º"
         registrar(
             f"{rotulo} atualizado em lote",
             ("Sim" if sim else "Não") + (": " + ", ".join(feitos) if feitos else ""),
@@ -915,7 +915,7 @@ def exportar():
 
     ws = wb.active
     ws.title = "Férias"
-    ws.append(["Funcionário", "Início", "Fim", "Dias", "Status", "1ª parcela 13º", "Vende 10 dias", "Observação", "Aprovado por", "Aprovado em"])
+    ws.append(["Funcionário", "Início", "Fim", "Dias", "Status", "1ª parcela 13º", "Abono pecuniário", "Observação", "Aprovado por", "Aprovado em"])
     for f in ferias:
         ws.append([
             f.funcionario.nome, f.inicio, f.fim, f.dias, f.status_rotulo,

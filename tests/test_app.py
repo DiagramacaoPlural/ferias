@@ -129,7 +129,7 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
     entrar(client)
     pagina = client.get("/ferias/nova").get_data(as_text=True)
     assert "Antecipar a 1ª parcela do 13º" in pagina
-    assert "Vender 10 dias" in pagina
+    assert "Abono pecuniário" in pagina
     assert "Somente para férias com início a partir de fevereiro" in pagina
     assert 'id="adianta_13_sim"' in pagina
     assert 'id="adianta_13_nao"' in pagina

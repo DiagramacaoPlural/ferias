@@ -30,7 +30,7 @@
       <div class="pendencia-item">
         <div>
           <strong>{{ f.inicio|data }} a {{ f.fim|data }}</strong>
-          <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · vende 10 dias{% endif %}</span>
+          <span class="texto-suave"> · {{ f.dias }} dias{% if f.vende_10 %} · abono pecuniário{% endif %}</span>
           <p class="texto-suave" style="margin:4px 0 0">
             {% if f.status == 'AJUSTE_LIDER' %}O líder sugeriu esta data.{% elif f.status == 'AJUSTE_GERENTE' %}O gerente sugeriu esta data.{% else %}Não foi possível usar a data que você enviou. Esta é a sugestão mais próxima.{% endif %}
           </p>
@@ -110,7 +110,7 @@
         <div class="mes-coluna programadas">
           <h3>Programadas</h3>
           {% for f in mes.programadas %}
-            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · vende 10 dias{% endif %}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · abono pecuniário{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}
@@ -118,7 +118,7 @@
         <div class="mes-coluna aprovadas">
           <h3>Aprovadas</h3>
           {% for f in mes.aprovadas %}
-            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · vende 10 dias{% endif %}{% if f.gozada() %} · já gozou{% endif %}</small></div>
+            <div class="mes-item">{{ f.funcionario.nome }} {{ status(f) }}<small>{{ f.inicio|data('%d/%m') }} – {{ f.fim|data('%d/%m') }} · {{ f.dias }} dias{% if f.adianta_13 %} · 1ª parcela 13º{% endif %}{% if f.vende_10 %} · abono pecuniário{% endif %}{% if f.gozada() %} · já gozou{% endif %}</small></div>
           {% else %}
             <span class="mes-vazio">—</span>
           {% endfor %}
