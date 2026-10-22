@@ -226,22 +226,37 @@ def mes_fim_padrao(mes_inicio: int) -> int:
     return 12 if mes_inicio == 1 else mes_inicio - 1
 
 
-def _fim_do_ciclo(ano_inicio: int, mes_inicio: int, mes_fim: int) -> date:
-    ano_fim = ano_inicio if mes_fim >= mes_inicio else ano_inicio + 1
-    return ultimo_dia_mes(date(ano_fim, mes_fim, 1))
+def deslocamento_ano_ciclo(mes_inicio: int, mes_fim: int, delta_anos: int | None = None) -> int:
+    """Quantos anos o mês final dista do mês inicial (0 = mesmo ano)."""
+    if delta_anos is None or delta_anos < 0:
+        return 0 if mes_fim >= mes_inicio else 1
+    if delta_anos == 0 and mes_fim < mes_inicio:
+        return 1
+    return min(int(delta_anos), 5)
 
 
-def ciclo_de(dia: date, mes_inicio: int, mes_fim: int | None = None) -> tuple[date, date]:
+def _fim_do_ciclo(ano_inicio: int, mes_inicio: int, mes_fim: int, delta_anos: int | None = None) -> date:
+    delta = deslocamento_ano_ciclo(mes_inicio, mes_fim, delta_anos)
+    return ultimo_dia_mes(date(ano_inicio + delta, mes_fim, 1))
+
+
+def ciclo_de(
+    dia: date,
+    mes_inicio: int,
+    mes_fim: int | None = None,
+    delta_anos: int | None = None,
+) -> tuple[date, date]:
     if mes_fim is None or not 1 <= mes_fim <= 12:
         mes_fim = mes_fim_padrao(mes_inicio)
-    for ano in (dia.year, dia.year - 1):
+    delta = deslocamento_ano_ciclo(mes_inicio, mes_fim, delta_anos)
+    for ano in range(dia.year, dia.year - delta - 2, -1):
         inicio = date(ano, mes_inicio, 1)
-        fim = _fim_do_ciclo(ano, mes_inicio, mes_fim)
+        fim = _fim_do_ciclo(ano, mes_inicio, mes_fim, delta)
         if inicio <= dia <= fim:
             return inicio, fim
     if dia.month < mes_inicio:
-        return date(dia.year, mes_inicio, 1), _fim_do_ciclo(dia.year, mes_inicio, mes_fim)
-    return date(dia.year + 1, mes_inicio, 1), _fim_do_ciclo(dia.year + 1, mes_inicio, mes_fim)
+        return date(dia.year, mes_inicio, 1), _fim_do_ciclo(dia.year, mes_inicio, mes_fim, delta)
+    return date(dia.year + 1, mes_inicio, 1), _fim_do_ciclo(dia.year + 1, mes_inicio, mes_fim, delta)
 
 
 def rotulo_ciclo(inicio_ciclo: date, fim_ciclo: date | None = None) -> str:
@@ -261,7 +276,7 @@ def meses_do_ciclo(inicio_ciclo: date, fim_ciclo: date | None = None) -> list[da
         mes += 1
         if mes > 12:
             mes, ano = 1, ano + 1
-        if len(meses) > 12:
+        if len(meses) > 36:
             break
     return meses
 
@@ -489,6 +504,7 @@ def analisar_periodo(
     mes_fim_ciclo: int | None = None,
     ciclo_ini: date | None = None,
     ciclo_fim: date | None = None,
+    delta_anos_ciclo: int | None = None,
 ) -> Analise:
     """Valida um período de férias.
 
@@ -503,7 +519,7 @@ def analisar_periodo(
 
     fim = calcular_fim(inicio, dias)
     if ciclo_ini is None or ciclo_fim is None:
-        ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo, mes_fim_ciclo)
+        ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio_ciclo, mes_fim_ciclo, delta_anos_ciclo)
     rotulo = rotulo_ciclo(ciclo_ini, ciclo_fim)
     if inicio < ciclo_ini or inicio > ciclo_fim:
         analise.erros.append(
@@ -618,8 +634,9 @@ def analisar_periodo_db(
     fim = calcular_fim(inicio, max(dias, 1))
     mes_inicio = Configuracao.mes_inicio_ciclo()
     mes_fim = Configuracao.mes_fim_ciclo()
+    delta = Configuracao.delta_anos_ciclo()
     if ciclo_ini is None or ciclo_fim is None:
-        ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio, mes_fim)
+        ciclo_ini, ciclo_fim = ciclo_de(inicio, mes_inicio, mes_fim, delta)
     janela_ini, janela_fim = min(ciclo_ini, inicio), max(ciclo_fim, fim)
 
     consulta = db.select(Ferias).where(Ferias.inicio <= janela_fim, Ferias.fim >= janela_ini)
@@ -645,4 +662,5 @@ def analisar_periodo_db(
         mes_fim_ciclo=mes_fim,
         ciclo_ini=ciclo_ini,
         ciclo_fim=ciclo_fim,
+        delta_anos_ciclo=delta,
     )

@@ -1,5 +1,5 @@
 import tempfile
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -166,6 +166,8 @@ def configuracoes():
     if request.method == "POST":
         mes = request.form.get("mes_inicio_ciclo", type=int)
         mes_fim = request.form.get("mes_fim_ciclo", type=int)
+        ano_ini = request.form.get("ano_inicio_ciclo", type=int)
+        ano_fim = request.form.get("ano_fim_ciclo", type=int)
         minimo = request.form.get("min_disponiveis", type=int)
         dias_crono = request.form.get("dias_cronograma", type=int)
         alerta = "emails_alerta_limite" in request.form
@@ -174,6 +176,12 @@ def configuracoes():
             flash("Mês de início do ciclo inválido.", "erro")
         elif not mes_fim or not 1 <= mes_fim <= 12:
             flash("Mês de fim do ciclo inválido.", "erro")
+        elif ano_ini is not None and not 2000 <= ano_ini <= 2100:
+            flash("Ano inicial do ciclo inválido.", "erro")
+        elif ano_fim is not None and not 2000 <= ano_fim <= 2100:
+            flash("Ano final do ciclo inválido.", "erro")
+        elif ano_ini and ano_fim and date(ano_fim, mes_fim, 1) < date(ano_ini, mes, 1):
+            flash("O fim do ciclo precisa ser igual ou posterior ao início.", "erro")
         elif minimo is None or minimo < 1:
             flash("O mínimo de pessoas disponíveis no setor deve ser pelo menos 1.", "erro")
         elif not dias_crono or not 7 <= dias_crono <= 364:
@@ -183,6 +191,10 @@ def configuracoes():
         else:
             Configuracao.definir("mes_inicio_ciclo", mes)
             Configuracao.definir("mes_fim_ciclo", mes_fim)
+            if ano_ini:
+                Configuracao.definir("ano_inicio_ciclo", ano_ini)
+            if ano_fim:
+                Configuracao.definir("ano_fim_ciclo", ano_fim)
             Configuracao.definir("min_disponiveis", minimo)
             Configuracao.definir("dias_cronograma", dias_crono)
             if alerta:
@@ -196,19 +208,30 @@ def configuracoes():
                 Configuracao.definir("email_api_provedor", request.form.get("email_api_provedor", "brevo").strip() or "brevo")
                 if request.form.get("email_api_chave"):
                     Configuracao.definir("email_api_chave", request.form.get("email_api_chave").strip())
+            if ano_ini and ano_fim:
+                descricao_ciclo = f"ciclo de {MESES[mes - 1]}/{ano_ini} a {MESES[mes_fim - 1]}/{ano_fim}"
+            else:
+                descricao_ciclo = f"ciclo de {MESES[mes - 1]} a {MESES[mes_fim - 1]}"
             registrar(
                 "Configurações alteradas",
-                f"ciclo de {MESES[mes - 1]} a {MESES[mes_fim - 1]}, mín. {minimo} disponíveis no setor, cronograma {dias_crono} dias",
+                f"{descricao_ciclo}, mín. {minimo} disponíveis no setor, cronograma {dias_crono} dias",
             )
             db.session.commit()
             flash("Configurações salvas.", "sucesso")
             return redirect(url_for("admin.configuracoes"))
 
+    ano_inicio = Configuracao.ano_inicio_ciclo()
+    ano_fim = Configuracao.ano_fim_ciclo()
+    hoje = date.today().year
+    anos = sorted({hoje - 2, hoje - 1, hoje, hoje + 1, hoje + 2, hoje + 3, hoje + 4, hoje + 5, ano_inicio, ano_fim})
     return render_template(
         "admin/configuracoes.html",
         meses=MESES,
         mes_inicio_ciclo=Configuracao.mes_inicio_ciclo(),
         mes_fim_ciclo=Configuracao.mes_fim_ciclo(),
+        ano_inicio_ciclo=ano_inicio,
+        ano_fim_ciclo=ano_fim,
+        anos_ciclo=anos,
         min_disponiveis=Configuracao.obter_int("min_disponiveis"),
         dias_cronograma=Configuracao.obter_int("dias_cronograma"),
         emails_alerta_limite=Configuracao.obter("emails_alerta_limite"),

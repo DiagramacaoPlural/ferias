@@ -20,6 +20,16 @@
           </select>
         </div>
         <div class="campo">
+          <label for="ano_inicio_ciclo">Ano inicial</label>
+          <select id="ano_inicio_ciclo" name="ano_inicio_ciclo">
+            {% for ano in anos_ciclo %}
+              <option value="{{ ano }}" {{ 'selected' if ano == ano_inicio_ciclo }}>{{ ano }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="campos-linha">
+        <div class="campo">
           <label for="mes_fim_ciclo">Mês final do ciclo</label>
           <select id="mes_fim_ciclo" name="mes_fim_ciclo">
             {% for nome in meses %}
@@ -27,8 +37,16 @@
             {% endfor %}
           </select>
         </div>
+        <div class="campo">
+          <label for="ano_fim_ciclo">Ano final</label>
+          <select id="ano_fim_ciclo" name="ano_fim_ciclo">
+            {% for ano in anos_ciclo %}
+              <option value="{{ ano }}" {{ 'selected' if ano == ano_fim_ciclo }}>{{ ano }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
-      <small>O ciclo vai do primeiro dia do mês inicial até o último dia do mês final. Se o mês final vier antes do inicial, o ciclo atravessa o ano (ex.: outubro a setembro).</small>
+      <small>O ciclo vai do primeiro dia do mês/ano inicial até o último dia do mês/ano final. Os próximos ciclos repetem o mesmo intervalo de meses. Ex.: novembro/2026 a março/2027, depois novembro/2027 a março/2028.</small>
       <div class="campo">
         <label for="min_disponiveis">Mínimo de pessoas disponíveis no setor</label>
         <input type="number" id="min_disponiveis" name="min_disponiveis" min="1" value="{{ min_disponiveis }}">
@@ -67,6 +85,8 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="mes_inicio_ciclo" value="{{ mes_inicio_ciclo }}">
       <input type="hidden" name="mes_fim_ciclo" value="{{ mes_fim_ciclo }}">
+      <input type="hidden" name="ano_inicio_ciclo" value="{{ ano_inicio_ciclo }}">
+      <input type="hidden" name="ano_fim_ciclo" value="{{ ano_fim_ciclo }}">
       <input type="hidden" name="min_disponiveis" value="{{ min_disponiveis }}">
       <input type="hidden" name="dias_cronograma" value="{{ dias_cronograma }}">
       <p class="texto-suave" style="margin-top:0">
@@ -144,4 +164,27 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const mesIni = document.getElementById('mes_inicio_ciclo');
+  const anoIni = document.getElementById('ano_inicio_ciclo');
+  const mesFim = document.getElementById('mes_fim_ciclo');
+  const anoFim = document.getElementById('ano_fim_ciclo');
+  if (!mesIni || !anoIni || !mesFim || !anoFim) return;
+
+  function chave(ano, mes) { return Number(ano) * 12 + Number(mes); }
+
+  function ajustarFim() {
+    if (chave(anoFim.value, mesFim.value) >= chave(anoIni.value, mesIni.value)) return;
+    const preciso = Number(mesFim.value) >= Number(mesIni.value) ? Number(anoIni.value) : Number(anoIni.value) + 1;
+    const opcao = Array.from(anoFim.options).find(o => Number(o.value) === preciso);
+    if (opcao) anoFim.value = String(preciso);
+  }
+
+  [mesIni, anoIni, mesFim].forEach(el => el.addEventListener('change', ajustarFim));
+})();
+</script>
 {% endblock %}

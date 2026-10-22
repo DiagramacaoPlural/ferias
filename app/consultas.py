@@ -32,6 +32,7 @@ def ciclo_atual(referencia: date | None = None) -> tuple[date, date]:
         referencia or date.today(),
         Configuracao.mes_inicio_ciclo(),
         Configuracao.mes_fim_ciclo(),
+        Configuracao.delta_anos_ciclo(),
     )
 
 
@@ -39,7 +40,7 @@ def ciclo_por_ano(ano: int | None = None) -> tuple[date, date]:
     if not ano:
         return ciclo_atual()
     mes = Configuracao.mes_inicio_ciclo()
-    return ciclo_de(date(ano, mes, 1), mes, Configuracao.mes_fim_ciclo())
+    return ciclo_de(date(ano, mes, 1), mes, Configuracao.mes_fim_ciclo(), Configuracao.delta_anos_ciclo())
 
 
 def ciclos_disponiveis(ciclo_ini: date) -> list[dict]:

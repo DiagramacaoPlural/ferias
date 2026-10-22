@@ -232,6 +232,38 @@ class Configuracao(db.Model):
         inicio = cls.mes_inicio_ciclo()
         return 12 if inicio == 1 else inicio - 1
 
+    @classmethod
+    def _ano_salvo(cls, chave: str) -> int | None:
+        item = db.session.get(cls, chave)
+        if not item:
+            return None
+        try:
+            valor = int(item.valor)
+        except (TypeError, ValueError):
+            return None
+        return valor if 2000 <= valor <= 2100 else None
+
+    @classmethod
+    def ano_inicio_ciclo(cls) -> int:
+        return cls._ano_salvo("ano_inicio_ciclo") or date.today().year
+
+    @classmethod
+    def ano_fim_ciclo(cls) -> int:
+        salvo = cls._ano_salvo("ano_fim_ciclo")
+        if salvo:
+            return max(salvo, cls.ano_inicio_ciclo())
+        inicio = cls.ano_inicio_ciclo()
+        return inicio if cls.mes_fim_ciclo() >= cls.mes_inicio_ciclo() else inicio + 1
+
+    @classmethod
+    def delta_anos_ciclo(cls) -> int:
+        delta = cls.ano_fim_ciclo() - cls.ano_inicio_ciclo()
+        if delta < 0:
+            delta = 0
+        if delta == 0 and cls.mes_fim_ciclo() < cls.mes_inicio_ciclo():
+            return 1
+        return min(delta, 5)
+
 
 def _adicionar_coluna(tabela: str, coluna: str, ddl: str) -> None:
     inspector = db.inspect(db.engine)

@@ -82,11 +82,15 @@ def test_configura_mes_inicial_e_final_do_ciclo(app):
     pagina = client.get("/admin/configuracoes").get_data(as_text=True)
     assert "Mês inicial do ciclo" in pagina
     assert "Mês final do ciclo" in pagina
+    assert "Ano inicial" in pagina
+    assert "Ano final" in pagina
     resp = client.post(
         "/admin/configuracoes",
         data={
             "mes_inicio_ciclo": "10",
+            "ano_inicio_ciclo": "2026",
             "mes_fim_ciclo": "9",
+            "ano_fim_ciclo": "2027",
             "min_disponiveis": "3",
             "dias_cronograma": "56",
         },
@@ -98,6 +102,33 @@ def test_configura_mes_inicial_e_final_do_ciclo(app):
     nova = client.get("/ferias/nova?ciclo=2026").get_data(as_text=True)
     assert 'min="2026-10-01"' in nova
     assert 'max="2027-09-30"' in nova
+    assert "a partir de 01/02/2027" in nova
+
+
+def test_configura_ciclo_com_anos_novembro_a_marco(app):
+    client = app.test_client()
+    entrar(client)
+    resp = client.post(
+        "/admin/configuracoes",
+        data={
+            "mes_inicio_ciclo": "11",
+            "ano_inicio_ciclo": "2026",
+            "mes_fim_ciclo": "3",
+            "ano_fim_ciclo": "2027",
+            "min_disponiveis": "3",
+            "dias_cronograma": "56",
+        },
+        follow_redirects=True,
+    )
+    html = resp.get_data(as_text=True)
+    assert "Configurações salvas" in html
+    assert 'id="ano_inicio_ciclo"' in html
+    assert "<option value=\"2026\" selected>2026</option>" in html or 'value="2026" selected' in html
+    cal = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "nov/2026 a mar/2027" in cal
+    nova = client.get("/ferias/nova?ciclo=2026").get_data(as_text=True)
+    assert 'min="2026-11-01"' in nova
+    assert 'max="2027-03-31"' in nova
     assert "a partir de 01/02/2027" in nova
 
 
