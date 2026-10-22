@@ -68,48 +68,133 @@
 </div>
 {%- endmacro %}
 
-{% macro acoes_lider(f, opcoes=None) -%}
-{% set ops = opcoes or [] %}
-<div class="acoes acoes-lider" style="flex-wrap:wrap">
-  {% if f.recusou_ajuste %}
-    <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes" style="flex-wrap:wrap">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" {% if ciclo_ini is defined and ciclo_fim is defined %}min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}"{% endif %} aria-label="Data do líder">
-      <button type="submit" name="acao" value="definir" class="btn btn-pequeno btn-sucesso">Definir e enviar ao gerente</button>
-    </form>
-  {% elif ops %}
-    <div class="opcoes-lider">
-      {% for op in ops %}
-        <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="opcao-lider">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="inicio" value="{{ op.inicio.isoformat() }}">
-          <input type="hidden" name="dias" value="{{ op.dias }}">
-          <input type="hidden" name="vende_10" value="{{ '1' if op.vende_10 else '0' }}">
-          <input type="hidden" name="adianta_13" value="{{ '1' if op.adianta_13 else '0' }}">
-          <span>
-            Opção {{ loop.index }}:
-            <strong>{{ op.inicio|data }}</strong> a {{ op.fim|data }}
-            · {{ op.dias }} dias
-            · {{ flags_13_abono(op) }}
-          </span>
-          <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar opção {{ loop.index }}</button>
-        </form>
+{% macro limites_ciclo_data(dia=None) -%}
+{%- if ciclo_ini is defined and ciclo_fim is defined and (dia is none or ciclo_ini <= dia <= ciclo_fim) %}min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}"{% endif -%}
+{%- endmacro %}
+
+{% macro resumo_periodo(item) -%}
+{{ item.inicio|data }} a {{ item.fim|data }} <span class="texto-suave">· {{ item.dias }} dias</span>
+{%- endmacro %}
+
+{% macro celula_validar_opcao(f, op, ordem) -%}
+<form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="fila-opcao">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="inicio" value="{{ op.inicio.isoformat() }}">
+  <input type="hidden" name="dias" value="{{ op.dias }}">
+  <input type="hidden" name="vende_10" value="{{ '1' if op.vende_10 else '0' }}">
+  <input type="hidden" name="adianta_13" value="{{ '1' if op.adianta_13 else '0' }}">
+  <div>{{ resumo_periodo(op) }}</div>
+  <small>{{ flags_13_abono(op) }}</small>
+  <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar opção {{ ordem }}</button>
+</form>
+{%- endmacro %}
+
+{% macro tabela_fila_lider(fila, opcoes_por_func) -%}
+<div class="tabela-wrap tabela-alta">
+  <table class="tabela tabela-fila">
+    <thead>
+      <tr>
+        <th>Funcionário</th>
+        <th>Opção 1</th>
+        <th>Opção 2</th>
+        <th>Outra data</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in fila %}
+        {% set ops = opcoes_por_func.get(f.funcionario_id, []) %}
+        <tr>
+          <td class="col-nome">
+            <strong>{{ f.funcionario.nome }}</strong>
+            {% if f.recusou_ajuste %}<div class="texto-suave">Recusou a sugestão</div>{% endif %}
+            {% if f.observacao %}<div class="texto-suave">{{ f.observacao }}</div>{% endif %}
+          </td>
+          {% if f.recusou_ajuste %}
+            <td colspan="2">
+              <div>{{ resumo_periodo(f) }}</div>
+              <small>{{ flags_13_abono(f) }}</small>
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="fila-sugerir">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" {{ limites_ciclo_data(f.inicio) }} aria-label="Data do líder">
+                <button type="submit" name="acao" value="definir" class="btn btn-pequeno btn-sucesso">Definir e enviar ao gerente</button>
+              </form>
+            </td>
+          {% elif ops %}
+            <td>{% if ops|length > 0 %}{{ celula_validar_opcao(f, ops[0], 1) }}{% else %}<span class="texto-suave">—</span>{% endif %}</td>
+            <td>{% if ops|length > 1 %}{{ celula_validar_opcao(f, ops[1], 2) }}{% else %}<span class="texto-suave">—</span>{% endif %}</td>
+            <td>
+              <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="fila-sugerir">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" {{ limites_ciclo_data(f.inicio) }} aria-label="Nova data sugerida">
+                <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir nova data ao funcionário</button>
+              </form>
+            </td>
+          {% else %}
+            <td colspan="2">
+              <div>{{ resumo_periodo(f) }}</div>
+              <small>{{ flags_13_abono(f) }}</small>
+              <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="fila-opcao" style="margin-top:6px">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="inicio" value="{{ f.inicio.isoformat() }}">
+                <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar e enviar ao gerente</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="fila-sugerir">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" {{ limites_ciclo_data(f.inicio) }} aria-label="Data do líder">
+                <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir nova data ao funcionário</button>
+              </form>
+            </td>
+          {% endif %}
+          <td class="acoes-col">{{ botao_excluir_ferias(f) }}</td>
+        </tr>
       {% endfor %}
-      <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="opcao-lider">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" {% if ciclo_ini is defined and ciclo_fim is defined %}min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}"{% endif %} aria-label="Nova data sugerida">
-        <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir nova data ao funcionário</button>
-      </form>
-    </div>
-  {% else %}
-    <form method="post" action="{{ url_for('ferias.acao_lider', ferias_id=f.id) }}" class="acoes" style="flex-wrap:wrap">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" {% if ciclo_ini is defined and ciclo_fim is defined %}min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}"{% endif %} aria-label="Data do líder">
-      <span class="texto-suave">{{ flags_13_abono(f) }}</span>
-      <button type="submit" name="acao" value="validar" class="btn btn-pequeno btn-sucesso">Validar e enviar ao gerente</button>
-      <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir nova data ao funcionário</button>
-    </form>
-  {% endif %}
-  {{ botao_excluir_ferias(f) }}
+    </tbody>
+  </table>
+</div>
+{%- endmacro %}
+
+{% macro tabela_fila_gerente(fila) -%}
+<div class="tabela-wrap tabela-alta">
+  <table class="tabela tabela-fila">
+    <thead>
+      <tr>
+        <th>Funcionário</th>
+        <th>Período</th>
+        <th>Aprovar</th>
+        <th>Sugerir mudança</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in fila %}
+        <tr>
+          <td class="col-nome"><strong>{{ f.funcionario.nome }}</strong></td>
+          <td>
+            <div>{{ resumo_periodo(f) }}</div>
+            <small>{{ flags_13_abono(f) }}</small>
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
+            </form>
+          </td>
+          <td>
+            <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="fila-sugerir">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" {{ limites_ciclo_data(f.inicio) }} aria-label="Nova data sugerida">
+              <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir mudança</button>
+            </form>
+          </td>
+          <td class="acoes-col">{{ botao_excluir_ferias(f) }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {%- endmacro %}

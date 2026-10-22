@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import icone, seletor_ciclo, botao_excluir_ferias, flags_13_abono with context %}
+{% from "_macros.html" import icone, seletor_ciclo, tabela_fila_gerente with context %}
 {% block titulo %}Aceite do gerente{% endblock %}
 {% block conteudo %}
 <div class="cabecalho">
@@ -18,25 +18,7 @@
     <span class="texto-suave">{{ fila|length }}</span>
   </div>
   {% if fila %}
-    <div class="card-corpo">
-      {% for f in fila %}
-        <div class="pendencia-item">
-          <div>
-            <strong>{{ f.funcionario.nome }}</strong>
-            <span class="texto-suave"> · {{ f.inicio|data }} a {{ f.fim|data }} · {{ f.dias }} dias · {{ flags_13_abono(f) }}</span>
-          </div>
-          <div class="acoes" style="flex-wrap:wrap">
-            <form method="post" action="{{ url_for('ferias.acao_gerente', ferias_id=f.id) }}" class="acoes">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" name="acao" value="aprovar" class="btn btn-pequeno btn-sucesso">Aprovar</button>
-              <input type="date" name="inicio" value="{{ f.inicio.isoformat() }}" {% if ciclo_ini <= f.inicio <= ciclo_fim %}min="{{ ciclo_ini.isoformat() }}" max="{{ ciclo_fim.isoformat() }}"{% endif %} aria-label="Nova data sugerida">
-              <button type="submit" name="acao" value="sugerir" class="btn btn-pequeno">Sugerir mudança</button>
-            </form>
-            {{ botao_excluir_ferias(f) }}
-          </div>
-        </div>
-      {% endfor %}
-    </div>
+    {{ tabela_fila_gerente(fila) }}
   {% else %}
     <div class="vazio">Nenhum período aguardando o gerente. O líder valida primeiro em Validar (líder).</div>
   {% endif %}

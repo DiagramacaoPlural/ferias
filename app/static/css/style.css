@@ -194,8 +194,14 @@ form.inline { display: inline; }
 .badge-aguardando_lider, .badge-aguardando_gerente { background: var(--azul-claro); color: var(--azul-escuro); }
 .pendencia-item { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--borda); }
 .pendencia-item:last-child { border-bottom: none; }
-.opcoes-lider { display: grid; gap: 8px; }
-.opcao-lider { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tabela-alta { max-height: min(64vh, 720px); overflow: auto; }
+.tabela-alta thead th { position: sticky; top: 0; z-index: 1; box-shadow: 0 1px 0 var(--borda); }
+.tabela-fila td { vertical-align: top; }
+.tabela-fila .col-nome { white-space: nowrap; width: 1%; }
+.tabela-fila small { display: block; color: var(--texto-suave); margin-top: 2px; }
+.fila-opcao { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.fila-sugerir { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fila-sugerir input[type=date] { width: 11.6rem; padding: 5px 8px; }
 .caixa-pendencia { margin-bottom: 16px; }
 .andamento-item { padding: 10px 0; border-bottom: 1px solid var(--borda); }
 .andamento-item:last-child { border-bottom: none; }
