@@ -43,6 +43,19 @@ def test_envia_json_e_cabecalho(app, monkeypatch):
     assert '"acao": "aprovar"' in corpo
 
 
+def test_http_404_funcao_nao_encontrada(app, monkeypatch):
+    monkeypatch.setenv("GNOTE_FERIAS_URL", "https://exemplo.supabase.co/functions/v1/sincronizar-ferias")
+    monkeypatch.setenv("GNOTE_FERIAS_SEGREDO", "segredo-teste")
+    import urllib.error
+
+    with patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+        "https://x", 404, "Not Found", hdrs=None, fp=BytesIO(b'{"code":"NOT_FOUND","message":"Requested function was not found"}')
+    )):
+        r = sincronizar_periodo("aprovar", 1, "x@y.com", "X", date(2026, 1, 1), date(2026, 1, 2))
+    assert r["ok"] is False
+    assert r["erro"] == "funcao_nao_encontrada"
+
+
 def test_http_erro_usuario_nao_encontrado(app, monkeypatch):
     monkeypatch.setenv("GNOTE_FERIAS_URL", "https://exemplo.supabase.co/functions/v1/sincronizar-ferias")
     monkeypatch.setenv("GNOTE_FERIAS_SEGREDO", "segredo-teste")

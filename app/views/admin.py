@@ -6,7 +6,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from ..alertas import email_configurado, enviar_alertas_pendentes, prazos_dos_funcionarios, smtp_configurado
-from ..gnote import configurado as gnote_configurado, sincronizar_ferias
+from ..gnote import configurado as gnote_configurado, erro_infraestrutura, mensagem_erro, sincronizar_ferias
 from ..models import (
     PAPEL_ADMIN,
     PAPEL_SIMPLES,
@@ -334,21 +334,31 @@ def enviar_aprovadas_gnote():
         flash("Não há férias aprovadas para enviar.", "info")
         return redirect(url_for("admin.configuracoes"))
     ok = falha = sem_user = 0
+    motivo = ""
     for ferias in lista:
         r = sincronizar_ferias(ferias, "aprovar")
         if r is None:
             falha += 1
+            motivo = motivo or "falha_rede"
+            break
         elif r.get("ok"):
             ok += 1
         elif r.get("erro") == "usuario_nao_encontrado":
             sem_user += 1
         else:
             falha += 1
+            motivo = str(r.get("erro") or "falha_rede")
+            if erro_infraestrutura(motivo):
+                restantes = len(lista) - ok - sem_user - falha
+                falha += restantes
+                break
     partes = [f"{ok} período(s) enviado(s) ao G-Note"]
     if sem_user:
         partes.append(f"{sem_user} sem usuário correspondente (confira o e-mail)")
     if falha:
-        partes.append(f"{falha} com falha de conexão")
+        partes.append(f"{falha} não enviado(s)")
+        if motivo:
+            partes.append(mensagem_erro(motivo))
     flash(". ".join(partes) + ".", "sucesso" if ok and not falha else "aviso")
     registrar("Férias enviadas ao G-Note", f"{ok} ok, {sem_user} sem usuário, {falha} falha(s)")
     db.session.commit()

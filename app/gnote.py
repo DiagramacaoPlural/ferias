@@ -66,15 +66,57 @@ def sincronizar_periodo(
         try:
             detalhe = e.read().decode("utf-8")[:400]
             extra = json.loads(detalhe)
-            if isinstance(extra, dict) and extra.get("erro"):
-                return {"ok": False, "erro": extra["erro"]}
+            if isinstance(extra, dict):
+                if extra.get("code") == "NOT_FOUND" or e.code == 404:
+                    return {"ok": False, "erro": "funcao_nao_encontrada"}
+                if extra.get("erro"):
+                    return {"ok": False, "erro": extra["erro"]}
         except Exception:
             pass
+        if e.code == 404:
+            return {"ok": False, "erro": "funcao_nao_encontrada"}
         log.warning("G-Note HTTP %s ao sincronizar férias %s: %s", e.code, ferias_id, detalhe or e)
         return {"ok": False, "erro": f"http_{e.code}"}
     except Exception as e:
         log.warning("Falha ao sincronizar férias %s com o G-Note: %s", ferias_id, e)
         return {"ok": False, "erro": "falha_rede"}
+
+
+ERROS_INFRA = {
+    "falha_rede",
+    "funcao_nao_encontrada",
+    "segredo_invalido",
+    "http_401",
+    "http_403",
+    "http_404",
+}
+
+
+def erro_infraestrutura(erro: str | None) -> bool:
+    codigo = str(erro or "")
+    return codigo in ERROS_INFRA or codigo.startswith("http_") or codigo.startswith("falha_rede")
+
+
+def mensagem_erro(erro: str | None) -> str:
+    codigo = str(erro or "")
+    if codigo in ("funcao_nao_encontrada", "http_404"):
+        return (
+            "A função sincronizar-ferias ainda não foi publicada no G-Note. "
+            "No Supabase: Edge Functions → Deploy a new function, nome sincronizar-ferias, "
+            "cole o arquivo do Controle de OS, desligue Verify JWT e crie o secret FERIAS_SEGREDO."
+        )
+    if codigo in ("segredo_invalido", "http_401"):
+        return "O segredo GNOTE_FERIAS_SEGREDO não confere com o FERIAS_SEGREDO do G-Note."
+    if codigo == "usuario_nao_encontrado":
+        return "O G-Note não encontrou o usuário. Confira se o e-mail do funcionário é o mesmo do G-Note."
+    if codigo == "falha_rede" or codigo.startswith("falha_rede"):
+        return (
+            "Não foi possível conectar ao G-Note. No PythonAnywhere gratuito, peça para incluir "
+            "*.supabase.co na lista de sites de saída, ou use conta paga."
+        )
+    if codigo:
+        return f"O G-Note recusou o envio ({codigo})."
+    return "Não foi possível lançar no G-Note."
 
 
 def sincronizar_ferias(ferias: Ferias, acao: str) -> dict[str, Any] | None:
@@ -102,16 +144,4 @@ def avisar_resultado(resultado: dict[str, Any] | None, *, verboso: bool = False)
                 "sucesso",
             )
         return
-    erro = str(resultado.get("erro") or "")
-    if erro == "usuario_nao_encontrado":
-        flash(
-            "As férias foram salvas, mas o G-Note não encontrou o usuário. "
-            "Confira se o e-mail do funcionário é o mesmo do G-Note.",
-            "aviso",
-        )
-    else:
-        flash(
-            "As férias foram salvas, mas não foi possível lançar no G-Note. "
-            "Depois use Configurações › Enviar férias aprovadas ao G-Note.",
-            "aviso",
-        )
+    flash("As férias foram salvas. " + mensagem_erro(resultado.get("erro")), "aviso")
