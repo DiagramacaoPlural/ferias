@@ -81,6 +81,26 @@ defina uma senha nova para cada um em *Usuários* antes de avisar a equipe.
 **Atualizar depois de mudanças no GitHub:** no console Bash, `cd ferias && git pull`, depois
 **Reload** na aba Web.
 
+### Ligação com o G-Note (avisos de apontamento)
+
+Quando o gerente (ou o administrador) aprova as férias, o PythonAnywhere avisa o G-Note. Cada dia
+do período vira um lançamento de férias de 8h30, e a pessoa deixa de receber o e-mail de falta de
+apontamento nesses dias.
+
+No arquivo WSGI (ou em *Web → Environment variables*) acrescente, com o mesmo segredo cadastrado
+no Supabase (`FERIAS_SEGREDO`):
+
+```python
+os.environ["GNOTE_FERIAS_URL"] = "https://rjatiiicjkzphyxkxwno.supabase.co/functions/v1/sincronizar-ferias"
+os.environ["GNOTE_FERIAS_SEGREDO"] = "o-mesmo-segredo-do-supabase"
+```
+
+Depois **Reload**. O e-mail do funcionário no Controle de Férias precisa ser o mesmo do G-Note.
+Férias já aprovadas antes dessa ligação: em *Configurações*, **Enviar férias aprovadas ao G-Note**.
+
+Na conta gratuita do PythonAnywhere, se a sincronização falhar por rede, peça para incluir
+`*.supabase.co` na lista de sites de saída, ou use conta paga (saída irrestrita).
+
 **Observações do plano gratuito:** é preciso clicar em *Run until 3 months from today* na aba Web
 a cada 3 meses para o site continuar no ar. O banco fica em `/home/SEUUSUARIO/ferias/instance/ferias.db`
 (faça backup baixando esse arquivo pela aba *Files*).

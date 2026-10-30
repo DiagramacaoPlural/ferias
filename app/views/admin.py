@@ -6,7 +6,19 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user
 
 from ..alertas import email_configurado, enviar_alertas_pendentes, prazos_dos_funcionarios, smtp_configurado
-from ..models import PAPEL_ADMIN, PAPEL_SIMPLES, Configuracao, Funcionario, Historico, Usuario, db, papel_concede_admin
+from ..gnote import configurado as gnote_configurado, sincronizar_ferias
+from ..models import (
+    PAPEL_ADMIN,
+    PAPEL_SIMPLES,
+    STATUS_APROVADA,
+    Configuracao,
+    Ferias,
+    Funcionario,
+    Historico,
+    Usuario,
+    db,
+    papel_concede_admin,
+)
 from ..regras import EMAILS_ALERTA_LIMITE, MESES
 from ..seed import importar_planilha, importar_programacao_pdf, importar_usuarios_xlsx, nomes_abas
 from . import registrar, requer
@@ -244,6 +256,7 @@ def configuracoes():
         email_ok=email_configurado(),
         email_api_provedor=Configuracao.obter("email_api_provedor") or "brevo",
         email_api_chave_ok=bool(Configuracao.obter("email_api_chave")),
+        gnote_ok=gnote_configurado(),
     )
 
 
@@ -304,6 +317,42 @@ def enviar_alertas():
     else:
         flash("Nenhum funcionário está a 1 mês (ou menos) do limite de férias.", "info")
     return redirect(request.referrer or url_for("admin.configuracoes"))
+
+
+@bp.route("/gnote/enviar-aprovadas", methods=["POST"])
+@requer("admin")
+def enviar_aprovadas_gnote():
+    if not gnote_configurado():
+        flash(
+            "O G-Note ainda não está configurado neste servidor. No PythonAnywhere, defina "
+            "GNOTE_FERIAS_URL e GNOTE_FERIAS_SEGREDO e recarregue o site.",
+            "aviso",
+        )
+        return redirect(url_for("admin.configuracoes"))
+    lista = list(db.session.scalars(db.select(Ferias).where(Ferias.status == STATUS_APROVADA).order_by(Ferias.inicio)))
+    if not lista:
+        flash("Não há férias aprovadas para enviar.", "info")
+        return redirect(url_for("admin.configuracoes"))
+    ok = falha = sem_user = 0
+    for ferias in lista:
+        r = sincronizar_ferias(ferias, "aprovar")
+        if r is None:
+            falha += 1
+        elif r.get("ok"):
+            ok += 1
+        elif r.get("erro") == "usuario_nao_encontrado":
+            sem_user += 1
+        else:
+            falha += 1
+    partes = [f"{ok} período(s) enviado(s) ao G-Note"]
+    if sem_user:
+        partes.append(f"{sem_user} sem usuário correspondente (confira o e-mail)")
+    if falha:
+        partes.append(f"{falha} com falha de conexão")
+    flash(". ".join(partes) + ".", "sucesso" if ok and not falha else "aviso")
+    registrar("Férias enviadas ao G-Note", f"{ok} ok, {sem_user} sem usuário, {falha} falha(s)")
+    db.session.commit()
+    return redirect(url_for("admin.configuracoes"))
 
 
 @bp.route("/historico")

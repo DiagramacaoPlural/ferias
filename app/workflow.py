@@ -140,10 +140,20 @@ def garantir_fila_do_lider(ano: int) -> int:
 def excluir_periodo(ferias: Ferias) -> None:
     """Remove o período e as opções do ciclo, para não reaparecer como programada."""
     from .consultas import ciclo_atual
+    from .gnote import avisar_resultado, sincronizar_periodo
 
     ano = ciclo_atual(ferias.inicio)[0].year
     funcionario_id = ferias.funcionario_id
     ferias_id = ferias.id
+    gnote = None
+    if ferias.status == STATUS_APROVADA and ferias.funcionario:
+        gnote = (
+            ferias_id,
+            ferias.funcionario.email,
+            ferias.funcionario.nome,
+            ferias.inicio,
+            ferias.fim,
+        )
     for sugestao in list(
         db.session.scalars(
             db.select(SugestaoFerias).where(
@@ -158,6 +168,8 @@ def excluir_periodo(ferias: Ferias) -> None:
             db.session.delete(outro)
     db.session.delete(ferias)
     db.session.commit()
+    if gnote:
+        avisar_resultado(sincronizar_periodo("apagar", *gnote))
 
 
 def excluir_opcoes_do_funcionario(funcionario_id: int, ano: int) -> int:
@@ -267,6 +279,9 @@ def gerente_aprovar(ferias: Ferias, login: str) -> None:
     ferias.aprovado_por = login
     ferias.aprovado_em = datetime.now()
     db.session.commit()
+    from .gnote import avisar_resultado, sincronizar_ferias
+
+    avisar_resultado(sincronizar_ferias(ferias, "aprovar"))
     _notificar(
         ferias.funcionario,
         "Férias aprovadas",

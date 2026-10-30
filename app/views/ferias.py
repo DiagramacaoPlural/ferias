@@ -57,6 +57,7 @@ from ..regras import (
     sobrepoe,
     ultimo_dia_mes,
 )
+from ..gnote import avisar_resultado, sincronizar_ferias
 from . import registrar, requer
 
 bp = Blueprint("ferias", __name__, url_prefix="/ferias")
@@ -242,6 +243,7 @@ def formulario(ferias_id: int | None = None):
         confirmado = request.form.get("confirmar") == "1"
         if not erros and (not avisos or confirmado):
             novo = ferias is None
+            estava_aprovada = bool(ferias and ferias.aprovada)
             if novo:
                 ferias = Ferias(criado_por=current_user.login)
                 db.session.add(ferias)
@@ -268,6 +270,10 @@ def formulario(ferias_id: int | None = None):
                 descricao += f" | salvo com {len(avisos)} aviso(s)"
             registrar("Férias criadas" if novo else "Férias alteradas", descricao)
             db.session.commit()
+            if ferias.aprovada:
+                avisar_resultado(sincronizar_ferias(ferias, "aprovar"))
+            elif estava_aprovada:
+                avisar_resultado(sincronizar_ferias(ferias, "apagar"))
             flash("Férias salvas com sucesso.", "sucesso")
             return redirect(url_for("ferias.lista", ciclo=ciclo_atual(inicio)[0].year))
 
@@ -394,6 +400,7 @@ def alternar_aprovacao(ferias_id: int):
         acao = "Férias aprovadas"
     registrar(acao, f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}")
     db.session.commit()
+    avisar_resultado(sincronizar_ferias(ferias, "aprovar" if ferias.aprovada else "apagar"))
     flash(f"{acao}: {ferias.funcionario.nome}.", "sucesso")
     return redirect(request.referrer or url_for("ferias.lista"))
 
@@ -420,6 +427,9 @@ def acao_lote():
             feitos.append(ferias.funcionario.nome)
         registrar("Férias aprovadas em lote", ", ".join(feitos)[:500] if feitos else "nenhum")
         db.session.commit()
+        for ferias in registros:
+            if ferias.aprovada and ferias.funcionario and ferias.funcionario.nome in feitos:
+                avisar_resultado(sincronizar_ferias(ferias, "aprovar"))
         flash(f"{len(feitos)} período(s) aprovado(s)." if feitos else "Os períodos selecionados já estavam aprovados.", "sucesso" if feitos else "info")
         return redirect(destino)
 
@@ -486,6 +496,8 @@ def mover(ferias_id: int):
         f"{ferias.funcionario.nome}: {anterior} → {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}",
     )
     db.session.commit()
+    if ferias.aprovada:
+        avisar_resultado(sincronizar_ferias(ferias, "aprovar"))
     flash(f"Férias de {ferias.funcionario.nome} movidas para {ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}.", "sucesso")
     return redirect(request.referrer or url_for("ferias.lista"))
 

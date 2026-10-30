@@ -161,6 +161,16 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn">Enviar alertas de prazo</button>
       </form>
+      <hr>
+      <p class="texto-suave">
+        Envia ao G-Note os períodos já aprovados, para a pessoa não receber aviso de apontamento
+        nos dias de férias. As aprovações novas já vão sozinhas.
+        {% if gnote_ok %}Ligação com o G-Note configurada.{% else %}Ainda sem GNOTE_FERIAS_URL e GNOTE_FERIAS_SEGREDO neste servidor.{% endif %}
+      </p>
+      <form method="post" action="{{ url_for('admin.enviar_aprovadas_gnote') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn" {% if not gnote_ok %}disabled{% endif %}>Enviar férias aprovadas ao G-Note</button>
+      </form>
     </div>
   </div>
 </div>
