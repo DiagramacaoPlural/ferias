@@ -24,7 +24,7 @@ class _Resp:
 def test_sem_config_nao_chama_rede(app, monkeypatch):
     monkeypatch.delenv("GNOTE_FERIAS_URL", raising=False)
     monkeypatch.delenv("GNOTE_FERIAS_SEGREDO", raising=False)
-    with patch("urllib.request.urlopen") as urlopen:
+    with patch("app.gnote._urlopen") as urlopen:
         assert sincronizar_periodo("aprovar", 1, "a@b.com", "Ana", date(2026, 1, 1), date(2026, 1, 10)) is None
         urlopen.assert_not_called()
 
@@ -32,7 +32,7 @@ def test_sem_config_nao_chama_rede(app, monkeypatch):
 def test_envia_json_e_cabecalho(app, monkeypatch):
     monkeypatch.setenv("GNOTE_FERIAS_URL", "https://exemplo.supabase.co/functions/v1/sincronizar-ferias")
     monkeypatch.setenv("GNOTE_FERIAS_SEGREDO", "segredo-teste")
-    with patch("urllib.request.urlopen", return_value=_Resp()) as urlopen:
+    with patch("app.gnote._urlopen", return_value=_Resp()) as urlopen:
         r = sincronizar_periodo("aprovar", 9, "ana@plural.com.br", "Ana Souza", date(2026, 2, 1), date(2026, 2, 15))
     assert r == {"ok": True, "dias": 5}
     req = urlopen.call_args[0][0]
@@ -48,7 +48,7 @@ def test_http_404_funcao_nao_encontrada(app, monkeypatch):
     monkeypatch.setenv("GNOTE_FERIAS_SEGREDO", "segredo-teste")
     import urllib.error
 
-    with patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+    with patch("app.gnote._urlopen", side_effect=urllib.error.HTTPError(
         "https://x", 404, "Not Found", hdrs=None, fp=BytesIO(b'{"code":"NOT_FOUND","message":"Requested function was not found"}')
     )):
         r = sincronizar_periodo("aprovar", 1, "x@y.com", "X", date(2026, 1, 1), date(2026, 1, 2))
@@ -56,12 +56,24 @@ def test_http_404_funcao_nao_encontrada(app, monkeypatch):
     assert r["erro"] == "funcao_nao_encontrada"
 
 
+def test_http_401_jwt_ligado(app, monkeypatch):
+    monkeypatch.setenv("GNOTE_FERIAS_URL", "https://exemplo.supabase.co/functions/v1/sincronizar-ferias")
+    monkeypatch.setenv("GNOTE_FERIAS_SEGREDO", "segredo-teste")
+    import urllib.error
+
+    with patch("app.gnote._urlopen", side_effect=urllib.error.HTTPError(
+        "https://x", 401, "Unauthorized", hdrs=None, fp=BytesIO(b'{"msg":"Invalid JWT"}')
+    )):
+        r = sincronizar_periodo("aprovar", 1, "x@y.com", "X", date(2026, 1, 1), date(2026, 1, 2))
+    assert r["erro"] == "jwt_ligado"
+
+
 def test_http_erro_usuario_nao_encontrado(app, monkeypatch):
     monkeypatch.setenv("GNOTE_FERIAS_URL", "https://exemplo.supabase.co/functions/v1/sincronizar-ferias")
     monkeypatch.setenv("GNOTE_FERIAS_SEGREDO", "segredo-teste")
     import urllib.error
 
-    with patch("urllib.request.urlopen", side_effect=urllib.error.HTTPError(
+    with patch("app.gnote._urlopen", side_effect=urllib.error.HTTPError(
         "https://x", 422, "Unprocessable", hdrs=None, fp=BytesIO(b'{"ok": false, "erro": "usuario_nao_encontrado"}')
     )):
         r = sincronizar_periodo("aprovar", 1, "x@y.com", "X", date(2026, 1, 1), date(2026, 1, 2))
@@ -81,7 +93,7 @@ def test_gerente_aprovar_chama_gnote(app, monkeypatch):
         db.session.commit()
         from app.workflow import gerente_aprovar
 
-        with patch("urllib.request.urlopen", return_value=_Resp()) as urlopen:
+        with patch("app.gnote._urlopen", return_value=_Resp()) as urlopen:
             gerente_aprovar(ferias, "gerente")
             urlopen.assert_called_once()
         assert ferias.status == STATUS_APROVADA

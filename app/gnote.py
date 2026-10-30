@@ -14,6 +14,9 @@ from .models import Ferias
 
 log = logging.getLogger(__name__)
 
+# Mesma chave pública do G-Note (js/config.js). Só abre a porta da Edge Function; o segredo é outro.
+_ANON_GNOTE = "sb_publishable_Tk4Ky8mOoj5XwhWUnTO3WA_1aYIadiL"
+
 
 def _env() -> tuple[str, str]:
     return (os.environ.get("GNOTE_FERIAS_URL") or "").strip(), (os.environ.get("GNOTE_FERIAS_SEGREDO") or "").strip()
@@ -22,6 +25,28 @@ def _env() -> tuple[str, str]:
 def configurado() -> bool:
     url, segredo = _env()
     return bool(url and segredo)
+
+
+def _proxy() -> str:
+    return (
+        os.environ.get("HTTPS_PROXY")
+        or os.environ.get("https_proxy")
+        or os.environ.get("HTTP_PROXY")
+        or os.environ.get("http_proxy")
+        or (
+            "http://proxy.server:3128"
+            if os.environ.get("PYTHONANYWHERE_SITE") or os.environ.get("PYTHONANYWHERE_DOMAIN")
+            else ""
+        )
+    )
+
+
+def _urlopen(req: urllib.request.Request, timeout: int = 45):
+    proxy = _proxy()
+    if proxy:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+        return opener.open(req, timeout=timeout)
+    return urllib.request.urlopen(req, timeout=timeout)
 
 
 def sincronizar_periodo(
@@ -36,6 +61,7 @@ def sincronizar_periodo(
     url, segredo = _env()
     if not url or not segredo:
         return None
+    anon = (os.environ.get("GNOTE_ANON_KEY") or _ANON_GNOTE).strip()
     corpo = {
         "acao": acao,
         "ferias_id": str(ferias_id),
@@ -51,10 +77,12 @@ def sincronizar_periodo(
         headers={
             "Content-Type": "application/json",
             "x-ferias-segredo": segredo,
+            "Authorization": f"Bearer {anon}",
+            "apikey": anon,
         },
     )
     try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
+        with _urlopen(req, timeout=45) as resp:
             bruto = resp.read().decode("utf-8")
             dados = json.loads(bruto) if bruto else {}
             if not isinstance(dados, dict):
@@ -67,14 +95,19 @@ def sincronizar_periodo(
             detalhe = e.read().decode("utf-8")[:400]
             extra = json.loads(detalhe)
             if isinstance(extra, dict):
+                texto = json.dumps(extra).lower()
                 if extra.get("code") == "NOT_FOUND" or e.code == 404:
                     return {"ok": False, "erro": "funcao_nao_encontrada"}
+                if "invalid jwt" in texto or extra.get("message") == "Invalid JWT":
+                    return {"ok": False, "erro": "jwt_ligado"}
                 if extra.get("erro"):
                     return {"ok": False, "erro": extra["erro"]}
         except Exception:
             pass
         if e.code == 404:
             return {"ok": False, "erro": "funcao_nao_encontrada"}
+        if e.code == 401:
+            return {"ok": False, "erro": "jwt_ligado" if "jwt" in detalhe.lower() else "segredo_invalido"}
         log.warning("G-Note HTTP %s ao sincronizar férias %s: %s", e.code, ferias_id, detalhe or e)
         return {"ok": False, "erro": f"http_{e.code}"}
     except Exception as e:
@@ -86,6 +119,7 @@ ERROS_INFRA = {
     "falha_rede",
     "funcao_nao_encontrada",
     "segredo_invalido",
+    "jwt_ligado",
     "http_401",
     "http_403",
     "http_404",
@@ -105,8 +139,16 @@ def mensagem_erro(erro: str | None) -> str:
             "No Supabase: Edge Functions → Deploy a new function, nome sincronizar-ferias, "
             "cole o arquivo do Controle de OS, desligue Verify JWT e crie o secret FERIAS_SEGREDO."
         )
+    if codigo == "jwt_ligado":
+        return (
+            "O G-Note recusou a chamada: na função sincronizar-ferias, desligue Verify JWT e salve. "
+            "Sem isso o PythonAnywhere não consegue enviar as férias."
+        )
     if codigo in ("segredo_invalido", "http_401"):
-        return "O segredo GNOTE_FERIAS_SEGREDO não confere com o FERIAS_SEGREDO do G-Note."
+        return (
+            "O segredo não conferiu. Confira FERIAS_SEGREDO no Supabase e GNOTE_FERIAS_SEGREDO no PythonAnywhere "
+            "(o mesmo valor) e, na função sincronizar-ferias, desligue Verify JWT."
+        )
     if codigo == "usuario_nao_encontrado":
         return "O G-Note não encontrou o usuário. Confira se o e-mail do funcionário é o mesmo do G-Note."
     if codigo == "falha_rede" or codigo.startswith("falha_rede"):
