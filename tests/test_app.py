@@ -1183,6 +1183,26 @@ def test_lider_exclui_datas_enviadas_e_sobe_para_a_fila(app):
         assert db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid)) is None
 
 
+def test_redefinir_senhas_iniciais_uma_vez(app):
+    from app.seed import redefinir_senhas_iniciais
+
+    with app.app_context():
+        app.config["TESTING"] = False
+        admin = db.session.scalar(db.select(Usuario).filter_by(login="admin"))
+        joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
+        admin.definir_senha("outra")
+        joao.definir_senha("outra123")
+        admin.trocar_senha = False
+        joao.trocar_senha = False
+        db.session.commit()
+        assert redefinir_senhas_iniciais() == 2
+        assert redefinir_senhas_iniciais() == 0
+        admin = db.session.scalar(db.select(Usuario).filter_by(login="admin"))
+        joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
+        assert admin.conferir_senha("123") and admin.trocar_senha
+        assert joao.conferir_senha("123") and joao.trocar_senha
+
+
 def test_restaurar_programacao_ciclo_2026_nao_duplica(app):
     from app.seed import PROGRAMACAO_CICLO_2026, restaurar_programacao_ciclo_2026
 

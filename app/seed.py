@@ -17,6 +17,7 @@ from .models import (
     Ferias,
     Funcionario,
     Historico,
+    TentativaLogin,
     Usuario,
     db,
 )
@@ -37,6 +38,7 @@ PROGRAMACAO_CICLO_2026 = (
     ("Wagner", date(2027, 2, 15), 20, False, False, None),
 )
 _CHAVE_RESTAURACAO_2026 = "programacao_ciclo_2026"
+_CHAVE_SENHAS_INICIAIS = "senhas_iniciais_123_20261030"
 
 
 def _primeiro_nome(nome: str) -> str:
@@ -412,6 +414,31 @@ def restaurar_programacao_ciclo_2026() -> int:
     return criados
 
 
+def redefinir_senhas_iniciais() -> int:
+    """Coloca a senha 123 em todos os usuários e exige troca no próximo acesso (uma vez)."""
+    if current_app.config.get("TESTING"):
+        return 0
+    if db.session.get(Configuracao, _CHAVE_SENHAS_INICIAIS):
+        return 0
+    senha = os.environ.get("USUARIO_SENHA_INICIAL") or "123"
+    usuarios = list(db.session.scalars(db.select(Usuario)).all())
+    for usuario in usuarios:
+        usuario.definir_senha(senha)
+        usuario.trocar_senha = True
+        usuario.ativo = True
+    db.session.execute(db.delete(TentativaLogin))
+    Configuracao.definir(_CHAVE_SENHAS_INICIAIS, "ok")
+    db.session.add(
+        Historico(
+            usuario="sistema",
+            acao="Senhas redefinidas",
+            detalhe=f"{len(usuarios)} usuário(s) com senha inicial e troca no próximo acesso",
+        )
+    )
+    db.session.commit()
+    return len(usuarios)
+
+
 def inicializar_banco(pasta_planilha: Path | None) -> None:
     tem_usuario = db.session.scalar(db.select(db.func.count(Usuario.id)))
     if not tem_usuario:
@@ -433,3 +460,4 @@ def inicializar_banco(pasta_planilha: Path | None) -> None:
             importar_usuarios_xlsx(usuarios_xlsx)
     garantir_usuarios_dos_funcionarios()
     restaurar_programacao_ciclo_2026()
+    redefinir_senhas_iniciais()
