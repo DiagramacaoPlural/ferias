@@ -61,6 +61,7 @@
 <div class="mes-item">
   <strong class="mes-item-nome">{{ f.funcionario.nome }}</strong>
   {{ status(f) }}
+  <small>Saída: {{ f.inicio|data }}</small>
   <small>{{ f.dias }} dias</small>
   <small>1ª parcela 13º: {{ 'Sim' if f.adianta_13 else 'Não' }}</small>
   <small>Abono pecuniário: {{ 'Sim' if f.vende_10 else 'Não' }}</small>

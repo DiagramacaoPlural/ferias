@@ -222,6 +222,7 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
     lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
     assert ">Sim</span>" in lista
     cal = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    assert "Saída: 01/02/2027" in cal
     assert "1ª parcela 13º: Sim" in cal
     assert "Abono pecuniário: Sim" in cal
 
