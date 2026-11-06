@@ -54,7 +54,11 @@
 {%- endmacro %}
 
 {% macro flags_13_abono(item) -%}
+{%- if item.funcionario|compensa_saldo -%}
+Saldo a compensar: {{ item.dias }} dia{{ 's' if item.dias != 1 else '' }}
+{%- else -%}
 1ª parcela 13º: {{ 'Sim' if item.adianta_13 else 'Não' }} · Abono pecuniário: {{ 'Sim' if item.vende_10 else 'Não' }}
+{%- endif -%}
 {%- endmacro %}
 
 {% macro card_mes_periodo(f) -%}
@@ -62,9 +66,13 @@
   <strong class="mes-item-nome">{{ f.funcionario.nome }}</strong>
   {{ status(f) }}
   <small>Saída: {{ f.inicio|data }}</small>
-  <small>{{ f.dias }} dias</small>
-  <small>1ª parcela 13º: {{ 'Sim' if f.adianta_13 else 'Não' }}</small>
-  <small>Abono pecuniário: {{ 'Sim' if f.vende_10 else 'Não' }}</small>
+  {% if f.funcionario|compensa_saldo %}
+    <small>Saldo a compensar: {{ f.dias }} dia{{ 's' if f.dias != 1 else '' }}</small>
+  {% else %}
+    <small>{{ f.dias }} dias</small>
+    <small>1ª parcela 13º: {{ 'Sim' if f.adianta_13 else 'Não' }}</small>
+    <small>Abono pecuniário: {{ 'Sim' if f.vende_10 else 'Não' }}</small>
+  {% endif %}
   {% if f.gozada() %}<small>já gozou</small>{% endif %}
 </div>
 {%- endmacro %}

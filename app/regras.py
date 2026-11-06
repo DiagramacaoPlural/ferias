@@ -27,6 +27,19 @@ AVISO_13_FEVEREIRO = (
 EMAILS_ALERTA_LIMITE = (
     "marcelo.marcolino@plural.com.br, ricardo.rosas@plural.com.br"
 )
+# Não têm 13º nem abono pecuniário: o período marcado é saldo a compensar.
+NOMES_SALDO_COMPENSAR = frozenset({"carlos", "thiago"})
+
+
+def usa_saldo_compensar(funcionario) -> bool:
+    """Carlos e Thiago compensam saldo em vez de antecipar 13º ou vender abono."""
+    if funcionario is None:
+        return False
+    nome = getattr(funcionario, "nome", None)
+    if nome is None:
+        nome = str(funcionario)
+    partes = (nome or "").strip().split()
+    return bool(partes) and partes[0].casefold() in NOMES_SALDO_COMPENSAR
 
 
 @dataclass

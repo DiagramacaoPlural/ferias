@@ -54,6 +54,7 @@ from ..regras import (
     nivel_cobertura,
     pode_adiantar_13,
     rotulo_ciclo,
+    usa_saldo_compensar,
     sobrepoe,
     ultimo_dia_mes,
 )
@@ -155,6 +156,13 @@ def _ciclo_dos_dados(dados, inicio: date | None = None) -> tuple[date, date]:
     return ciclo_atual()
 
 
+def _beneficios(funcionario, adianta: bool, vende: bool) -> tuple[bool, bool]:
+    """Carlos e Thiago não antecipam 13º nem vendem abono: o período é saldo a compensar."""
+    if usa_saldo_compensar(funcionario):
+        return False, False
+    return bool(adianta), bool(vende)
+
+
 def _erro_adianta_13(inicio: date | None, adianta: bool, ciclo_ini: date | None = None, ciclo_fim: date | None = None) -> str | None:
     if not adianta or not inicio:
         return None
@@ -232,8 +240,9 @@ def formulario(ferias_id: int | None = None):
     avisos, erros, alternativas = [], [], []
     if request.method == "POST":
         funcionario, inicio, dias, erros = _ler_formulario()
-        adianta_13 = _quer_adiantar_13(request.form)
-        vende_10 = _quer_vende_10(request.form)
+        adianta_13, vende_10 = _beneficios(
+            funcionario, _quer_adiantar_13(request.form), _quer_vende_10(request.form)
+        )
         if erro_13 := _erro_adianta_13(inicio, adianta_13, ciclo_ini, ciclo_fim):
             erros.append(erro_13)
         if not erros:
@@ -262,6 +271,8 @@ def formulario(ferias_id: int | None = None):
                     ferias.aprovado_por = ferias.aprovado_em = None
 
             descricao = f"{funcionario.nome}: {inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y} ({dias} dias)"
+            if usa_saldo_compensar(funcionario):
+                descricao += " · saldo a compensar"
             if adianta_13:
                 descricao += " · 1ª parcela do 13º"
             if vende_10:
@@ -330,6 +341,7 @@ def dados_funcionario(funcionario_id: int):
         limite=prazo.limite.strftime("%d/%m/%Y") if prazo and prazo.limite else None,
         usados=usados,
         restante=max(DIAS_MAX_CICLO - usados, 0),
+        compensa_saldo=usa_saldo_compensar(funcionario),
         periodos=[
             {
                 "id": f.id,
@@ -362,14 +374,16 @@ def analisar():
 
     ciclo_ini, ciclo_fim = _ciclo_dos_dados(dados, inicio)
     fev = fevereiro_do_ciclo(ciclo_ini, ciclo_fim)
+    compensa = usa_saldo_compensar(funcionario)
     flags_13 = {
-        "pode_adiantar_13": pode_adiantar_13(inicio, ciclo_ini, ciclo_fim),
+        "pode_adiantar_13": False if compensa else pode_adiantar_13(inicio, ciclo_ini, ciclo_fim),
         "fevereiro_13": fev.isoformat() if fev else None,
         "aviso_13": aviso_13_do_ciclo(ciclo_ini, ciclo_fim),
+        "compensa_saldo": compensa,
     }
     fim = calcular_fim(inicio, dias) if dias > 0 else None
     erros_13 = []
-    if erro_13 := _erro_adianta_13(inicio, _quer_adiantar_13(dados), ciclo_ini, ciclo_fim):
+    if not compensa and (erro_13 := _erro_adianta_13(inicio, _quer_adiantar_13(dados), ciclo_ini, ciclo_fim)):
         erros_13.append(erro_13)
     if not funcionario:
         return jsonify(fim=fim.strftime("%d/%m/%Y") if fim else None, erros=erros_13, avisos=[], **flags_13)
@@ -437,7 +451,11 @@ def acao_lote():
         sim = acao in ("13_sim", "vende_sim")
         vende = acao.startswith("vende_")
         feitos, recusados = [], []
+        bloqueados = []
         for ferias in registros:
+            if usa_saldo_compensar(ferias.funcionario):
+                bloqueados.append(ferias.funcionario.nome)
+                continue
             if not _pode_editar(ferias):
                 recusados.append(ferias.funcionario.nome)
                 continue
@@ -457,10 +475,17 @@ def acao_lote():
         db.session.commit()
         if feitos:
             flash(f"{rotulo} marcado como {'Sim' if sim else 'Não'} em {len(feitos)} período(s).", "sucesso")
+        if bloqueados:
+            flash(
+                "13º e abono pecuniário ficam bloqueados para "
+                + ", ".join(bloqueados)
+                + ". O período deles é saldo a compensar.",
+                "aviso",
+            )
         if recusados:
             extra = ". A 1ª parcela só vale para férias a partir de fevereiro do ciclo." if sim and not vende else "."
             flash("Não foi possível alterar: " + ", ".join(recusados) + extra, "aviso")
-        if not feitos and not recusados:
+        if not feitos and not recusados and not bloqueados:
             flash("Nenhum período foi alterado.", "aviso")
         return redirect(destino)
 
@@ -486,7 +511,10 @@ def mover(ferias_id: int):
     if analise.erros:
         flash(analise.erros[0], "erro")
         return redirect(url_for("ferias.lista"))
-    if ferias.adianta_13 and not pode_adiantar_13(inicio, ciclo_ini, ciclo_fim):
+    if usa_saldo_compensar(ferias.funcionario):
+        ferias.adianta_13 = False
+        ferias.vende_10 = False
+    elif ferias.adianta_13 and not pode_adiantar_13(inicio, ciclo_ini, ciclo_fim):
         ferias.adianta_13 = False
 
     anterior = f"{ferias.inicio:%d/%m/%Y} a {ferias.fim:%d/%m/%Y}"
@@ -681,7 +709,11 @@ def opcoes():
             if not dias:
                 erros.append("Informe a quantidade de dias.")
                 continue
-            adianta_13 = _quer_adiantar_13({"adianta_13": request.form.get(f"adianta_13_{ordem}")})
+            adianta_13, vende_10 = _beneficios(
+                funcionario,
+                _quer_adiantar_13({"adianta_13": request.form.get(f"adianta_13_{ordem}")}),
+                _quer_vende_10({"vende_10": request.form.get(f"vende_10_{ordem}")}),
+            )
             if erro_13 := _erro_adianta_13(inicio, adianta_13, ciclo_ini, ciclo_fim):
                 erros.append(erro_13)
                 continue
@@ -698,7 +730,7 @@ def opcoes():
                     "dias": dias,
                     "ciclo_ano": ciclo_ini.year,
                     "adianta_13": adianta_13,
-                    "vende_10": _quer_vende_10({"vende_10": request.form.get(f"vende_10_{ordem}")}),
+                    "vende_10": vende_10,
                 }
             )
         if not lidas and not erros:
@@ -847,14 +879,18 @@ def acao_lider(ferias_id: int):
         registrar("Líder definiu a data", f"{ferias.funcionario.nome}: {inicio:%d/%m/%Y}")
     else:
         registrar("Líder validou", f"{ferias.funcionario.nome}: {ferias.inicio:%d/%m/%Y}")
-    if request.form.get("vende_10") is not None:
-        ferias.vende_10 = request.form.get("vende_10") == "1"
-    elif opcao is not None:
-        ferias.vende_10 = bool(opcao.vende_10)
-    if request.form.get("adianta_13") is not None:
-        ferias.adianta_13 = request.form.get("adianta_13") == "1"
-    elif opcao is not None:
-        ferias.adianta_13 = bool(opcao.adianta_13)
+    if usa_saldo_compensar(ferias.funcionario):
+        ferias.vende_10 = False
+        ferias.adianta_13 = False
+    else:
+        if request.form.get("vende_10") is not None:
+            ferias.vende_10 = request.form.get("vende_10") == "1"
+        elif opcao is not None:
+            ferias.vende_10 = bool(opcao.vende_10)
+        if request.form.get("adianta_13") is not None:
+            ferias.adianta_13 = request.form.get("adianta_13") == "1"
+        elif opcao is not None:
+            ferias.adianta_13 = bool(opcao.adianta_13)
     _forcar_13_do_ciclo(ferias, ciclo_ini, ciclo_fim)
     lider_validar(ferias, current_user.login)
     if definir_final:
@@ -1000,7 +1036,11 @@ def exportar():
     for f in ferias:
         ws.append([
             f.funcionario.nome, f.inicio, f.fim, f.dias, f.status_rotulo,
-            "Sim" if f.adianta_13 else "Não", "Sim" if f.vende_10 else "Não",
+            *(
+                ("Saldo a compensar", f"{f.dias} dias")
+                if usa_saldo_compensar(f.funcionario)
+                else ("Sim" if f.adianta_13 else "Não", "Sim" if f.vende_10 else "Não")
+            ),
             f.observacao or "", f.aprovado_por or "", f.aprovado_em,
         ])
         linha = ws.max_row

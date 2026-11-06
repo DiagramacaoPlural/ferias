@@ -37,7 +37,7 @@
       <select id="funcionario_id" name="funcionario_id" required>
         <option value="">Selecione…</option>
         {% for func in funcionarios %}
-          <option value="{{ func.id }}" {{ 'selected' if func.id == v_func }}>{{ func.nome }}</option>
+          <option value="{{ func.id }}" data-compensa="{{ '1' if func|compensa_saldo else '0' }}" {{ 'selected' if func.id == v_func }}>{{ func.nome }}</option>
         {% endfor %}
       </select>
       <div id="resumo-funcionario" class="resumo-funcionario" hidden></div>
@@ -64,7 +64,14 @@
       {% endfor %}
     </div>
 
-    <div class="campo campo-13{{ ' indisponivel' if not pode_13 }}" id="campo_13">
+    {% set ns = namespace(compensa=false) %}
+    {% for func in funcionarios if func.id == v_func and func|compensa_saldo %}{% set ns.compensa = true %}{% endfor %}
+    <div class="campo" id="campo_saldo" {% if not ns.compensa %}hidden{% endif %}>
+      <span class="rotulo-campo">Saldo a compensar</span>
+      <small>Os dias informados acima vão para o G-Note como férias depois da aprovação.</small>
+    </div>
+
+    <div class="campo campo-13{{ ' indisponivel' if not pode_13 }}" id="campo_13" {% if ns.compensa %}hidden{% endif %}>
       <span class="rotulo-campo">Antecipar a 1ª parcela do 13º</span>
       <div class="opcoes-sim-nao">
         <label class="checkbox" id="lbl_adianta_13_sim" {{ 'hidden' if not pode_13 }}>
@@ -79,7 +86,7 @@
       <small id="ajuda_13">{{ aviso_13 if not pode_13 else 'Disponível para férias com início a partir de ' ~ fevereiro_13.strftime('%d/%m/%Y') ~ '.' }}</small>
     </div>
 
-    <div class="campo">
+    <div class="campo" id="campo_abono" {% if ns.compensa %}hidden{% endif %}>
       <span class="rotulo-campo">Abono pecuniário</span>
       <div class="opcoes-sim-nao">
         <label class="checkbox">
@@ -156,6 +163,8 @@
   const urlNova = '{{ url_for("ferias.formulario") }}';
   const urlDados = '{{ url_for("ferias.dados_funcionario", funcionario_id=0) }}';
   const campo13 = document.getElementById('campo_13');
+  const campoAbono = document.getElementById('campo_abono');
+  const campoSaldo = document.getElementById('campo_saldo');
   const lbl13Sim = document.getElementById('lbl_adianta_13_sim');
   const ajuda13 = document.getElementById('ajuda_13');
   let temporizador;
@@ -164,6 +173,24 @@
     if (!iso) return '';
     const p = iso.split('-');
     return p[2] + '/' + p[1] + '/' + p[0];
+  }
+
+  function funcionarioCompensa() {
+    const opt = campos.funcionario.selectedOptions[0];
+    return !!(opt && opt.dataset.compensa === '1');
+  }
+
+  function atualizarCompensacao() {
+    const compensa = funcionarioCompensa();
+    if (campo13) campo13.hidden = compensa;
+    if (campoAbono) campoAbono.hidden = compensa;
+    if (campoSaldo) campoSaldo.hidden = !compensa;
+    if (campos.vende10Sim) campos.vende10Sim.disabled = compensa;
+    if (!compensa) return;
+    campos.adianta13Sim.checked = false;
+    campos.adianta13Sim.disabled = true;
+    campos.adianta13Nao.checked = true;
+    marcarVende(false);
   }
 
   function pode13(inicioISO) {
@@ -189,6 +216,7 @@
             ? 'Disponível para férias com início a partir de ' + fmtData(fev) + '.'
             : 'A 1ª parcela do 13º só pode ser antecipada em férias com início a partir de ' + fmtData(fev) + '.');
     }
+    atualizarCompensacao();
   }
 
   function escapar(texto) {
@@ -323,7 +351,10 @@
     campos.inicio.addEventListener(ev, function () { atualizar13(campos.inicio.value); agendar(); });
     campos.dias.addEventListener(ev, agendar);
   });
-  campos.funcionario.addEventListener('change', carregarFuncionario);
+  campos.funcionario.addEventListener('change', function () {
+    atualizarCompensacao();
+    carregarFuncionario();
+  });
   function marcar13(sim, analisarDepois) {
     const pode = pode13(campos.inicio.value);
     campos.adianta13Sim.checked = !!(sim && pode);

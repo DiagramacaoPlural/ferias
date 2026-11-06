@@ -98,8 +98,12 @@
               {{ status(f) }}
               {% if f.aprovada and f.aprovado_por %}<br><small class="texto-suave">por {{ f.aprovado_por }}</small>{% endif %}
             </td>
-            <td>{% if f.adianta_13 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
-            <td>{% if f.vende_10 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
+            {% if f.funcionario|compensa_saldo %}
+              <td colspan="2">Saldo a compensar: {{ f.dias }} dia{{ 's' if f.dias != 1 else '' }}</td>
+            {% else %}
+              <td>{% if f.adianta_13 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
+              <td>{% if f.vende_10 %}<span class="badge badge-admin badge-sem">Sim</span>{% else %}<span class="texto-suave">Não</span>{% endif %}</td>
+            {% endif %}
             <td class="texto-suave">{{ f.observacao or '' }}{% if f.gozada() %}<br><small class="texto-suave">Já gozou</small>{% endif %}</td>
             <td class="acoes-col">
               {% if current_user.pode_admin() %}

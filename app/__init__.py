@@ -141,6 +141,12 @@ def _registrar_filtros(app: Flask) -> None:
     def filtrar_nivel_cobertura(ausentes, total_ativos, min_disponiveis):
         return nivel_cobertura(ausentes, total_ativos, min_disponiveis)
 
+    @app.template_filter("compensa_saldo")
+    def filtrar_compensa_saldo(funcionario):
+        from .regras import usa_saldo_compensar
+
+        return usa_saldo_compensar(funcionario)
+
     @app.context_processor
     def injetar_globais():
         from flask import request

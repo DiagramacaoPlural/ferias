@@ -80,6 +80,12 @@
         <input type="text" id="fim_1" value="{{ atual.fim|data if atual and not dados else '' }}" readonly tabindex="-1">
       </div>
     </div>
+    {% if funcionario|compensa_saldo %}
+    <div class="campo" id="campo_saldo">
+      <span class="rotulo-campo">Saldo a compensar</span>
+      <small>Os dias informados acima vão para o G-Note como férias depois da aprovação.</small>
+    </div>
+    {% else %}
     <div class="campo campo-13{{ ' indisponivel' if not pode_13 }}" id="campo_13_1">
       <span class="rotulo-campo">Antecipar 1ª parcela do 13º</span>
       <div class="opcoes-sim-nao">
@@ -107,6 +113,7 @@
         </label>
       </div>
     </div>
+    {% endif %}
     <div id="analise_1" class="alertas"></div>
 
     {% if avisos %}

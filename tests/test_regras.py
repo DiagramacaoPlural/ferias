@@ -1,11 +1,24 @@
 from datetime import date, timedelta
 
 from app.consultas import painel_cobertura
-from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, escolher_melhor_combinacao, fevereiro_do_ciclo, janela_gantt, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas
+from app.regras import Periodo, analisar_periodo, calcular_fim, calcular_prazo_gozo, ciclo_de, ciclo_gozo_vigente, data_limite_folha, escolher_melhor_combinacao, fevereiro_do_ciclo, janela_gantt, meses_do_ciclo, nivel_cobertura, pascoa, pode_adiantar_13, somar_anos, somar_meses, sobrepoe, sugerir_alternativas, usa_saldo_compensar
 
 
 def analisar(inicio, dias, proprios=(), outros=(), limite=1, nome="Ana"):
     return analisar_periodo(nome, inicio, dias, list(proprios), list(outros), limite, 5)
+
+
+def test_carlos_e_thiago_compensam_saldo():
+    class Pessoa:
+        def __init__(self, nome):
+            self.nome = nome
+
+    assert usa_saldo_compensar(Pessoa("Carlos"))
+    assert usa_saldo_compensar(Pessoa("Carlos Augusto"))
+    assert usa_saldo_compensar(Pessoa("thiago"))
+    assert not usa_saldo_compensar(Pessoa("Luiza"))
+    assert not usa_saldo_compensar(Pessoa("Edson"))
+    assert not usa_saldo_compensar(None)
 
 
 def test_primeira_parcela_13_so_a_partir_de_fevereiro():

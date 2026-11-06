@@ -96,6 +96,10 @@ def test_gerente_aprovar_chama_gnote(app, monkeypatch):
         with patch("app.gnote._urlopen", return_value=_Resp()) as urlopen:
             gerente_aprovar(ferias, "gerente")
             urlopen.assert_called_once()
+            corpo = urlopen.call_args[0][0].data.decode("utf-8")
+        assert '"acao": "aprovar"' in corpo
+        assert '"inicio": "2026-07-01"' in corpo
+        assert '"fim": "2026-07-10"' in corpo
         assert ferias.status == STATUS_APROVADA
 
 

@@ -196,11 +196,11 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
     assert 'id="vende_10_sim"' in pagina
 
     with app.app_context():
-        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
 
     recusado = client.post(
         "/ferias/nova",
-        data={"funcionario_id": carlos.id, "inicio": "2027-01-11", "dias": "10", "adianta_13": "1", "confirmar": "1"},
+        data={"funcionario_id": edson.id, "inicio": "2027-01-11", "dias": "10", "adianta_13": "1", "confirmar": "1"},
     )
     html = recusado.get_data(as_text=True)
     assert "a partir de 01/02/2027" in html
@@ -209,7 +209,7 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
 
     resp = client.post(
         "/ferias/nova",
-        data={"funcionario_id": carlos.id, "inicio": "2027-02-01", "dias": "10", "adianta_13": "1", "vende_10": "1", "confirmar": "1"},
+        data={"funcionario_id": edson.id, "inicio": "2027-02-01", "dias": "10", "adianta_13": "1", "vende_10": "1", "confirmar": "1"},
         follow_redirects=True,
     )
     assert "Férias salvas" in resp.get_data(as_text=True)
@@ -228,7 +228,7 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
 
     ao_vivo = client.post(
         "/ferias/analisar",
-        json={"funcionario_id": carlos.id, "inicio": "2027-01-11", "dias": 10, "adianta_13": True, "ciclo": 2026},
+        json={"funcionario_id": edson.id, "inicio": "2027-01-11", "dias": 10, "adianta_13": True, "ciclo": 2026},
     )
     jan = ao_vivo.get_json()
     assert any("01/02/2027" in e for e in jan["erros"])
@@ -236,26 +236,26 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
 
     dezembro = client.post(
         "/ferias/analisar",
-        json={"funcionario_id": carlos.id, "inicio": "2026-12-01", "dias": 10, "ciclo": 2026},
+        json={"funcionario_id": edson.id, "inicio": "2026-12-01", "dias": 10, "ciclo": 2026},
     ).get_json()
     assert dezembro["pode_adiantar_13"] is False
     assert dezembro["fevereiro_13"] == "2027-02-01"
 
     fevereiro = client.post(
         "/ferias/analisar",
-        json={"funcionario_id": carlos.id, "inicio": "2027-02-01", "dias": 10, "ciclo": 2026},
+        json={"funcionario_id": edson.id, "inicio": "2027-02-01", "dias": 10, "ciclo": 2026},
     ).get_json()
     assert fevereiro["pode_adiantar_13"] is True
 
     fora = client.post(
         "/ferias/nova",
-        data={"funcionario_id": carlos.id, "inicio": "2026-04-20", "dias": "10", "ciclo": "2026", "confirmar": "1"},
+        data={"funcionario_id": edson.id, "inicio": "2026-04-20", "dias": "10", "ciclo": "2026", "confirmar": "1"},
     )
     assert "ciclo" in fora.get_data(as_text=True).lower()
 
     recusado_dez = client.post(
         "/ferias/nova",
-        data={"funcionario_id": carlos.id, "inicio": "2026-12-01", "dias": "10", "adianta_13": "1", "ciclo": "2026", "confirmar": "1"},
+        data={"funcionario_id": edson.id, "inicio": "2026-12-01", "dias": "10", "adianta_13": "1", "ciclo": "2026", "confirmar": "1"},
     )
     assert "a partir de 01/02/2027" in recusado_dez.get_data(as_text=True)
     with app.app_context():
@@ -265,9 +265,9 @@ def test_primeira_parcela_13_no_formulario_e_na_lista(app):
 def test_opcoes_respeitam_ciclo_e_13_so_depois_de_fevereiro(app):
     client = app.test_client()
     with app.app_context():
-        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
         joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
-        joao.funcionario_id = carlos.id
+        joao.funcionario_id = edson.id
         db.session.commit()
     entrar(client, "joao", "senha123")
     fora = client.post(
@@ -298,9 +298,9 @@ def test_acoes_em_lote_aprova_e_define_13(app):
     client = app.test_client()
     entrar(client)
     with app.app_context():
-        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        ana = db.session.scalar(db.select(Funcionario).filter_by(nome="Ana"))
         edson = db.session.scalar(db.select(Funcionario).filter_by(nome="Edson"))
-        ids_func = (carlos.id, edson.id)
+        ids_func = (ana.id, edson.id)
 
     for fid, inicio in zip(ids_func, ("2027-02-01", "2027-02-15")):
         client.post("/ferias/nova", data={"funcionario_id": fid, "inicio": inicio, "dias": "10", "confirmar": "1"})
@@ -388,6 +388,7 @@ def test_calendario_mostra_so_meses_com_ferias_e_o_cronograma(app):
     assert "mes-sep" in gantt
     assert "20 dias" in pagina
     assert '<strong class="mes-item-nome">Carlos</strong>' in pagina
+    assert "Saldo a compensar: 20 dias" in pagina
     assert "1ª parcela 13º: Não" in pagina
     assert "Abono pecuniário: Não" in pagina
     assert "no setor" in pagina
@@ -810,14 +811,11 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     nav = client.get("/ferias/calendario").get_data(as_text=True)
     assert "Minhas datas" in nav
     minhas = client.get("/ferias/opcoes?ciclo=2026").get_data(as_text=True)
-    assert 'id="adianta_13_1_sim"' in minhas
-    assert 'id="adianta_13_1_nao"' in minhas
-    assert 'id="vende_10_1_sim"' in minhas
-    assert 'id="vende_10_1_nao"' in minhas
+    assert 'id="adianta_13_1_sim"' not in minhas
+    assert 'id="vende_10_1_sim"' not in minhas
+    assert "Saldo a compensar" in minhas
     assert 'min="2026-05-01"' in minhas
     assert 'max="2027-04-30"' in minhas
-    assert "a partir de 01/02/2027" in minhas
-    assert 'id="lbl_adianta_13_1_sim" hidden' in minhas
     assert "Painel</a>" not in nav
     assert "Programação</a>" not in nav
     envio = client.post(
@@ -829,11 +827,13 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     with app.app_context():
         opcoes = db.session.scalars(db.select(SugestaoFerias).filter_by(funcionario_id=cid)).all()
         assert len(opcoes) == 1
-        assert opcoes[0].vende_10 is True
+        assert opcoes[0].vende_10 is False
+        assert opcoes[0].adianta_13 is False
         ferias = db.session.scalar(db.select(Ferias).filter_by(funcionario_id=cid))
         assert ferias.status == STATUS_AGUARDANDO_LIDER
         assert ferias.inicio == date(2026, 12, 1)
-        assert ferias.vende_10 is True
+        assert ferias.vende_10 is False
+        assert ferias.adianta_13 is False
         fid = ferias.id
 
     andamento = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
@@ -850,8 +850,8 @@ def test_fluxo_opcoes_montar_lider_gerente(app, monkeypatch):
     assert "Opção 2" not in fila
     assert ">Validar<" in fila or "Validar</button>" in fila
     assert "Validar opção 2" not in fila
-    assert "1ª parcela 13º: Não" in fila
-    assert "Abono pecuniário: Sim" in fila
+    assert "Saldo a compensar: 10 dias" in fila
+    assert "Abono pecuniário" not in fila
     assert "Fila para validar" in fila
     assert "Simular calendário" in fila
     sim = client.get("/ferias/validacao/lider?ciclo=2026&simular=1").get_data(as_text=True)
@@ -1221,3 +1221,76 @@ def test_restaurar_programacao_ciclo_2026_nao_duplica(app):
             (nome, inicio, dias, aprovada, adianta)
             for nome, inicio, dias, aprovada, adianta, _aprovador in PROGRAMACAO_CICLO_2026
         ]
+
+
+def test_carlos_e_thiago_saldo_a_compensar_bloqueia_13_e_vai_ao_gnote(app, monkeypatch):
+    from unittest.mock import patch
+
+    class _Resp:
+        def read(self):
+            return b'{"ok": true, "dias": 8}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    monkeypatch.setenv("GNOTE_FERIAS_URL", "https://exemplo.supabase.co/functions/v1/sincronizar-ferias")
+    monkeypatch.setenv("GNOTE_FERIAS_SEGREDO", "segredo-teste")
+    client = app.test_client()
+    entrar(client)
+    with app.app_context():
+        carlos = db.session.scalar(db.select(Funcionario).filter_by(nome="Carlos"))
+        thiago = Funcionario(nome="Thiago", email="thiago@ex.com")
+        joao = db.session.scalar(db.select(Usuario).filter_by(login="joao"))
+        db.session.add(thiago)
+        db.session.flush()
+        joao.funcionario_id = thiago.id
+        db.session.commit()
+        cid, tid = carlos.id, thiago.id
+
+    with patch("app.gnote._urlopen", return_value=_Resp()) as urlopen:
+        for fid, inicio in ((cid, "2026-12-22"), (tid, "2026-12-28")):
+            resp = client.post(
+                "/ferias/nova",
+                data={
+                    "funcionario_id": fid,
+                    "inicio": inicio,
+                    "dias": "8",
+                    "adianta_13": "1",
+                    "vende_10": "1",
+                    "aprovada": "1",
+                    "confirmar": "1",
+                },
+                follow_redirects=True,
+            )
+            assert "Férias salvas" in resp.get_data(as_text=True)
+        assert urlopen.call_count == 2
+        corpos = [chamada.args[0].data.decode("utf-8") for chamada in urlopen.call_args_list]
+
+    assert any('"inicio": "2026-12-22"' in corpo and '"acao": "aprovar"' in corpo for corpo in corpos)
+    assert any('"inicio": "2026-12-28"' in corpo and '"fim": "2027-01-04"' in corpo for corpo in corpos)
+    with app.app_context():
+        for nome in ("Carlos", "Thiago"):
+            ferias = db.session.scalar(db.select(Ferias).join(Funcionario).where(Funcionario.nome == nome))
+            assert ferias.adianta_13 is False
+            assert ferias.vende_10 is False
+            assert ferias.dias == 8
+            assert ferias.aprovada
+
+    lista = client.get("/ferias/?ciclo=2026").get_data(as_text=True)
+    assert lista.count("Saldo a compensar: 8 dias") == 2
+    cal = client.get("/ferias/calendario?ciclo=2026").get_data(as_text=True)
+    for nome in ("Carlos", "Thiago"):
+        card = next(parte for parte in cal.split('class="mes-item"') if nome in parte)
+        assert "Saldo a compensar: 8 dias" in card
+        assert "1ª parcela" not in card
+        assert "Abono pecuniário" not in card
+
+    client.get("/logout")
+    entrar(client, "joao", "senha123")
+    opcoes = client.get("/ferias/opcoes?ciclo=2026").get_data(as_text=True)
+    assert "Saldo a compensar" in opcoes
+    assert 'name="adianta_13_1"' not in opcoes
+    assert 'name="vende_10_1"' not in opcoes

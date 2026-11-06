@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 from .alertas import enviar_email
+from .regras import usa_saldo_compensar
 from .models import (
     PAPEL_GERENTE,
     PAPEL_LIDER,
@@ -83,8 +84,12 @@ def _colocar_na_fila_do_lider(
         db.session.add(ferias)
     primeira = opcoes[0]
     ferias.definir_periodo(primeira.inicio, primeira.dias)
-    ferias.adianta_13 = bool(primeira.adianta_13)
-    ferias.vende_10 = bool(primeira.vende_10)
+    if usa_saldo_compensar(funcionario):
+        ferias.adianta_13 = False
+        ferias.vende_10 = False
+    else:
+        ferias.adianta_13 = bool(primeira.adianta_13)
+        ferias.vende_10 = bool(primeira.vende_10)
     ferias.status = STATUS_AGUARDANDO_LIDER
     ferias.recusou_ajuste = False
     return ferias
